@@ -5,9 +5,28 @@ namespace NyoCoder
 {
 	public partial class OptionsForm : Form
 	{
+		private ConfigHandler configHandler;
+
 		public OptionsForm()
 		{
 			InitializeComponent();
+			configHandler = new ConfigHandler();
+			LoadConfig();
+		}
+
+		private void LoadConfig()
+		{
+			ApiKey = configHandler.GetApiKey();
+			LlmServer = configHandler.GetLlmServer();
+			Model = configHandler.GetModel();
+		}
+
+		private void SaveConfig()
+		{
+			configHandler.SetApiKey(ApiKey);
+			configHandler.SetLlmServer(LlmServer);
+			configHandler.SetModel(Model);
+			configHandler.SaveConfig();
 		}
 
 		public string ApiKey
@@ -26,6 +45,12 @@ namespace NyoCoder
 		{
 			get { return txtModel.Text; }
 			set { txtModel.Text = value; }
+		}
+
+		private void btnOK_Click(object sender, EventArgs e)
+		{
+			SaveConfig();
+			this.DialogResult = DialogResult.OK;
 		}
 	}
 }

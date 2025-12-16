@@ -58,6 +58,9 @@
     <Compile Include="OptionsForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="OptionsForm.Designer.cs">
+      <DependentUpon>OptionsForm.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <COMReference Include="EnvDTE">

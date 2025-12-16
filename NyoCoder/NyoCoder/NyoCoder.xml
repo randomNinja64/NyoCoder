@@ -41,5 +41,61 @@
         <member name="T:NyoCoder.Connect">
             <summary>The object for implementing an Add-in.</summary>
         </member>
+        <member name="M:NyoCoder.Connect.ShowToolWindow">
+            <summary>
+            Shows the tool window, creating it if necessary.
+            </summary>
+        </member>
+        <member name="P:NyoCoder.Connect.Instance">
+            <summary>
+            Gets the singleton instance of Connect.
+            </summary>
+        </member>
+        <member name="P:NyoCoder.Connect.ToolWindowControl">
+            <summary>
+            Gets the tool window control for external access.
+            </summary>
+        </member>
+        <member name="T:NyoCoder.NyoCoderToolWindow">
+            <summary>
+            UserControl that hosts the NyoCoder output pane content.
+            This control is hosted inside a Visual Studio tool window.
+            </summary>
+        </member>
+        <member name="M:NyoCoder.NyoCoderToolWindow.AppendText(System.String)">
+            <summary>
+            Appends text to the output pane.
+            </summary>
+        </member>
+        <member name="M:NyoCoder.NyoCoderToolWindow.AppendLine(System.String)">
+            <summary>
+            Appends a line of text to the output pane.
+            </summary>
+        </member>
+        <member name="M:NyoCoder.NyoCoderToolWindow.ClearOutput">
+            <summary>
+            Clears all text from the output pane.
+            </summary>
+        </member>
+        <member name="M:NyoCoder.NyoCoderToolWindow.SetOutput(System.String)">
+            <summary>
+            Sets the output text, replacing any existing content.
+            </summary>
+        </member>
+        <member name="M:NyoCoder.NyoCoderToolWindow.AddButton(System.String,System.EventHandler)">
+            <summary>
+            Adds an action button to the button panel.
+            </summary>
+        </member>
+        <member name="M:NyoCoder.NyoCoderToolWindow.ClearButtons">
+            <summary>
+            Clears all buttons from the button panel.
+            </summary>
+        </member>
+        <member name="M:NyoCoder.NyoCoderToolWindow.SetButtonPanelVisible(System.Boolean)">
+            <summary>
+            Shows or hides the button panel.
+            </summary>
+        </member>
     </members>
 </doc>

@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Text;
 
+namespace NyoCoder
+{
 public static class FileHandler
 {
     public static string ReadFile(string filename, out int exitCode, int offset = 0)
@@ -16,7 +18,7 @@ public static class FileHandler
             if (!File.Exists(filename))
             {
                 exitCode = 1;
-                return $"File not found: {filename}";
+                return "File not found: " + filename;
             }
 
             string content = File.ReadAllText(filename, Encoding.UTF8);
@@ -28,16 +30,16 @@ public static class FileHandler
             if (offset >= totalLength)
             {
                 exitCode = 1;
-                return $"File length = {totalLength} characters. Offset {offset} exceeds file length.";
+                return "File length = " + totalLength + " characters. Offset " + offset + " exceeds file length.";
             }
 
             // Always read up to MAX_CONTENT_LENGTH characters (or until EOF)
-            int endPos = Math.Min(offset + SimpleLLMChatCLI.Program.MAX_CONTENT_LENGTH, totalLength);
+            int endPos = Math.Min(offset + Constants.MAX_CONTENT_LENGTH, totalLength);
             string excerpt = content.Substring(offset, endPos - offset);
 
             // Build result with header
             StringBuilder result = new StringBuilder();
-            result.AppendLine($"File length = {totalLength} characters, reading chars {offset}-{endPos - 1}");
+            result.AppendLine("File length = " + totalLength + " characters, reading chars " + offset + "-" + (endPos - 1));
             result.AppendLine("---");
             result.Append(excerpt);
 
@@ -66,13 +68,14 @@ public static class FileHandler
 
             // Ensure the directory exists
             string directory = Path.GetDirectoryName(filename);
-            if (!EnsureDirectoryExists(directory, out exitCode, out string errorMessage))
+            string errorMessage;
+            if (!EnsureDirectoryExists(directory, out exitCode, out errorMessage))
             {
                 return errorMessage;
             }
 
             File.WriteAllText(filename, content, Encoding.UTF8);
-            return $"File written successfully: {filename}";
+            return "File written successfully: " + filename;
         }
         catch (Exception ex)
         {
@@ -88,7 +91,8 @@ public static class FileHandler
         try
         {
             // Validate paths and prepare for file operation
-            if (!ValidateFileOperationPaths(ref sourcePath, ref destinationPath, out exitCode, out string errorMessage))
+            string errorMessage;
+            if (!ValidateFileOperationPaths(ref sourcePath, ref destinationPath, out exitCode, out errorMessage))
             {
                 return errorMessage;
             }
@@ -96,7 +100,7 @@ public static class FileHandler
             // Move the file
             File.Move(sourcePath, destinationPath);
             
-            return $"File moved successfully from '{sourcePath}' to '{destinationPath}'";
+            return "File moved successfully from '" + sourcePath + "' to '" + destinationPath + "'";
         }
         catch (Exception ex)
         {
@@ -112,7 +116,8 @@ public static class FileHandler
         try
         {
             // Validate paths and prepare for file operation
-            if (!ValidateFileOperationPaths(ref sourcePath, ref destinationPath, out exitCode, out string errorMessage))
+            string errorMessage;
+            if (!ValidateFileOperationPaths(ref sourcePath, ref destinationPath, out exitCode, out errorMessage))
             {
                 return errorMessage;
             }
@@ -120,7 +125,7 @@ public static class FileHandler
             // Copy the file
             File.Copy(sourcePath, destinationPath);
             
-            return $"File copied successfully from '{sourcePath}' to '{destinationPath}'";
+            return "File copied successfully from '" + sourcePath + "' to '" + destinationPath + "'";
         }
         catch (Exception ex)
         {
@@ -143,7 +148,7 @@ public static class FileHandler
         if (!File.Exists(sourcePath))
         {
             exitCode = 1;
-            errorMessage = $"Source file not found: {sourcePath}";
+            errorMessage = "Source file not found: " + sourcePath;
             return false;
         }
 
@@ -151,7 +156,7 @@ public static class FileHandler
         if (File.Exists(destinationPath))
         {
             exitCode = 1;
-            errorMessage = $"Destination file already exists: {destinationPath}";
+            errorMessage = "Destination file already exists: " + destinationPath;
             return false;
         }
 
@@ -178,13 +183,13 @@ public static class FileHandler
             if (!File.Exists(filePath))
             {
                 exitCode = 1;
-                return $"File not found: {filePath}";
+                return "File not found: " + filePath;
             }
 
             // Delete the file
             File.Delete(filePath);
             
-            return $"File deleted successfully: {filePath}";
+            return "File deleted successfully: " + filePath;
         }
         catch (Exception ex)
         {
@@ -206,11 +211,11 @@ public static class FileHandler
             if (!Directory.Exists(directoryPath))
             {
                 exitCode = 1;
-                return $"Directory not found: {directoryPath}";
+                return "Directory not found: " + directoryPath;
             }
 
             StringBuilder result = new StringBuilder();
-            result.AppendLine($"Contents of: {directoryPath}");
+            result.AppendLine("Contents of: " + directoryPath);
             result.AppendLine();
 
             // List directories
@@ -221,7 +226,7 @@ public static class FileHandler
                 foreach (string dir in directories)
                 {
                     string dirName = Path.GetFileName(dir);
-                    result.AppendLine($"  [DIR]  {dirName}");
+                    result.AppendLine("  [DIR]  " + dirName);
                 }
                 result.AppendLine();
             }
@@ -237,7 +242,7 @@ public static class FileHandler
                     FileInfo fileInfo = new FileInfo(file);
                     long fileSizeBytes = fileInfo.Length;
                     string fileSize = FormatFileSize(fileSizeBytes);
-                    result.AppendLine($"  [FILE] {fileName} ({fileSize})");
+                    result.AppendLine("  [FILE] " + fileName + " (" + fileSize + ")");
                 }
             }
 
@@ -269,26 +274,27 @@ public static class FileHandler
             if (!File.Exists(archivePath))
             {
                 exitCode = 1;
-                return $"Archive not found: {archivePath}";
+                return "Archive not found: " + archivePath;
             }
 
             // Ensure the destination directory exists
-            if (!EnsureDirectoryExists(destinationPath, out exitCode, out string errorMessage))
+            string errorMessage;
+            if (!EnsureDirectoryExists(destinationPath, out exitCode, out errorMessage))
             {
                 return errorMessage;
             }
 
             // Build 7za.exe arguments: x (extract with full paths) -o (output directory) -y (yes to all prompts)
-            string arguments = $"x \"{archivePath}\" -o\"{destinationPath}\" -y";
+            string arguments = "x \"" + archivePath + "\" -o\"" + destinationPath + "\" -y";
 
             string output = ToolHandler.ExecuteProcess("7za.exe", arguments, out exitCode);
 
             if (exitCode != 0)
             {
-                return $"7za exited with code {exitCode}:\n{output}";
+                return "7za exited with code " + exitCode + ":\n" + output;
             }
 
-            return $"Archive extracted successfully to: {destinationPath}\n{output}";
+            return "Archive extracted successfully to: " + destinationPath + "\n" + output;
         }
         catch (Exception ex)
         {
@@ -316,7 +322,7 @@ public static class FileHandler
         catch (Exception ex)
         {
             exitCode = 1;
-            errorMessage = $"Failed to create directory '{directoryPath}': {ex.Message}";
+            errorMessage = "Failed to create directory '" + directoryPath + "': " + ex.Message;
             return false;
         }
     }
@@ -333,5 +339,6 @@ public static class FileHandler
         }
         return string.Format("{0:0.##} {1}", len, sizes[order]);
     }
+}
 }
 

@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -9,6 +9,8 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Windows.Forms;
 
+namespace NyoCoder
+{
 public class LLMClient
 {
     private struct PropertyInfo
@@ -111,7 +113,7 @@ public class LLMClient
                 Console.Write(assistantName + ": ");
             }
 
-            LLMCompletionResponse response = sendMessages(conversation, enabledTools);
+            LLMCompletionResponse response = sendMessages(conversation, enabledTools, null);
 
             if (response.ToolCalls != null && response.ToolCalls.Count > 0)
             {
@@ -239,30 +241,22 @@ public class LLMClient
 
     private JObject CreateToolDefinition(string name, string description, Dictionary<string, PropertyInfo> properties, string[] required)
     {
-        JObject tool = new JObject
-        {
-            ["type"] = "function"
-        };
+        JObject tool = new JObject();
+        tool["type"] = "function";
 
-        JObject func = new JObject
-        {
-            ["name"] = name,
-            ["description"] = description
-        };
+        JObject func = new JObject();
+        func["name"] = name;
+        func["description"] = description;
 
-        JObject parameters = new JObject
-        {
-            ["type"] = "object"
-        };
+        JObject parameters = new JObject();
+        parameters["type"] = "object";
 
         JObject props = new JObject();
         foreach (var prop in properties)
         {
-            JObject propObj = new JObject
-            {
-                ["type"] = prop.Value.Type,
-                ["description"] = prop.Value.Description
-            };
+            JObject propObj = new JObject();
+            propObj["type"] = prop.Value.Type;
+            propObj["description"] = prop.Value.Description;
             props[prop.Key] = propObj;
         }
         parameters["properties"] = props;
@@ -347,11 +341,11 @@ public class LLMClient
                 case "read_file":
                     tool = CreateToolDefinition(
                         "read_file",
-                        $"Read the contents of a local file and return it as a string. Always reads up to {SimpleLLMChatCLI.Program.MAX_CONTENT_LENGTH} characters. Use the offset parameter to read different parts of large files.",
+                        "Read the contents of a local file and return it as a string. Always reads up to " + Constants.MAX_CONTENT_LENGTH + " characters. Use the offset parameter to read different parts of large files.",
                         new Dictionary<string, PropertyInfo>
                         {
                             { "filename", new PropertyInfo("string", "The full path of the file to read. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                            { "offset", new PropertyInfo("string", $"Optional. Character offset to start reading from (default: 0). Use this to read different parts of large files. For example, offset {SimpleLLMChatCLI.Program.MAX_CONTENT_LENGTH} reads characters {SimpleLLMChatCLI.Program.MAX_CONTENT_LENGTH}-{SimpleLLMChatCLI.Program.MAX_CONTENT_LENGTH * 2}.") }
+                            { "offset", new PropertyInfo("string", "Optional. Character offset to start reading from (default: 0). Use this to read different parts of large files. For example, offset " + Constants.MAX_CONTENT_LENGTH + " reads characters " + Constants.MAX_CONTENT_LENGTH + "-" + (Constants.MAX_CONTENT_LENGTH * 2) + ".") }
                         },
                         new[] { "filename" }
                     );
@@ -457,10 +451,8 @@ public class LLMClient
 
     private JObject BuildMessageObject(ChatMessage msg)
     {
-        JObject msgObj = new JObject
-        {
-            ["role"] = msg.Role
-        };
+        JObject msgObj = new JObject();
+        msgObj["role"] = msg.Role;
 
         if (!string.IsNullOrEmpty(msg.ToolCallId))
             msgObj["tool_call_id"] = msg.ToolCallId;
@@ -472,17 +464,13 @@ public class LLMClient
 
             foreach (var call in msg.ToolCalls)
             {
-                JObject toolObj = new JObject
-                {
-                    ["id"] = call.Id ?? "",
-                    ["type"] = "function"
-                };
+                JObject toolObj = new JObject();
+                toolObj["id"] = call.Id ?? "";
+                toolObj["type"] = "function";
 
-                JObject functionObj = new JObject
-                {
-                    ["name"] = call.Name ?? "",
-                    ["arguments"] = call.Arguments ?? ""
-                };
+                JObject functionObj = new JObject();
+                functionObj["name"] = call.Name ?? "";
+                functionObj["arguments"] = call.Arguments ?? "";
 
                 toolObj["function"] = functionObj;
                 toolCallsArray.Add(toolObj);
@@ -496,34 +484,27 @@ public class LLMClient
 
             if (!string.IsNullOrEmpty(msg.Content))
             {
-                JObject textPart = new JObject
-                {
-                    ["type"] = "text",
-                    ["text"] = msg.Content
-                };
+                JObject textPart = new JObject();
+                textPart["type"] = "text";
+                textPart["text"] = msg.Content;
                 contentArray.Add(textPart);
             }
 
             if (!string.IsNullOrEmpty(msg.Image))
             {
-                JObject imgPart = new JObject
-                {
-                    ["type"] = "image_url",
-                    ["image_url"] = new JObject
-                    {
-                        ["url"] = "data:image/png;base64," + msg.Image
-                    }
-                };
+                JObject imgPart = new JObject();
+                imgPart["type"] = "image_url";
+                JObject imageUrl = new JObject();
+                imageUrl["url"] = "data:image/png;base64," + msg.Image;
+                imgPart["image_url"] = imageUrl;
                 contentArray.Add(imgPart);
             }
 
             if (contentArray.Count == 0)
             {
-                JObject emptyText = new JObject
-                {
-                    ["type"] = "text",
-                    ["text"] = ""
-                };
+                JObject emptyText = new JObject();
+                emptyText["type"] = "text";
+                emptyText["text"] = "";
                 contentArray.Add(emptyText);
             }
 
@@ -537,23 +518,19 @@ public class LLMClient
         return msgObj;
     }
 
-    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, List<string> enabledTools)
+    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, List<string> enabledTools, Action<string> outputCallback = null)
     {
         // Build payload
-        JObject payload = new JObject
-        {
-            ["model"] = model
-        };
+        JObject payload = new JObject();
+        payload["model"] = model;
 
         // Messages
         JArray messages = new JArray();
 
         // System message
-        JObject systemMsg = new JObject
-        {
-            ["role"] = "system",
-            ["content"] = systemPrompt
-        };
+        JObject systemMsg = new JObject();
+        systemMsg["role"] = "system";
+        systemMsg["content"] = systemPrompt;
         messages.Add(systemMsg);
 
         // Process all user messages in the conversation list
@@ -577,10 +554,25 @@ public class LLMClient
 
         payload["stream"] = true;
 
-        return SendHttpRequest(payload);
+        return SendHttpRequest(payload, outputCallback);
     }
 
-    private LLMCompletionResponse SendHttpRequest(JObject payload)
+    /// <summary>
+    /// Sends a simple prompt to the LLM and streams the response to the output callback.
+    /// </summary>
+    public void SendPrompt(string userPrompt, Action<string> outputCallback)
+    {
+        if (outputCallback == null)
+            throw new ArgumentNullException("outputCallback");
+
+        List<ChatMessage> conversation = new List<ChatMessage>();
+        ChatMessage userMsg = new ChatMessage("user", userPrompt);
+        conversation.Add(userMsg);
+
+        sendMessages(conversation, null, outputCallback);
+    }
+
+    private LLMCompletionResponse SendHttpRequest(JObject payload, Action<string> outputCallback = null)
     {
         LLMCompletionResponse completionResponse = new LLMCompletionResponse
         {
@@ -591,7 +583,7 @@ public class LLMClient
 
         try
         {
-            var request = (HttpWebRequest)WebRequest.Create($"{llmEndpoint}/v1/chat/completions");
+            var request = (HttpWebRequest)WebRequest.Create(llmEndpoint + "/v1/chat/completions");
             request.Method = "POST";
             request.ContentType = "application/json";
             request.Headers.Add("Authorization", "Bearer " + apiKey);
@@ -625,7 +617,11 @@ public class LLMClient
                         // Check if this is an error response (either from event: error or error object in data)
                         if (lastEvent == "error" || jsonPart.Contains("\"error\""))
                         {
-                            Console.Write("[API Error] " + jsonPart.Trim() + "\n");
+                            string errorMsg = "[API Error] " + jsonPart.Trim() + "\n";
+                            if (outputCallback != null)
+                                outputCallback(errorMsg);
+                            else
+                                Console.Write(errorMsg);
                             lastEvent = null;
                             continue;
                         }
@@ -640,10 +636,14 @@ public class LLMClient
 
                             foreach (JObject choice in choices)
                             {
-                                string content = (string)choice["delta"]?["content"];
+                                JObject delta = (JObject)choice["delta"];
+                                string content = delta != null ? (string)delta["content"] : null;
                                 if (!string.IsNullOrEmpty(content))
                                 {
-                                    Console.Write(content);
+                                    if (outputCallback != null)
+                                        outputCallback(content);
+                                    else
+                                        Console.Write(content);
                                     output.Append(content);
                                 }
 
@@ -651,12 +651,13 @@ public class LLMClient
                                 if (!string.IsNullOrEmpty(finishReason))
                                     completionResponse.FinishReason = finishReason;
 
-                                JArray toolCalls = (JArray)choice["delta"]?["tool_calls"];
+                                JArray toolCalls = delta != null ? (JArray)delta["tool_calls"] : null;
                                 if (toolCalls != null)
                                 {
                                     foreach (JObject call in toolCalls)
                                     {
-                                        int index = call["index"]?.Value<int>() ?? 0;
+                                        JToken indexToken = call["index"];
+                                        int index = indexToken != null ? indexToken.Value<int>() : 0;
                                         string id = (string)call["id"];
                                         JObject function = (JObject)call["function"];
 
@@ -712,11 +713,16 @@ public class LLMClient
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine("Error sending request: " + ex.Message);
+            string errorMsg = "Error sending request: " + ex.Message + "\n";
+            if (outputCallback != null)
+                outputCallback(errorMsg);
+            else
+                Console.Error.WriteLine(errorMsg);
 
             return new LLMCompletionResponse("", null, "request_failed");
         }
 
         return completionResponse;
     }
+}
 }

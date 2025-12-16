@@ -4,6 +4,11 @@
         <name>NyoCoder</name>
     </assembly>
     <members>
+        <member name="M:NyoCoder.LLMClient.SendPrompt(System.String,System.Action{System.String})">
+            <summary>
+            Sends a simple prompt to the LLM and streams the response to the output callback.
+            </summary>
+        </member>
         <member name="F:NyoCoder.PromptForm.components">
             <summary>
             Required designer variable.

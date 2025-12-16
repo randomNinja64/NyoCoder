@@ -1,10 +1,13 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+
+namespace NyoCoder
+{
 public static class ToolHandler
 {
     // Common user agent string for HTTP requests
@@ -49,60 +52,15 @@ public static class ToolHandler
                         return true;
                     }
 
-                case "run_web_search":
-                    {
-                        string query = GetRequiredArg(call.Arguments, "query");
-                        string output = "";
-                        
-                        // If SearXNG instance is set, try it first
-                        if (!string.IsNullOrWhiteSpace(SimpleLLMChatCLI.Program.SEARXNG_INSTANCE))
-                        {
-                            output = SearchHandler.RunSearXNGSearch(query, out exitCode);
-                        }
-                        
-                        // If no results yet, try DDG
-                        if (string.IsNullOrWhiteSpace(output) || output.Trim() == "")
-                        {
-                            output = SearchHandler.RunDDGSearch(query, out exitCode);
-                        }
-
-                        // If no results yet, try Wiby
-                        if (string.IsNullOrWhiteSpace(output) || output.Trim() == "")
-                        {
-                            output = SearchHandler.RunWibySearch(query, out exitCode);
-                        }
-                        
-                        // If no results from all 3, set output to "No results found."
-                        if (string.IsNullOrWhiteSpace(output) || output.Trim() == "")
-                        {
-                            output = "No results found.";
-                        }
-                        
-                        toolContent = FormatCommandResult("web search: " + query, output, exitCode);
-                        return true;
-                    }
-
-                case "download_video":
-                    {
-                        string URL = GetRequiredArg(call.Arguments, "URL");
-                        string output = DownloadHandler.DownloadVideo(URL, out exitCode);
-                        toolContent = FormatCommandResult("download video: " + URL, output, exitCode);
-                        return true;
-                    }
-
-                case "download_file":
-                    {
-                        string filename = GetRequiredArg(call.Arguments, "filename");
-                        string URL = GetRequiredArg(call.Arguments, "URL");
-                        string output = DownloadHandler.DownloadFile(filename, URL, out exitCode);
-                        toolContent = FormatCommandResult("download file: " + URL, output, exitCode);
-                        return true;
-                    }
-
                 case "read_file":
                     {
                         string filename = GetRequiredArg(call.Arguments, "filename");
-                        int.TryParse(JsonExtractString(call.Arguments, "offset")?.Trim() ?? "", out int offset);
+                        string offsetStr = JsonExtractString(call.Arguments, "offset");
+                        int offset = 0;
+                        if (!string.IsNullOrEmpty(offsetStr))
+                        {
+                            int.TryParse(offsetStr.Trim(), out offset);
+                        }
                         string output = FileHandler.ReadFile(filename, out exitCode, offset);
                         toolContent = FormatCommandResult("read file: " + filename, output, exitCode);
                         return true;
@@ -111,7 +69,8 @@ public static class ToolHandler
                 case "write_file":
                     {
                         string filename = GetRequiredArg(call.Arguments, "filename");
-                        string content = JsonExtractString(call.Arguments, "content")?.Trim() ?? "";
+                        string contentStr = JsonExtractString(call.Arguments, "content");
+                        string content = string.IsNullOrEmpty(contentStr) ? "" : contentStr.Trim();
                         string output = FileHandler.WriteFile(filename, content, out exitCode);
                         toolContent = FormatCommandResult("write file: " + filename, output, exitCode);
                         return true;
@@ -169,7 +128,7 @@ public static class ToolHandler
                     }
 
                 default:
-                    toolContent = $"error: unknown tool '{call.Name}'.";
+                    toolContent = "error: unknown tool '" + call.Name + "'.";
                     return false;
             }
         }
@@ -182,9 +141,10 @@ public static class ToolHandler
 
     private static string GetRequiredArg(string arguments, string argName)
     {
-        string value = JsonExtractString(arguments, argName)?.Trim() ?? "";
+        string valueStr = JsonExtractString(arguments, argName);
+        string value = string.IsNullOrEmpty(valueStr) ? "" : valueStr.Trim();
         if (string.IsNullOrEmpty(value))
-            throw new ArgumentException($"missing '{argName}' argument.");
+            throw new ArgumentException("missing '" + argName + "' argument.");
         return value;
     }
 
@@ -223,7 +183,7 @@ public static class ToolHandler
         catch (Exception ex)
         {
             exitCode = -1;
-            throw new InvalidOperationException($"Failed to execute {fileName}: {ex.Message}", ex);
+            throw new InvalidOperationException("Failed to execute " + fileName + ": " + ex.Message, ex);
         }
     }
 
@@ -346,8 +306,8 @@ public static class ToolHandler
             // Trim leading/trailing whitespace from each line
             html = Regex.Replace(html, @"^\s+|\s+$", "", RegexOptions.Multiline);
             // Truncate to max content length
-            if (html.Length > SimpleLLMChatCLI.Program.MAX_CONTENT_LENGTH)
-                html = html.Substring(0, SimpleLLMChatCLI.Program.MAX_CONTENT_LENGTH);
+            if (html.Length > Constants.MAX_CONTENT_LENGTH)
+                html = html.Substring(0, Constants.MAX_CONTENT_LENGTH);
         }
         catch (Exception ex)
         {
@@ -373,7 +333,8 @@ public static class ToolHandler
             {
                 try
                 {
-                    string versionOutput = ExecuteProcess(cmd, "--version", out int versionExitCode, combineErrorOutput: true);
+                    int versionExitCode;
+                    string versionOutput = ExecuteProcess(cmd, "--version", out versionExitCode, combineErrorOutput: true);
                     if (versionExitCode == 0)
                     {
                         pythonCommand = cmd;
@@ -394,7 +355,7 @@ public static class ToolHandler
             }
 
             // Create a temporary Python script file
-            string tempScriptPath = Path.Combine(Path.GetTempPath(), $"temp_script_{Guid.NewGuid()}.py");
+            string tempScriptPath = Path.Combine(Path.GetTempPath(), "temp_script_" + Guid.NewGuid().ToString() + ".py");
 
             try
             {
@@ -402,7 +363,7 @@ public static class ToolHandler
                 File.WriteAllText(tempScriptPath, scriptContent, Encoding.UTF8);
 
                 // Execute the Python script
-                string output = ExecuteProcess(pythonCommand, $"\"{tempScriptPath}\"", out exitCode, combineErrorOutput: true);
+                string output = ExecuteProcess(pythonCommand, "\"" + tempScriptPath + "\"", out exitCode, combineErrorOutput: true);
 
                 return output;
             }
@@ -425,12 +386,13 @@ public static class ToolHandler
         catch (Exception ex)
         {
             exitCode = -1;
-            return $"Error executing Python script: {ex.Message}";
+            return "Error executing Python script: " + ex.Message;
         }
     }
 
     public static string FormatCommandResult(string command, string output, int exitCode)
     {
-        return $"Command: {command}\nExit Code: {exitCode}\nOutput:\n{output}";
+        return "Command: " + command + "\nExit Code: " + exitCode + "\nOutput:\n" + output;
     }
+}
 }

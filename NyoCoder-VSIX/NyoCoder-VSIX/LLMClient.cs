@@ -8,6 +8,7 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Windows.Forms;
+using NyoCoder.NyoCoder_VSIX;
 
 namespace NyoCoder
 {
@@ -134,7 +135,7 @@ public class LLMClient
                 {
                     if (!string.IsNullOrEmpty(toolCall.Name) && string.IsNullOrEmpty(toolCall.Arguments))
                     {
-                        // Show tool name when we first see it
+                        // Show tool name when we first see it (no leading newline - spacing handled by context)
                         outputCallback("\n[tool call] " + toolCall.Name + "(");
                     }
                     else if (!string.IsNullOrEmpty(toolCall.Arguments))

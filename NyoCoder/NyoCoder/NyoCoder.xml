@@ -61,6 +61,11 @@
             Gets the tool window control for external access.
             </summary>
         </member>
+        <member name="P:NyoCoder.Connect.ApplicationObject">
+            <summary>
+            Gets the DTE2 application object for Visual Studio integration.
+            </summary>
+        </member>
         <member name="T:NyoCoder.NyoCoderToolWindow">
             <summary>
             UserControl that hosts the NyoCoder output pane content.

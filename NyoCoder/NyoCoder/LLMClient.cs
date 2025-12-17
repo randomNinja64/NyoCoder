@@ -105,7 +105,8 @@ public class LLMClient
                 "run_shell_command",
                 "write_file",
                 "move_file",
-                "delete_file"
+                "delete_file",
+                "search_replace"
             };
         }
 
@@ -376,6 +377,30 @@ public class LLMClient
                 { "directory_path", new PropertyInfo("string", "The full path of the directory to list. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
             },
             new[] { "directory_path" }
+        ));
+
+        toolsArray.Add(CreateToolDefinition(
+            "grep_search",
+            "Recursively search for a regular expression pattern in files. Very fast and automatically ignores files you should not read like .pyc files, .venv directories, node_modules, .git, bin/obj folders, etc. Use this to find where functions are defined, how variables are used, or to locate specific error messages.",
+            new Dictionary<string, PropertyInfo>
+            {
+                { "pattern", new PropertyInfo("string", "The regular expression pattern to search for.") },
+                { "directory_path", new PropertyInfo("string", "Optional. The directory to search in. Defaults to current directory if not specified. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
+                { "file_pattern", new PropertyInfo("string", "Optional. File pattern to filter (e.g., '*.cs', '*.py'). Searches all files if not specified.") },
+                { "case_insensitive", new PropertyInfo("string", "Optional. Set to 'true' for case-insensitive search. Default is case-sensitive.") }
+            },
+            new[] { "pattern" }
+        ));
+
+        toolsArray.Add(CreateToolDefinition(
+            "search_replace",
+            "Use `search_replace` to make targeted changes to files using SEARCH/REPLACE blocks. This tool finds exact text matches and replaces them. The content format uses SEARCH/REPLACE blocks: <<<<<<< SEARCH\n[exact text to find]\n=======\n[exact text to replace with]\n>>>>>>> REPLACE. You can include multiple SEARCH/REPLACE blocks to make multiple changes to the same file. The SEARCH text must match EXACTLY (including whitespace, indentation, and line endings). If the file is part of the project, it will be opened in Visual Studio with changes highlighted.",
+            new Dictionary<string, PropertyInfo>
+            {
+                { "file_path", new PropertyInfo("string", "The full path of the file to modify. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
+                { "content", new PropertyInfo("string", "The SEARCH/REPLACE blocks defining the changes. Format: <<<<<<< SEARCH\n[exact text to find]\n=======\n[exact text to replace with]\n>>>>>>> REPLACE. Multiple blocks can be included for multiple changes.") }
+            },
+            new[] { "file_path", "content" }
         ));
 
         return toolsArray;

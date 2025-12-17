@@ -4,9 +4,21 @@
         <name>NyoCoder</name>
     </assembly>
     <members>
-        <member name="M:NyoCoder.LLMClient.SendPrompt(System.String,System.Action{System.String})">
+        <member name="F:NyoCoder.OptionsForm.components">
             <summary>
-            Sends a simple prompt to the LLM and streams the response to the output callback.
+            Required designer variable.
+            </summary>
+        </member>
+        <member name="M:NyoCoder.OptionsForm.Dispose(System.Boolean)">
+            <summary>
+            Clean up any resources being used.
+            </summary>
+            <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        </member>
+        <member name="M:NyoCoder.OptionsForm.InitializeComponent">
+            <summary>
+            Required method for Designer support - do not modify
+            the contents of this method with the code editor.
             </summary>
         </member>
         <member name="F:NyoCoder.PromptForm.components">
@@ -26,21 +38,9 @@
             the contents of this method with the code editor.
             </summary>
         </member>
-        <member name="F:NyoCoder.OptionsForm.components">
+        <member name="M:NyoCoder.LLMClient.SendPrompt(System.String,System.Action{System.String})">
             <summary>
-            Required designer variable.
-            </summary>
-        </member>
-        <member name="M:NyoCoder.OptionsForm.Dispose(System.Boolean)">
-            <summary>
-            Clean up any resources being used.
-            </summary>
-            <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
-        </member>
-        <member name="M:NyoCoder.OptionsForm.InitializeComponent">
-            <summary>
-            Required method for Designer support - do not modify
-            the contents of this method with the code editor.
+            Sends a simple prompt to the LLM and streams the response to the output callback.
             </summary>
         </member>
         <member name="T:NyoCoder.Connect">
@@ -101,6 +101,16 @@
             <summary>
             Shows or hides the button panel.
             </summary>
+        </member>
+        <member name="M:NyoCoder.NyoCoderToolWindow.RequestToolApproval(System.String,System.String)">
+            <summary>
+            Requests user approval for a tool execution using Yes/No buttons.
+            This method blocks until the user clicks Yes or No.
+            Thread-safe: can be called from background threads.
+            </summary>
+            <param name="toolName">Name of the tool requesting approval</param>
+            <param name="arguments">Arguments to display to the user</param>
+            <returns>True if approved, false if rejected</returns>
         </member>
     </members>
 </doc>

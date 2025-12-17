@@ -260,49 +260,6 @@ public static class FileHandler
         }
     }
 
-    public static string ExtractFile(string archivePath, string destinationPath, out int exitCode)
-    {
-        exitCode = 0;
-
-        try
-        {
-            // Expand environment variables in both paths
-            archivePath = Environment.ExpandEnvironmentVariables(archivePath);
-            destinationPath = Environment.ExpandEnvironmentVariables(destinationPath);
-
-            // Check if archive exists
-            if (!File.Exists(archivePath))
-            {
-                exitCode = 1;
-                return "Archive not found: " + archivePath;
-            }
-
-            // Ensure the destination directory exists
-            string errorMessage;
-            if (!EnsureDirectoryExists(destinationPath, out exitCode, out errorMessage))
-            {
-                return errorMessage;
-            }
-
-            // Build 7za.exe arguments: x (extract with full paths) -o (output directory) -y (yes to all prompts)
-            string arguments = "x \"" + archivePath + "\" -o\"" + destinationPath + "\" -y";
-
-            string output = ToolHandler.ExecuteProcess("7za.exe", arguments, out exitCode);
-
-            if (exitCode != 0)
-            {
-                return "7za exited with code " + exitCode + ":\n" + output;
-            }
-
-            return "Archive extracted successfully to: " + destinationPath + "\n" + output;
-        }
-        catch (Exception ex)
-        {
-            exitCode = -1;
-            return "Error running 7za.exe: " + ex.Message;
-        }
-    }
-
     // Helper method to ensure a directory exists
     public static bool EnsureDirectoryExists(string directoryPath, out int exitCode, out string errorMessage)
     {

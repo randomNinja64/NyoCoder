@@ -91,11 +91,24 @@ public class LLMClient
         string userMessage,
         string image,
         string assistantName,
-        List<string> enabledTools,
         List<string> toolsRequiringApproval,
         bool outputOnly,
-        bool showToolOutput)
+        bool showToolOutput,
+        Action<string> outputCallback = null,
+        Func<string, string, bool> approvalCallback = null)
     {
+        // Default tools requiring approval if none specified
+        if (toolsRequiringApproval == null)
+        {
+            toolsRequiringApproval = new List<string>
+            {
+                "run_shell_command",
+                "write_file",
+                "move_file",
+                "delete_file"
+            };
+        }
+
         // Add user message
         ChatMessage userMsg = new ChatMessage
         {
@@ -107,13 +120,32 @@ public class LLMClient
 
         while (true)
         {
-            if (!outputOnly)
+            if (!outputOnly && outputCallback == null)
             {
                 Console.WriteLine();
                 Console.Write(assistantName + ": ");
             }
 
-            LLMCompletionResponse response = sendMessages(conversation, enabledTools, null);
+            // Simple callback to stream tool calls as they're generated
+            Action<ToolHandler.ToolCall> toolCallStreamCallback = null;
+            if (outputCallback != null)
+            {
+                toolCallStreamCallback = (toolCall) =>
+                {
+                    if (!string.IsNullOrEmpty(toolCall.Name) && string.IsNullOrEmpty(toolCall.Arguments))
+                    {
+                        // Show tool name when we first see it
+                        outputCallback("\n[tool call] " + toolCall.Name + "(");
+                    }
+                    else if (!string.IsNullOrEmpty(toolCall.Arguments))
+                    {
+                        // Stream argument chunks as they come in
+                        outputCallback(toolCall.Arguments);
+                    }
+                };
+            }
+
+            LLMCompletionResponse response = sendMessages(conversation, outputCallback, toolCallStreamCallback);
 
             if (response.ToolCalls != null && response.ToolCalls.Count > 0)
             {
@@ -130,26 +162,13 @@ public class LLMClient
                 {
                     ToolHandler.ToolCall call = response.ToolCalls[i];
 
-                    if (!outputOnly)
-                    {
-                        Console.WriteLine("\n[tool request] " + call.Name + " with arguments: " + call.Arguments);
-                    }
-
                     int exitCode = 0;
                     string toolContent;
+                    bool approved = true;
 
-                    if (!enabledTools.Contains(call.Name))
+                    // Check if tool requires approval
+                    if (toolsRequiringApproval.Contains(call.Name))
                     {
-                        exitCode = -1;
-                        toolContent = ToolHandler.FormatCommandResult(
-                            call.Name,
-                            "error: tool '" + call.Name + "' is disabled by configuration.",
-                            exitCode
-                        );
-                    }
-                    else if (toolsRequiringApproval != null && toolsRequiringApproval.Contains(call.Name))
-                    {
-                        // Tool requires approval - prompt user
                         // Parse escape sequences for better display formatting
                         string formattedArguments = call.Arguments
                             .Replace("\\n", "\n")
@@ -159,23 +178,27 @@ public class LLMClient
                             .Replace("\\'", "'")
                             .Replace("\\\\", "\\");
                         
-                        string approvalMessage = "Run tool: " + call.Name + "\n\n" +
-                                                "With arguments:\n" + formattedArguments + "?";
-                        
-                        DialogResult result = MessageBox.Show(
-                            approvalMessage,
-                            "Tool Call",
-                            MessageBoxButtons.YesNo,
-                            MessageBoxIcon.Question,
-                            MessageBoxDefaultButton.Button2
-                        );
-
-                        if (result == DialogResult.Yes)
+                        // Use approval callback if provided, otherwise fall back to MessageBox
+                        if (approvalCallback != null)
                         {
-                            // User approved - execute the tool
-                            ToolHandler.ExecuteToolCall(call, out toolContent, out exitCode);
+                            approved = approvalCallback(call.Name, formattedArguments);
                         }
                         else
+                        {
+                            string approvalMessage = "Run tool: " + call.Name + "\n\nWith arguments:\n" + formattedArguments;
+                            
+                            DialogResult result = MessageBox.Show(
+                                approvalMessage,
+                                "NyoCoder - Approve Tool?",
+                                MessageBoxButtons.YesNo,
+                                MessageBoxIcon.Question,
+                                MessageBoxDefaultButton.Button2
+                            );
+                            
+                            approved = (result == DialogResult.Yes);
+                        }
+
+                        if (!approved)
                         {
                             // User declined - return cancellation message
                             exitCode = -1;
@@ -184,6 +207,11 @@ public class LLMClient
                                 "Tool execution was cancelled by the user.",
                                 exitCode
                             );
+                        }
+                        else
+                        {
+                            // User approved - execute the tool
+                            ToolHandler.ExecuteToolCall(call, out toolContent, out exitCode);
                         }
                     }
                     else
@@ -200,7 +228,12 @@ public class LLMClient
                     };
                     conversation.Add(toolMsg);
 
-                    if (!outputOnly)
+                    // Output tool result
+                    if (outputCallback != null && showToolOutput)
+                    {
+                        outputCallback("\n[tool output]\n" + toolContent + "\n");
+                    }
+                    else if (!outputOnly)
                     {
                         Console.WriteLine("[tool output]");
                         if (showToolOutput)
@@ -208,12 +241,11 @@ public class LLMClient
                             Console.Write(toolContent);
                             if (!toolContent.EndsWith("\n"))
                             {
-                                Console.WriteLine(); // Add newline if not present
+                                Console.WriteLine();
                             }
                         }
                         else
                         {
-                            // Show only the exit code
                             Console.WriteLine("Exit Code: " + exitCode);
                         }
                     }
@@ -231,7 +263,7 @@ public class LLMClient
             };
             conversation.Add(assistantMsg);
             
-            if (!outputOnly)
+            if (!outputOnly && outputCallback == null)
             {
                 Console.WriteLine(); // Add newline after assistant response
             }
@@ -267,184 +299,84 @@ public class LLMClient
         return tool;
     }
 
-    private JArray BuildToolsArray(List<string> enabledTools)
+    private JArray BuildToolsArray()
     {
         JArray toolsArray = new JArray();
 
-        foreach (var toolName in enabledTools)
-        {
-            JObject tool = null;
-
-            switch (toolName)
+        // Add all available tools
+        toolsArray.Add(CreateToolDefinition(
+            "run_shell_command",
+            "Execute a shell command on the host system and return its output.",
+            new Dictionary<string, PropertyInfo>
             {
-                case "run_shell_command":
-                    tool = CreateToolDefinition(
-                        "run_shell_command",
-                        "Execute a shell command on the host system and return its output.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "command", new PropertyInfo("string", "Full command line to execute. Keep it short and avoid interactive programs.") }
-                        },
-                        new[] { "command" }
-                    );
-                    break;
+                { "command", new PropertyInfo("string", "Full command line to execute. Keep it short and avoid interactive programs.") }
+            },
+            new[] { "command" }
+        ));
 
-                case "run_web_search":
-                    tool = CreateToolDefinition(
-                        "run_web_search",
-                        "Search the web using DuckDuckGo and return a list of URLs with brief snippets. If more detail is needed, URLs can be read with read_website.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "query", new PropertyInfo("string", "The search query to look up on the web.") }
-                        },
-                        new[] { "query" }
-                    );
-                    break;
-
-                case "read_website":
-                    tool = CreateToolDefinition(
-                        "read_website",
-                        "Browse to a specific URL/web page and return its HTML content.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "URL", new PropertyInfo("string", "The URL of the web page to get the content of.") }
-                        },
-                        new[] { "URL" }
-                    );
-                    break;
-
-                case "download_video":
-                    tool = CreateToolDefinition(
-                        "download_video",
-                        "Download an online video using YT-DLP to the user's desktop, returning YT-DLP's output",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "URL", new PropertyInfo("string", "The URL of the video to download.") }
-                        },
-                        new[] { "URL" }
-                    );
-                    break;
-
-                case "download_file":
-                    tool = CreateToolDefinition(
-                        "download_file",
-                        "Downloads a file from the internet using cURL and saves it to the provided location.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "filename", new PropertyInfo("string", "The full path of the file to write to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                            { "URL", new PropertyInfo("string", "The URL of the file to download.") }
-                        },
-                        new[] { "filename", "URL" }
-                    );
-                    break;
-
-                case "read_file":
-                    tool = CreateToolDefinition(
-                        "read_file",
-                        "Read the contents of a local file and return it as a string. Always reads up to " + Constants.MAX_CONTENT_LENGTH + " characters. Use the offset parameter to read different parts of large files.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "filename", new PropertyInfo("string", "The full path of the file to read. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                            { "offset", new PropertyInfo("string", "Optional. Character offset to start reading from (default: 0). Use this to read different parts of large files. For example, offset " + Constants.MAX_CONTENT_LENGTH + " reads characters " + Constants.MAX_CONTENT_LENGTH + "-" + (Constants.MAX_CONTENT_LENGTH * 2) + ".") }
-                        },
-                        new[] { "filename" }
-                    );
-                    break;
-
-                case "write_file":
-                    tool = CreateToolDefinition(
-                        "write_file",
-                        "Write the given content to a local file, creating or overwriting it.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "filename", new PropertyInfo("string", "The full path of the file to write to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                            { "content", new PropertyInfo("string", "The content to write into the file.") }
-                        },
-                        new[] { "filename", "content" }
-                    );
-                    break;
-
-                case "extract_file":
-                    tool = CreateToolDefinition(
-                        "extract_file",
-                        "Extract an archive file using 7za.exe to a specified destination directory.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "archive_path", new PropertyInfo("string", "The full path of the archive file to extract. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                            { "destination_path", new PropertyInfo("string", "The full path of the destination directory where files will be extracted. Directory will be created if it doesn't exist. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
-                        },
-                        new[] { "archive_path", "destination_path" }
-                    );
-                    break;
-
-                case "move_file":
-                    tool = CreateToolDefinition(
-                        "move_file",
-                        "Move or rename a file from one location to another. Destination directory will be created if it doesn't exist.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "source_path", new PropertyInfo("string", "The full path of the file to move. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                            { "destination_path", new PropertyInfo("string", "The full path where the file should be moved to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
-                        },
-                        new[] { "source_path", "destination_path" }
-                    );
-                    break;
-
-                case "copy_file":
-                    tool = CreateToolDefinition(
-                        "copy_file",
-                        "Copy a file from one location to another. Destination directory will be created if it doesn't exist.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "source_path", new PropertyInfo("string", "The full path of the file to copy. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                            { "destination_path", new PropertyInfo("string", "The full path where the file should be copied to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
-                        },
-                        new[] { "source_path", "destination_path" }
-                    );
-                    break;
-
-                case "delete_file":
-                    tool = CreateToolDefinition(
-                        "delete_file",
-                        "Delete a file from the file system. Use with caution as this operation cannot be undone.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "file_path", new PropertyInfo("string", "The full path of the file to delete. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
-                        },
-                        new[] { "file_path" }
-                    );
-                    break;
-
-                case "list_directory":
-                    tool = CreateToolDefinition(
-                        "list_directory",
-                        "List all files and subdirectories in a given directory.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "directory_path", new PropertyInfo("string", "The full path of the directory to list. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
-                        },
-                        new[] { "directory_path" }
-                    );
-                    break;
-
-                case "run_python_script":
-                    tool = CreateToolDefinition(
-                        "run_python_script",
-                        "Create and execute a Python script. The script is created as a temporary file, executed, and then automatically deleted.",
-                        new Dictionary<string, PropertyInfo>
-                        {
-                            { "script_content", new PropertyInfo("string", "The complete Python script code to execute. Should be valid Python syntax.") }
-                        },
-                        new[] { "script_content" }
-                    );
-                    break;
-            }
-
-            if (tool != null)
+        toolsArray.Add(CreateToolDefinition(
+            "read_file",
+            "Read the contents of a local file and return it as a string. Always reads up to " + Constants.MAX_CONTENT_LENGTH + " characters. Use the offset parameter to read different parts of large files.",
+            new Dictionary<string, PropertyInfo>
             {
-                toolsArray.Add(tool);
-            }
-        }
+                { "filename", new PropertyInfo("string", "The full path of the file to read. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
+                { "offset", new PropertyInfo("string", "Optional. Character offset to start reading from (default: 0). Use this to read different parts of large files. For example, offset " + Constants.MAX_CONTENT_LENGTH + " reads characters " + Constants.MAX_CONTENT_LENGTH + "-" + (Constants.MAX_CONTENT_LENGTH * 2) + ".") }
+            },
+            new[] { "filename" }
+        ));
+
+        toolsArray.Add(CreateToolDefinition(
+            "write_file",
+            "Write the given content to a local file, creating or overwriting it.",
+            new Dictionary<string, PropertyInfo>
+            {
+                { "filename", new PropertyInfo("string", "The full path of the file to write to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
+                { "content", new PropertyInfo("string", "The content to write into the file.") }
+            },
+            new[] { "filename", "content" }
+        ));
+
+        toolsArray.Add(CreateToolDefinition(
+            "move_file",
+            "Move or rename a file from one location to another. Destination directory will be created if it doesn't exist.",
+            new Dictionary<string, PropertyInfo>
+            {
+                { "source_path", new PropertyInfo("string", "The full path of the file to move. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
+                { "destination_path", new PropertyInfo("string", "The full path where the file should be moved to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
+            },
+            new[] { "source_path", "destination_path" }
+        ));
+
+        toolsArray.Add(CreateToolDefinition(
+            "copy_file",
+            "Copy a file from one location to another. Destination directory will be created if it doesn't exist.",
+            new Dictionary<string, PropertyInfo>
+            {
+                { "source_path", new PropertyInfo("string", "The full path of the file to copy. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
+                { "destination_path", new PropertyInfo("string", "The full path where the file should be copied to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
+            },
+            new[] { "source_path", "destination_path" }
+        ));
+
+        toolsArray.Add(CreateToolDefinition(
+            "delete_file",
+            "Delete a file from the file system. Use with caution as this operation cannot be undone.",
+            new Dictionary<string, PropertyInfo>
+            {
+                { "file_path", new PropertyInfo("string", "The full path of the file to delete. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
+            },
+            new[] { "file_path" }
+        ));
+
+        toolsArray.Add(CreateToolDefinition(
+            "list_directory",
+            "List all files and subdirectories in a given directory.",
+            new Dictionary<string, PropertyInfo>
+            {
+                { "directory_path", new PropertyInfo("string", "The full path of the directory to list. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
+            },
+            new[] { "directory_path" }
+        ));
 
         return toolsArray;
     }
@@ -518,7 +450,7 @@ public class LLMClient
         return msgObj;
     }
 
-    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, List<string> enabledTools, Action<string> outputCallback = null)
+    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null)
     {
         // Build payload
         JObject payload = new JObject();
@@ -544,17 +476,13 @@ public class LLMClient
 
         payload["messages"] = messages;
 
-        // Add tools if any are enabled
-        if (enabledTools != null && enabledTools.Count > 0)
-        {
-            JArray toolsArray = BuildToolsArray(enabledTools);
-            if (toolsArray.Count > 0)
-                payload["tools"] = toolsArray;
-        }
+        // Always add all tools
+        JArray toolsArray = BuildToolsArray();
+        payload["tools"] = toolsArray;
 
         payload["stream"] = true;
 
-        return SendHttpRequest(payload, outputCallback);
+        return SendHttpRequest(payload, outputCallback, toolCallCallback);
     }
 
     /// <summary>
@@ -569,10 +497,10 @@ public class LLMClient
         ChatMessage userMsg = new ChatMessage("user", userPrompt);
         conversation.Add(userMsg);
 
-        sendMessages(conversation, null, outputCallback);
+        sendMessages(conversation, outputCallback);
     }
 
-    private LLMCompletionResponse SendHttpRequest(JObject payload, Action<string> outputCallback = null)
+    private LLMCompletionResponse SendHttpRequest(JObject payload, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null)
     {
         LLMCompletionResponse completionResponse = new LLMCompletionResponse
         {
@@ -605,6 +533,7 @@ public class LLMClient
 
                 // ✅ accumulate tool call argument chunks across deltas
                 Dictionary<int, ToolHandler.ToolCall> partialToolCalls = new Dictionary<int, ToolHandler.ToolCall>();
+                Dictionary<int, int> toolCallArgumentLength = new Dictionary<int, int>(); // Track how much we've already streamed
                 string lastEvent = null; // Track the last event type for error handling
 
                 while ((line = reader.ReadLine()) != null)
@@ -669,6 +598,7 @@ public class LLMClient
                                                 Name = "",
                                                 Arguments = ""
                                             };
+                                            toolCallArgumentLength[index] = 0;
                                         }
 
                                         var temp = partialToolCalls[index];
@@ -686,11 +616,27 @@ public class LLMClient
                                             if (!string.IsNullOrEmpty(name))
                                             {
                                                 temp.Name = name;
+                                                // Show tool call when we first see the name
+                                                if (toolCallCallback != null && toolCallArgumentLength[index] == 0)
+                                                {
+                                                    toolCallCallback(new ToolHandler.ToolCall(name, "", ""));
+                                                }
                                             }
 
                                             if (!string.IsNullOrEmpty(argsChunk))
                                             {
                                                 temp.Arguments += argsChunk;
+                                                // Stream only new chunks as they arrive
+                                                if (toolCallCallback != null && !string.IsNullOrEmpty(temp.Name))
+                                                {
+                                                    int alreadyStreamed = toolCallArgumentLength[index];
+                                                    if (temp.Arguments.Length > alreadyStreamed)
+                                                    {
+                                                        string newChunk = temp.Arguments.Substring(alreadyStreamed);
+                                                        toolCallCallback(new ToolHandler.ToolCall(temp.Name, newChunk, temp.Id));
+                                                        toolCallArgumentLength[index] = temp.Arguments.Length;
+                                                    }
+                                                }
                                             }
                                         }
 
@@ -709,6 +655,12 @@ public class LLMClient
                 // finalize tool calls after stream ends
                 completionResponse.ToolCalls.AddRange(partialToolCalls.Values);
                 completionResponse.Content = output.ToString();
+                
+                // Close any open tool call parentheses
+                if (toolCallCallback != null && partialToolCalls.Count > 0)
+                {
+                    outputCallback(")\n");
+                }
             }
         }
         catch (Exception ex)

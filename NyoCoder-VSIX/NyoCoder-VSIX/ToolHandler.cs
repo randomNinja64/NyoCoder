@@ -335,355 +335,212 @@ public static class ToolHandler
         return "Exit Code: " + exitCode + "\nOutput:\n" + output;
     }
 
+    #region SearchReplace
+
+    public enum DiffChangeType
+    {
+        Addition,
+        Deletion,
+        Modification
+    }
+
+    public sealed class DiffChange
+    {
+        // Start index in the CURRENT buffer content (for preview)
+        public int StartIndex;
+        public int Length;
+        public DiffChangeType Type;
+    }
+
+    // Preview events (show adornments BEFORE applying)
+    public static event Action<string, List<DiffChange>> OnDiffChangesPreview;
+    public static event Action<string> OnDiffPreviewCleared;
+
     // Parses SEARCH/REPLACE blocks and performs replacements in a file
     private static string SearchReplace(string filePath, string content, out int exitCode)
     {
-        exitCode = 0;
-
         try
         {
-            // Expand environment variables in file path
-            filePath = Environment.ExpandEnvironmentVariables(filePath);
+            // 1) Preview only (no changes applied yet)
+            SearchReplaceTool.ApplyResult preview = SearchReplaceTool.Preview(filePath, content);
 
-            if (!File.Exists(filePath))
+            exitCode = preview.Errors.Count > 0 ? 1 : 0;
+
+            StringBuilder sb = new StringBuilder();
+            Action addSpacer = () =>
             {
-                exitCode = 1;
-                return "File not found: " + filePath;
+                if (sb.Length > 0) sb.AppendLine();
+            };
+
+            if (!string.IsNullOrEmpty(preview.PreviewDiff))
+            {
+                addSpacer();
+                sb.AppendLine("Preview diff (truncated):");
+                sb.AppendLine(preview.PreviewDiff);
             }
 
-            // Read the file content
-            string fileContent = File.ReadAllText(filePath, Encoding.UTF8);
-            string originalContent = fileContent;
-
-            // Parse SEARCH/REPLACE blocks
-            List<SearchReplaceBlock> blocks = ParseSearchReplaceBlocks(content);
-            
-            if (blocks.Count == 0)
+            if (preview.Errors.Count > 0)
             {
-                exitCode = 1;
-                return "Error: No valid SEARCH/REPLACE blocks found. Expected format:\n<<<<<<< SEARCH\n[text to find]\n=======\n[text to replace with]\n>>>>>>> REPLACE";
+                addSpacer();
+                sb.AppendLine("Errors:");
+                foreach (string err in preview.Errors) sb.AppendLine(err);
+                return sb.ToString();
             }
 
-            StringBuilder result = new StringBuilder();
-            int totalReplacements = 0;
-
-            // Apply each block in order
-            foreach (var block in blocks)
+            if (string.Equals(preview.NewContent, preview.OriginalContent, StringComparison.Ordinal))
             {
-                int occurrences = 0;
-
-                // Count occurrences first
-                int searchIndex = 0;
-                while ((searchIndex = fileContent.IndexOf(block.SearchText, searchIndex, StringComparison.Ordinal)) != -1)
-                {
-                    occurrences++;
-                    searchIndex += block.SearchText.Length;
-                }
-
-                if (occurrences == 0)
-                {
-                    exitCode = 1;
-                    result.AppendLine("Error: Search text not found in file:\n" + 
-                        (block.SearchText.Length > 100 ? block.SearchText.Substring(0, 100) + "..." : block.SearchText));
-                    return result.ToString();
-                }
-
-                if (occurrences > 1)
-                {
-                    exitCode = 1;
-                    result.AppendLine("Error: Search text appears " + occurrences + " times in the file. The SEARCH text must appear exactly once.");
-                    result.AppendLine("Search text:\n" + 
-                        (block.SearchText.Length > 200 ? block.SearchText.Substring(0, 200) + "..." : block.SearchText));
-                    return result.ToString();
-                }
-
-                // Perform replacement (we know there's exactly one occurrence)
-                int index = fileContent.IndexOf(block.SearchText, StringComparison.Ordinal);
-                if (index != -1)
-                {
-                    fileContent = fileContent.Substring(0, index) + 
-                                 block.ReplaceText + 
-                                 fileContent.Substring(index + block.SearchText.Length);
-                    totalReplacements++;
-                }
+                addSpacer();
+                sb.AppendLine("No changes were necessary (file already matches).");
+                return sb.ToString();
             }
 
-            // Check if there are any changes
-            if (fileContent != originalContent)
+            // 1b) Build an inline preview buffer (old + new right next to each other)
+            SearchReplaceTool.InlinePreview inline = SearchReplaceTool.BuildInlinePreview(preview);
+
+            // Try to apply the inline preview to the open document (no save) so it shows inline in the editor.
+            bool previewShownInline = false;
+            if (!string.IsNullOrEmpty(preview.NormalizedFilePath))
             {
-                // Show approval dialog with preview of changes
-                bool approved = ShowSearchReplaceApproval(filePath, blocks, originalContent, fileContent);
-                
-                if (!approved)
+                previewShownInline = SearchReplaceTool.TrySetOpenDocumentContent(preview.NormalizedFilePath, inline.Content, false);
+            }
+
+            // Show inline highlight adornments (background + strikethrough) for preview spans
+            if (previewShownInline && inline.Spans.Count > 0 && OnDiffChangesPreview != null)
+            {
+                List<DiffChange> changes = new List<DiffChange>();
+                foreach (SearchReplaceTool.InlineSpan s in inline.Spans)
                 {
-                    // User declined - don't modify the file, return cancellation message
-                    exitCode = -1;
-                    return "Tool execution was cancelled by the user. File was not modified.";
+                    changes.Add(new DiffChange
+                    {
+                        StartIndex = s.Start,
+                        Length = s.Length,
+                        Type = s.Type == SearchReplaceTool.ChangeType.Addition ? DiffChangeType.Addition : DiffChangeType.Deletion
+                    });
                 }
 
-                // User approved - write the modified content back to the file
-                File.WriteAllText(filePath, fileContent, Encoding.UTF8);
-                result.AppendLine("File updated successfully: " + filePath);
-                result.AppendLine("Total replacements: " + totalReplacements);
+                string p = preview.NormalizedFilePath;
+                if (string.IsNullOrEmpty(p))
+                {
+                    p = Environment.ExpandEnvironmentVariables((filePath ?? string.Empty).Trim());
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(p) && !Path.IsPathRooted(p))
+                            p = Path.Combine(Environment.CurrentDirectory, p);
+                        p = Path.GetFullPath(p);
+                    }
+                    catch { }
+                }
 
-                // Try to open the file in Visual Studio and highlight changes
-                TryOpenFileInVisualStudio(filePath, blocks);
+                OnDiffChangesPreview(p, changes);
+            }
+
+            // 2) Ask user to approve/reject using the bottom bar in the NyoCoder panel
+            NyoCoderControl toolWindowControl = null;
+            try
+            {
+                toolWindowControl = NyoCoder_VSIXPackage.Instance != null ? NyoCoder_VSIXPackage.Instance.ToolWindowControl : null;
+            }
+            catch { }
+
+            // Fail-closed: do not apply changes unless explicitly approved via UI.
+            bool approved = false;
+            string notApprovedMessage = "Rejected by user. No changes applied.";
+            if (toolWindowControl != null)
+            {
+                StringBuilder approvalArgs = new StringBuilder();
+                approvalArgs.AppendLine("Apply these changes?");
+                approvalArgs.AppendLine("File: " + (string.IsNullOrEmpty(preview.NormalizedFilePath) ? filePath : preview.NormalizedFilePath));
+                approvalArgs.AppendLine();
+                if (!string.IsNullOrEmpty(preview.PreviewDiff))
+                {
+                    approvalArgs.AppendLine(preview.PreviewDiff);
+                }
+                approved = toolWindowControl.RequestToolApproval("search_replace", approvalArgs.ToString());
             }
             else
             {
-                result.AppendLine("No changes were made to the file.");
+                // No approval UI available: treat as not approved.
+                // This prevents unexpected file modifications when running headless / without the tool window.
+                exitCode = 1;
+                notApprovedMessage = "Error: Approval UI unavailable. No changes applied.";
             }
 
-            return result.ToString();
-        }
-        catch (Exception ex)
-        {
-            exitCode = -1;
-            return "Error performing search_replace: " + ex.Message;
-        }
-    }
-
-    // Structure to hold a single SEARCH/REPLACE block
-    private struct SearchReplaceBlock
-    {
-        public string SearchText;
-        public string ReplaceText;
-    }
-
-    // Parses SEARCH/REPLACE blocks from the content string
-    private static List<SearchReplaceBlock> ParseSearchReplaceBlocks(string content)
-    {
-        List<SearchReplaceBlock> blocks = new List<SearchReplaceBlock>();
-
-        // Pattern to match SEARCH/REPLACE blocks
-        // Matches: <<<<<<< SEARCH\n...\n=======\n...\n>>>>>>> REPLACE
-        // Requires at least 5 equals signs between SEARCH and REPLACE sections
-        string pattern = @"<<<<<<<\s*SEARCH\s*\r?\n(.*?)\r?\n={5,}\r?\n(.*?)\r?\n>>>>>>>\s*REPLACE";
-        
-        MatchCollection matches = Regex.Matches(content, pattern, RegexOptions.Singleline | RegexOptions.Multiline);
-
-        foreach (Match match in matches)
-        {
-            if (match.Groups.Count >= 3)
+            if (!approved)
             {
-                SearchReplaceBlock block = new SearchReplaceBlock
+                // Clear preview adornments
+                if (OnDiffPreviewCleared != null)
                 {
-                    SearchText = match.Groups[1].Value,
-                    ReplaceText = match.Groups[2].Value
-                };
-                blocks.Add(block);
-            }
-        }
-
-        return blocks;
-    }
-
-    // Shows an approval dialog with preview of changes for search_replace using the tool window button bar
-    private static bool ShowSearchReplaceApproval(string filePath, List<SearchReplaceBlock> blocks, string originalContent, string modifiedContent)
-    {
-        try
-        {
-            // Get the tool window through package instance
-            NyoCoder_VSIXPackage packageInstance = NyoCoder_VSIXPackage.Instance;
-            if (packageInstance == null || packageInstance.ToolWindowControl == null)
-            {
-                // Fallback to MessageBox if tool window is not available
-                return ShowSearchReplaceApprovalFallback(filePath, blocks);
-            }
-
-            NyoCoderControl toolWindow = packageInstance.ToolWindowControl;
-
-            StringBuilder preview = new StringBuilder();
-            preview.AppendLine("File: " + filePath);
-            preview.AppendLine();
-            preview.AppendLine("The following changes will be made:");
-            preview.AppendLine();
-
-            // Build a preview showing each change
-            string currentContent = originalContent;
-            int changeNumber = 1;
-
-            foreach (var block in blocks)
-            {
-                int index = currentContent.IndexOf(block.SearchText, StringComparison.Ordinal);
-                if (index != -1)
-                {
-                    // Find the line numbers for context
-                    string before = currentContent.Substring(0, index);
-                    string[] lines = before.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
-                    int startLine = lines.Length;
-                    
-                    preview.AppendLine("--- Change " + changeNumber + " ---");
-                    preview.AppendLine("Search text (line " + startLine + "):");
-                    
-                    // Show search text (truncated if too long)
-                    string searchPreview = block.SearchText;
-                    if (searchPreview.Length > 500)
+                    string p = string.IsNullOrEmpty(preview.NormalizedFilePath) ? filePath : preview.NormalizedFilePath;
+                    try
                     {
-                        searchPreview = searchPreview.Substring(0, 500) + "\n...[truncated, " + block.SearchText.Length + " characters total]";
+                        p = Environment.ExpandEnvironmentVariables((p ?? string.Empty).Trim());
+                        if (!string.IsNullOrEmpty(p) && !Path.IsPathRooted(p))
+                            p = Path.Combine(Environment.CurrentDirectory, p);
+                        p = Path.GetFullPath(p);
                     }
-                    preview.AppendLine(searchPreview);
-                    
-                    preview.AppendLine();
-                    preview.AppendLine("Replace with:");
-                    string replacePreview = block.ReplaceText;
-                    if (replacePreview.Length > 500)
-                    {
-                        replacePreview = replacePreview.Substring(0, 500) + "\n...[truncated, " + block.ReplaceText.Length + " characters total]";
-                    }
-                    preview.AppendLine(replacePreview);
-                    preview.AppendLine();
-
-                    // Update currentContent for next iteration
-                    currentContent = currentContent.Substring(0, index) + 
-                                   block.ReplaceText + 
-                                   currentContent.Substring(index + block.SearchText.Length);
-                    changeNumber++;
+                    catch { }
+                    OnDiffPreviewCleared(p);
                 }
+
+                // Restore original content if we showed an inline preview
+                if (previewShownInline && !string.IsNullOrEmpty(preview.NormalizedFilePath))
+                {
+                    SearchReplaceTool.TrySetOpenDocumentContent(preview.NormalizedFilePath, preview.OriginalContent ?? "", false);
+                }
+                addSpacer();
+                sb.AppendLine(notApprovedMessage);
+                return sb.ToString();
             }
 
-            preview.AppendLine("---");
-            preview.AppendLine();
-            preview.AppendLine("Do you want to apply these changes?");
-
-            // Use the tool window's RequestToolApproval method which uses the button bar
-            return toolWindow.RequestToolApproval("search_replace", preview.ToString());
-        }
-        catch (Exception ex)
-        {
-            // If anything fails, fall back to MessageBox
-            return ShowSearchReplaceApprovalFallback(filePath, blocks);
-        }
-    }
-
-    // Fallback approval method using MessageBox (used when tool window is not available)
-    private static bool ShowSearchReplaceApprovalFallback(string filePath, List<SearchReplaceBlock> blocks)
-    {
-        string simpleMessage = "Apply search_replace to file: " + filePath + "?\n\n" + 
-                             blocks.Count + " replacement(s) will be made.";
-        
-        DialogResult result = MessageBox.Show(
-            simpleMessage,
-            "NyoCoder - Approve search_replace?",
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Question,
-            MessageBoxDefaultButton.Button2
-        );
-
-        return (result == DialogResult.Yes);
-    }
-
-    // Attempts to open a file in Visual Studio and highlight the changed regions
-    private static void TryOpenFileInVisualStudio(string filePath, List<SearchReplaceBlock> blocks)
-    {
-        try
-        {
-            // Get the package instance to access Visual Studio DTE
-            NyoCoder_VSIXPackage packageInstance = NyoCoder_VSIXPackage.Instance;
-            if (packageInstance == null || packageInstance.ApplicationObject == null)
+            // 3) Clear preview adornments, then apply changes
+            if (OnDiffPreviewCleared != null)
             {
-                return; // Not running in Visual Studio context
-            }
-
-            // Open the file in Visual Studio on a background thread
-            System.Threading.ThreadPool.QueueUserWorkItem(state =>
-            {
+                string p = string.IsNullOrEmpty(preview.NormalizedFilePath) ? filePath : preview.NormalizedFilePath;
                 try
                 {
-                    var dte = packageInstance.ApplicationObject;
-                    
-                    // Open the file in Visual Studio
-                    Window window = dte.ItemOperations.OpenFile(filePath, 
-                        EnvDTE.Constants.vsViewKindCode);
-                    
-                    if (window != null && window.Document != null && window.Document.Type == "Text")
-                    {
-                        // Get the text document
-                        EnvDTE.TextDocument textDoc = null;
-                        try
-                        {
-                            // Access the Object property through COM interop
-                            // Note: Object is a property in EnvDTE, accessed as a property getter
-                            EnvDTE.Document doc = window.Document;
-                            if (doc != null)
-                            {
-                            // In some COM interop scenarios, properties may need special handling
-                            // Use reflection to access the Object property to avoid method group errors
-                            System.Reflection.PropertyInfo objProp = doc.GetType().GetProperty("Object");
-                            if (objProp != null)
-                            {
-                                object docObj = objProp.GetValue(doc, null);
-                                textDoc = docObj as EnvDTE.TextDocument;
-                            }
-                            // If reflection fails, textDoc remains null and we skip text document operations
-                            }
-                        }
-                        catch
-                        {
-                            // If accessing Object fails, skip text document operations
-                            textDoc = null;
-                        }
-                        if (textDoc != null)
-                        {
-                            // Read the file to find the changed regions
-                            string currentContent = File.ReadAllText(filePath, Encoding.UTF8);
-                            
-                            // For each block, try to highlight the changed region
-                            // Note: Full text adornment highlighting requires VSIX extensions with MEF
-                            // For an add-in, we can at least select the changed text to make it visible
-                            foreach (var block in blocks)
-                            {
-                                int index = currentContent.IndexOf(block.ReplaceText, StringComparison.Ordinal);
-                                if (index != -1)
-                                {
-                                    // Convert character index to line/column (1-based)
-                                    string beforeReplace = currentContent.Substring(0, index);
-                                    string[] lines = beforeReplace.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
-                                    int lineNumber = lines.Length; // 1-based line number
-                                    int columnNumber = lines.Length > 0 ? lines[lines.Length - 1].Length + 1 : 1; // 1-based column
-                                    
-                                    // Try to select the changed text
-                                    try
-                                    {
-                                        EnvDTE.EditPoint startPoint = textDoc.StartPoint.CreateEditPoint();
-                                        startPoint.MoveToLineAndOffset(lineNumber, columnNumber);
-                                        
-                                        // Calculate end position
-                                        string replaceText = block.ReplaceText;
-                                        string[] replaceLines = replaceText.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
-                                        int endLineNumber = lineNumber + replaceLines.Length - 1;
-                                        int endColumnNumber = replaceLines.Length > 1 
-                                            ? replaceLines[replaceLines.Length - 1].Length + 1
-                                            : columnNumber + replaceText.Length;
-                                        
-                                        EnvDTE.EditPoint endPoint = startPoint.CreateEditPoint();
-                                        endPoint.MoveToLineAndOffset(endLineNumber, endColumnNumber);
-                                        
-                                        textDoc.Selection.MoveToPoint(startPoint);
-                                        textDoc.Selection.MoveToPoint(endPoint, true);
-                                        
-                                        // Scroll to make the selection visible
-                                        textDoc.Selection.AnchorPoint.TryToShow();
-                                    }
-                                    catch
-                                    {
-                                        // If selection fails, at least the file is open
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    p = Environment.ExpandEnvironmentVariables((p ?? string.Empty).Trim());
+                    if (!string.IsNullOrEmpty(p) && !Path.IsPathRooted(p))
+                        p = Path.Combine(Environment.CurrentDirectory, p);
+                    p = Path.GetFullPath(p);
                 }
-                catch
-                {
-                    // Silently fail if VS integration is not available
-                }
-            });
+                catch { }
+                OnDiffPreviewCleared(p);
+            }
+
+            bool appliedOk = false;
+
+            // If the doc is open (inline preview path), set final content in the editor and save.
+            if (previewShownInline && !string.IsNullOrEmpty(preview.NormalizedFilePath))
+            {
+                appliedOk = SearchReplaceTool.TrySetOpenDocumentContent(preview.NormalizedFilePath, preview.NewContent ?? "", true);
+            }
+
+            // Fallback: apply via file write / open-doc apply
+            if (!appliedOk)
+            {
+                appliedOk = SearchReplaceTool.ApplyPreview(preview);
+            }
+
+            if (!appliedOk)
+            {
+                exitCode = 1;
+                addSpacer();
+                sb.AppendLine("Error: Failed to apply changes.");
+                return sb.ToString();
+            }
+
+            exitCode = 0;
+
+            addSpacer();
+            sb.AppendLine("Approved and applied " + preview.Changes.Count + " block(s).");
+            return sb.ToString();
         }
-        catch
+        catch (Exception ex)
         {
-            // Silently fail if VS integration is not available
+            exitCode = 1;
+            return "Error: " + ex.Message;
         }
     }
+    #endregion
 }
 }

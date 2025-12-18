@@ -8,7 +8,7 @@ using System.IO;
 using System.Windows.Forms;
 using System.Reflection;
 using EnvDTE;
-using NyoCoder.NyoCoder_VSIX;
+using NyoCoder;
 
 namespace NyoCoder
 {
@@ -443,7 +443,7 @@ public static class ToolHandler
             catch { }
 
             // Fail-closed: do not apply changes unless explicitly approved via UI.
-            bool approved = false;
+            ApprovalResult approvalResult = ApprovalResult.Rejected;
             string notApprovedMessage = "Rejected by user. No changes applied.";
             if (toolWindowControl != null)
             {
@@ -455,7 +455,13 @@ public static class ToolHandler
                 {
                     approvalArgs.AppendLine(preview.PreviewDiff);
                 }
-                approved = toolWindowControl.RequestToolApproval("search_replace", approvalArgs.ToString());
+                approvalResult = toolWindowControl.RequestToolApproval("search_replace", approvalArgs.ToString());
+                
+                // If user stopped, treat as rejected (session will be stopped by LLMClient)
+                if (approvalResult == ApprovalResult.Stopped)
+                {
+                    notApprovedMessage = "Session stopped by user. No changes applied.";
+                }
             }
             else
             {
@@ -465,7 +471,7 @@ public static class ToolHandler
                 notApprovedMessage = "Error: Approval UI unavailable. No changes applied.";
             }
 
-            if (!approved)
+            if (approvalResult != ApprovalResult.Approved)
             {
                 // Clear preview adornments
                 if (OnDiffPreviewCleared != null)

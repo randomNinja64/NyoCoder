@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Forms;
 
-namespace NyoCoder.NyoCoder_VSIX
+namespace NyoCoder
 {
 	public partial class PromptForm : Form
 	{

@@ -2,7 +2,7 @@
 // MUST match PkgCmdID.h
 using System;
 
-namespace NyoCoder.NyoCoder_VSIX
+namespace NyoCoder
 {
     static class PkgCmdIDList
     {

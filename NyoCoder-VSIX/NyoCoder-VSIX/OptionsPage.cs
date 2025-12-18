@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Microsoft.VisualStudio.Shell;
 
-namespace NyoCoder.NyoCoder_VSIX
+namespace NyoCoder
 {
     [ClassInterface(ClassInterfaceType.AutoDual)]
     [ComVisible(true)]
@@ -26,69 +26,61 @@ namespace NyoCoder.NyoCoder_VSIX
                 {
                     host = new OptionsPageHost(this);
                     // Load settings into the host when it's first created
-                    LoadSettings();
+                    UpdateHostFromConfig();
                 }
                 return host;
             }
         }
 
-        public string ApiKey { get; set; }
-        public string LlmServer { get; set; }
-        public string Model { get; set; }
+        public string ApiKey
+        {
+            get { return configHandler.GetApiKey(); }
+            set { configHandler.SetApiKey(value); }
+        }
+
+        public string LlmServer
+        {
+            get { return configHandler.GetLlmServer(); }
+            set { configHandler.SetLlmServer(value); }
+        }
+
+        public string Model
+        {
+            get { return configHandler.GetModel(); }
+            set { configHandler.SetModel(value); }
+        }
 
         public override void LoadSettingsFromStorage()
         {
             base.LoadSettingsFromStorage();
-            // Load settings from INI file into properties
-            ApiKey = configHandler.GetApiKey();
-            LlmServer = configHandler.GetLlmServer();
-            Model = configHandler.GetModel();
-            
-            // Update host if it's already created (UI is already shown)
-            if (host != null)
-            {
-                host.ApiKey = ApiKey ?? string.Empty;
-                host.LlmServer = LlmServer ?? string.Empty;
-                host.Model = Model ?? string.Empty;
-            }
+            // Reload config from file (in case it was changed externally)
+            configHandler = new ConfigHandler();
+            UpdateHostFromConfig();
         }
 
         public override void SaveSettingsToStorage()
         {
             base.SaveSettingsToStorage();
-            SaveSettings();
+            // Get values from host if available (it's the source of truth for UI),
+            // otherwise use properties (which read from ConfigHandler)
+            if (host != null)
+            {
+                configHandler.SetApiKey(host.ApiKey);
+                configHandler.SetLlmServer(host.LlmServer);
+                configHandler.SetModel(host.Model);
+            }
+            // Properties already update ConfigHandler when set, so we just need to save
+            configHandler.SaveConfig();
         }
 
-        private void LoadSettings()
+        private void UpdateHostFromConfig()
         {
-            // Load settings from INI file
-            ApiKey = configHandler.GetApiKey();
-            LlmServer = configHandler.GetLlmServer();
-            Model = configHandler.GetModel();
-
-            // Update host with loaded values
             if (host != null)
             {
                 host.ApiKey = ApiKey ?? string.Empty;
                 host.LlmServer = LlmServer ?? string.Empty;
                 host.Model = Model ?? string.Empty;
             }
-        }
-
-        private void SaveSettings()
-        {
-            // Get values from control if available, otherwise use properties
-            if (host != null)
-            {
-                ApiKey = host.ApiKey;
-                LlmServer = host.LlmServer;
-                Model = host.Model;
-            }
-
-            configHandler.SetApiKey(ApiKey);
-            configHandler.SetLlmServer(LlmServer);
-            configHandler.SetModel(Model);
-            configHandler.SaveConfig();
         }
     }
 }

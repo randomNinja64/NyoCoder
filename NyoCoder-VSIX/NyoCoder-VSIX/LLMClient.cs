@@ -8,7 +8,7 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Windows.Forms;
-using NyoCoder.NyoCoder_VSIX;
+using NyoCoder;
 
 namespace NyoCoder
 {
@@ -96,7 +96,7 @@ public class LLMClient
         bool outputOnly,
         bool showToolOutput,
         Action<string> outputCallback = null,
-        Func<string, string, bool> approvalCallback = null)
+        Func<string, string, ApprovalResult> approvalCallback = null)
     {
         // Default tools requiring approval if none specified
         if (toolsRequiringApproval == null)
@@ -165,7 +165,7 @@ public class LLMClient
 
                     int exitCode = 0;
                     string toolContent;
-                    bool approved = true;
+                    ApprovalResult approvalResult = ApprovalResult.Approved;
 
                     // Check if tool requires approval
                     if (toolsRequiringApproval.Contains(call.Name))
@@ -182,7 +182,7 @@ public class LLMClient
                         // Use approval callback if provided, otherwise fall back to MessageBox
                         if (approvalCallback != null)
                         {
-                            approved = approvalCallback(call.Name, formattedArguments);
+                            approvalResult = approvalCallback(call.Name, formattedArguments);
                         }
                         else
                         {
@@ -196,10 +196,19 @@ public class LLMClient
                                 MessageBoxDefaultButton.Button2
                             );
                             
-                            approved = (result == DialogResult.Yes);
+                            approvalResult = (result == DialogResult.Yes) ? ApprovalResult.Approved : ApprovalResult.Rejected;
                         }
 
-                        if (!approved)
+                        if (approvalResult == ApprovalResult.Stopped)
+                        {
+                            // User stopped the session - break out of the conversation loop
+                            if (outputCallback != null)
+                            {
+                                outputCallback("\n[Session stopped by user]\n");
+                            }
+                            return; // Exit ProcessConversation
+                        }
+                        else if (approvalResult == ApprovalResult.Rejected)
                         {
                             // User declined - return cancellation message
                             exitCode = -1;

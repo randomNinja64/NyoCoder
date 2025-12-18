@@ -1,8 +1,8 @@
-﻿// Guids.cs
+// Guids.cs
 // MUST match guids.h
 using System;
 
-namespace NyoCoder.NyoCoder_VSIX
+namespace NyoCoder
 {
     static class GuidList
     {

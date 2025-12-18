@@ -5,8 +5,18 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 
-namespace NyoCoder.NyoCoder_VSIX
+namespace NyoCoder
 {
+    /// <summary>
+    /// Result of a tool approval request.
+    /// </summary>
+    public enum ApprovalResult
+    {
+        Approved,
+        Rejected,
+        Stopped
+    }
+
     /// <summary>
     /// UserControl that hosts the NyoCoder output pane content.
     /// This control is hosted inside a Visual Studio tool window.
@@ -15,7 +25,7 @@ namespace NyoCoder.NyoCoder_VSIX
     {
         // Synchronization for tool approval
         private ManualResetEvent _approvalWaitHandle;
-        private bool _approvalResult;
+        private ApprovalResult _approvalResult;
 
         public NyoCoderControl()
         {
@@ -210,17 +220,17 @@ namespace NyoCoder.NyoCoder_VSIX
         }
 
         /// <summary>
-        /// Requests user approval for a tool execution using Yes/No buttons.
-        /// This method blocks until the user clicks Yes or No.
+        /// Requests user approval for a tool execution using Yes/No/Stop buttons.
+        /// This method blocks until the user clicks Yes, No, or Stop.
         /// Thread-safe: can be called from background threads.
         /// </summary>
         /// <param name="toolName">Name of the tool requesting approval</param>
         /// <param name="arguments">Arguments to display to the user</param>
-        /// <returns>True if approved, false if rejected</returns>
-        public bool RequestToolApproval(string toolName, string arguments)
+        /// <returns>ApprovalResult indicating the user's choice</returns>
+        public ApprovalResult RequestToolApproval(string toolName, string arguments)
         {
             _approvalWaitHandle = new ManualResetEvent(false);
-            _approvalResult = false;
+            _approvalResult = ApprovalResult.Rejected;
 
             // Show approval UI on the UI thread
             if (Dispatcher.CheckAccess())
@@ -244,7 +254,7 @@ namespace NyoCoder.NyoCoder_VSIX
             AppendText("\n[Approval Required] " + toolName);
             AppendText("\n" + arguments + "\n");
 
-            // Clear any existing buttons and add Yes/No
+            // Clear any existing buttons and add Yes/No/Stop
             ClearButtons();
 
             var yesButton = new Button
@@ -267,15 +277,26 @@ namespace NyoCoder.NyoCoder_VSIX
             };
             noButton.Click += OnApprovalNo;
 
+            var stopButton = new Button
+            {
+                Content = "Stop",
+                Margin = new Thickness(2),
+                Padding = new Thickness(8, 4, 8, 4),
+                MinWidth = 75,
+                MinHeight = 25
+            };
+            stopButton.Click += OnApprovalStop;
+
             ButtonPanel.Children.Add(yesButton);
             ButtonPanel.Children.Add(noButton);
+            ButtonPanel.Children.Add(stopButton);
             ButtonPanel.Visibility = Visibility.Visible;
         }
 
         private void OnApprovalYes(object sender, RoutedEventArgs e)
         {
             HideApprovalUI();
-            _approvalResult = true;
+            _approvalResult = ApprovalResult.Approved;
             if (_approvalWaitHandle != null)
             {
                 _approvalWaitHandle.Set();
@@ -285,7 +306,17 @@ namespace NyoCoder.NyoCoder_VSIX
         private void OnApprovalNo(object sender, RoutedEventArgs e)
         {
             HideApprovalUI();
-            _approvalResult = false;
+            _approvalResult = ApprovalResult.Rejected;
+            if (_approvalWaitHandle != null)
+            {
+                _approvalWaitHandle.Set();
+            }
+        }
+
+        private void OnApprovalStop(object sender, RoutedEventArgs e)
+        {
+            HideApprovalUI();
+            _approvalResult = ApprovalResult.Stopped;
             if (_approvalWaitHandle != null)
             {
                 _approvalWaitHandle.Set();

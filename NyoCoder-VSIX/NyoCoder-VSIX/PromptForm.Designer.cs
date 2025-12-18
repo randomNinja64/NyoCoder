@@ -1,4 +1,4 @@
-namespace NyoCoder.NyoCoder_VSIX
+namespace NyoCoder
 {
 	partial class PromptForm
 	{

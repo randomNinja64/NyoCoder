@@ -2,7 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 
-namespace NyoCoder.NyoCoder_VSIX
+namespace NyoCoder
 {
     /// <summary>
     /// Interaction logic for OptionsPageControl.xaml

@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using EnvDTE;
 using EnvDTE80;
-using NyoCoder.NyoCoder_VSIX;
+using NyoCoder;
 
 namespace NyoCoder
 {
@@ -244,10 +244,10 @@ namespace NyoCoder
             {
                 Action apply = () =>
                 {
-                    DTE2 dte = GetDte();
+                    DTE2 dte = FileHandler.GetDte();
                     if (dte == null) return;
 
-                    Document doc = FindOpenDocument(dte, fullPath);
+                    Document doc = FileHandler.FindOpenDocument(dte, fullPath);
                     if (doc == null) return;
 
                     TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
@@ -271,9 +271,9 @@ namespace NyoCoder
                     apply();
                 }
 
-                DTE2 check = GetDte();
+                DTE2 check = FileHandler.GetDte();
                 if (check == null) return false;
-                return FindOpenDocument(check, fullPath) != null;
+                return FileHandler.FindOpenDocument(check, fullPath) != null;
             }
             catch
             {
@@ -481,10 +481,10 @@ namespace NyoCoder
 
             try
             {
-                DTE2 dte = GetDte();
+                DTE2 dte = FileHandler.GetDte();
                 if (dte == null) return;
 
-                Document doc = FindOpenDocument(dte, expandedPath);
+                Document doc = FileHandler.FindOpenDocument(dte, expandedPath);
                 if (doc == null) return;
 
                 isOpen = true;
@@ -508,10 +508,10 @@ namespace NyoCoder
             {
                 Action apply = () =>
                 {
-                    DTE2 dte = GetDte();
+                    DTE2 dte = FileHandler.GetDte();
                     if (dte == null) return;
 
-                    Document doc = FindOpenDocument(dte, expandedPath);
+                    Document doc = FileHandler.FindOpenDocument(dte, expandedPath);
                     if (doc == null) return;
 
                     TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
@@ -541,49 +541,13 @@ namespace NyoCoder
                 }
 
                 // If we got here without throwing and the doc was open, we consider it applied
-                DTE2 check = GetDte();
+                DTE2 check = FileHandler.GetDte();
                 if (check == null) return false;
-                return FindOpenDocument(check, expandedPath) != null;
+                return FileHandler.FindOpenDocument(check, expandedPath) != null;
             }
             catch
             {
                 return false;
-            }
-        }
-
-        private static Document FindOpenDocument(DTE2 dte, string fullPath)
-        {
-            try
-            {
-                foreach (Document doc in dte.Documents)
-                {
-                    try
-                    {
-                        if (doc != null && !string.IsNullOrEmpty(doc.FullName) &&
-                            string.Equals(doc.FullName, fullPath, StringComparison.OrdinalIgnoreCase))
-                        {
-                            return doc;
-                        }
-                    }
-                    catch { }
-                }
-            }
-            catch { }
-
-            return null;
-        }
-
-        private static DTE2 GetDte()
-        {
-            try
-            {
-                NyoCoder_VSIXPackage pkg = NyoCoder_VSIXPackage.Instance;
-                if (pkg == null) return null;
-                return pkg.ApplicationObject;
-            }
-            catch
-            {
-                return null;
             }
         }
 

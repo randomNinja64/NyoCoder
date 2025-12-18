@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace NyoCoder.NyoCoder_VSIX
+namespace NyoCoder
 {
 	public class ConfigHandler
 	{

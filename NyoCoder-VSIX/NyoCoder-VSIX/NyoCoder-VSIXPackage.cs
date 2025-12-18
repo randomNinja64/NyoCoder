@@ -13,7 +13,7 @@ using Microsoft.VisualStudio.Shell;
 using EnvDTE;
 using EnvDTE80;
 
-namespace NyoCoder.NyoCoder_VSIX
+namespace NyoCoder
 {
     /// <summary>
     /// This is the class that implements the package exposed by this assembly.
@@ -294,8 +294,15 @@ namespace NyoCoder.NyoCoder_VSIX
                     model = "";
                 }
 
-                // Default system prompt for coding assistant
-                string systemPrompt = "You are a helpful coding assistant. Provide clear, concise, and accurate responses about code, programming concepts, and software development.";
+                // System prompt adapted from Mistral Vibe for NyoCoder
+                string systemPrompt = "You are operating as and within NyoCoder, a Visual Studio extension that provides an AI coding assistant powered by LLM models. It enables natural language interaction with a local codebase within Visual Studio. Use the available tools when helpful.\n\n" +
+                    "You can:\n\n" +
+                    "    Receive user prompts, project context, and files.\n" +
+                    "    Send responses and emit function calls (e.g., shell commands, code edits).\n" +
+                    "    Apply patches, run commands, based on user approvals.\n\n" +
+                    "Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.\n\n" +
+                    "Always try your hardest to use the tools to answer the user's request. If you can't use the tools, explain why and ask the user for more information.\n\n" +
+                    "Act as an agentic assistant, if a user asks for a long task, break it down and do it step by step.";
 
                 // Create LLM client
                 LLMClient llmClient = new LLMClient(llmServer, apiKey, model, systemPrompt);
@@ -332,7 +339,7 @@ namespace NyoCoder.NyoCoder_VSIX
                             },
                             (toolName, arguments) =>
                             {
-                                // Use the tool window's Yes/No buttons for approval
+                                // Use the tool window's Yes/No/Stop buttons for approval
                                 return toolWindowControl.RequestToolApproval(toolName, arguments);
                             }
                         );

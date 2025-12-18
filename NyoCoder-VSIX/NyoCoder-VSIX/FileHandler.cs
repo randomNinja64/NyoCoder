@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Text;
+using EnvDTE;
+using EnvDTE80;
 
 namespace NyoCoder
 {
@@ -66,6 +68,9 @@ public static class FileHandler
             // Expand environment variables in filename
             filename = Environment.ExpandEnvironmentVariables(filename);
 
+            // Check if file is new (didn't exist before)
+            bool isNewFile = !File.Exists(filename);
+
             // Ensure the directory exists
             string directory = Path.GetDirectoryName(filename);
             string errorMessage;
@@ -75,12 +80,101 @@ public static class FileHandler
             }
 
             File.WriteAllText(filename, content, Encoding.UTF8);
+
+            // If it's a new file, try to open it in Visual Studio
+            if (isNewFile)
+            {
+                TryOpenFileInVisualStudio(filename);
+            }
+
             return "File written successfully: " + filename;
         }
         catch (Exception ex)
         {
             exitCode = -1;
             return "Error writing file: " + ex.Message;
+        }
+    }
+
+    private static void TryOpenFileInVisualStudio(string filePath)
+    {
+        try
+        {
+            Action openFile = () =>
+            {
+                try
+                {
+                    DTE2 dte = GetDte();
+                    if (dte == null) return;
+
+                    // Normalize the path to ensure it matches
+                    string normalizedPath = Path.GetFullPath(filePath);
+                    
+                    // Check if file is already open
+                    Document doc = FindOpenDocument(dte, normalizedPath);
+                    if (doc != null)
+                    {
+                        // Activate the already open document
+                        doc.Activate();
+                    }
+                    else
+                    {
+                        // If not already open, open it
+                        dte.ItemOperations.OpenFile(normalizedPath);
+                    }
+                }
+                catch { }
+            };
+
+            // DTE automation should run on the UI thread
+            if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(openFile);
+            }
+            else
+            {
+                openFile();
+            }
+        }
+        catch
+        {
+            // Silently fail if we can't open the file - it's not critical
+        }
+    }
+
+    internal static Document FindOpenDocument(DTE2 dte, string fullPath)
+    {
+        try
+        {
+            foreach (Document doc in dte.Documents)
+            {
+                try
+                {
+                    if (doc != null && !string.IsNullOrEmpty(doc.FullName) &&
+                        string.Equals(doc.FullName, fullPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return doc;
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    internal static DTE2 GetDte()
+    {
+        try
+        {
+            NyoCoder_VSIXPackage pkg = NyoCoder_VSIXPackage.Instance;
+            if (pkg == null) return null;
+            return pkg.ApplicationObject;
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -186,6 +280,12 @@ public static class FileHandler
                 return "File not found: " + filePath;
             }
 
+            // Normalize the path
+            string normalizedPath = Path.GetFullPath(filePath);
+
+            // Check if file is open in Visual Studio and close it
+            TryCloseFileInVisualStudio(normalizedPath);
+
             // Delete the file
             File.Delete(filePath);
             
@@ -195,6 +295,44 @@ public static class FileHandler
         {
             exitCode = -1;
             return "Error deleting file: " + ex.Message;
+        }
+    }
+
+    private static void TryCloseFileInVisualStudio(string filePath)
+    {
+        try
+        {
+            Action closeFile = () =>
+            {
+                try
+                {
+                    DTE2 dte = GetDte();
+                    if (dte == null) return;
+
+                    // Check if file is open
+                    Document doc = FindOpenDocument(dte, filePath);
+                    if (doc != null)
+                    {
+                        // Close the document without saving (since we're deleting it)
+                        doc.Close(EnvDTE.vsSaveChanges.vsSaveChangesNo);
+                    }
+                }
+                catch { }
+            };
+
+            // DTE automation should run on the UI thread
+            if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(closeFile);
+            }
+            else
+            {
+                closeFile();
+            }
+        }
+        catch
+        {
+            // Silently fail if we can't close the file - it's not critical
         }
     }
 

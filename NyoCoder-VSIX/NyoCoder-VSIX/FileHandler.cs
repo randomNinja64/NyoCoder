@@ -107,34 +107,20 @@ public static class FileHandler
             {
                 try
                 {
-                    DTE2 dte = GetDte();
-                    if (dte == null) return;
-
                     // Normalize the path to ensure it matches
                     string normalizedPath = Path.GetFullPath(filePath);
 
-                    // Fast-path: if already open in a text view, just activate.
-                    Document existing = FindOpenDocument(dte, normalizedPath);
-                    if (existing != null)
-                    {
-                        try
-                        {
-                            TextDocument textDoc = existing.Object("TextDocument") as TextDocument;
-                            if (textDoc != null)
-                            {
-                                existing.Activate();
-                                return;
-                            }
-                        }
-                        catch { }
-                    }
-
-                    // Proper VSIX way: open via shell in TextView (prevents WinForms .cs from opening in designer).
+                    // Always use shell API to open in TextView.
+                    // This ensures we get code view even if designer is already open.
                     IVsUIShellOpenDocument openDoc = Package.GetGlobalService(typeof(SVsUIShellOpenDocument)) as IVsUIShellOpenDocument;
                     if (openDoc == null)
                     {
                         // Fallback: best-effort DTE open
-                        try { dte.ItemOperations.OpenFile(normalizedPath, EnvDTE.Constants.vsViewKindTextView); } catch { }
+                        DTE2 dte = GetDte();
+                        if (dte != null)
+                        {
+                            try { dte.ItemOperations.OpenFile(normalizedPath, EnvDTE.Constants.vsViewKindTextView); } catch { }
+                        }
                         return;
                     }
 
@@ -160,7 +146,7 @@ public static class FileHandler
                 catch { }
             };
 
-            // DTE automation should run on the UI thread
+            // DTE/Shell automation should run on the UI thread
             if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
             {
                 System.Windows.Application.Current.Dispatcher.Invoke(openFile);
@@ -173,6 +159,56 @@ public static class FileHandler
         catch
         {
             // Silently fail if we can't open the file - it's not critical
+        }
+    }
+
+    internal static void TryScrollToOffset(string filePath, string content, int charOffset)
+    {
+        try
+        {
+            // Convert character offset to line number
+            int lineNumber = 1;
+            if (!string.IsNullOrEmpty(content) && charOffset > 0)
+            {
+                int pos = 0;
+                for (int i = 0; i < content.Length && pos < charOffset; i++)
+                {
+                    if (content[i] == '\n')
+                    {
+                        lineNumber++;
+                    }
+                    pos++;
+                }
+            }
+
+            Action scroll = () =>
+            {
+                DTE2 dte = GetDte();
+                if (dte == null) return;
+
+                Document doc = FindOpenDocument(dte, filePath);
+                if (doc == null) return;
+
+                TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
+                if (textDoc == null) return;
+
+                // Move selection to the line - this scrolls the view
+                textDoc.Selection.GotoLine(lineNumber, false);
+                textDoc.Selection.ActivePoint.TryToShow(vsPaneShowHow.vsPaneShowCentered, null);
+            };
+
+            if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(scroll);
+            }
+            else
+            {
+                scroll();
+            }
+        }
+        catch
+        {
+            // Ignore scroll errors - not critical
         }
     }
 

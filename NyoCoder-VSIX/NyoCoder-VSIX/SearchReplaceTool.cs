@@ -149,6 +149,13 @@ namespace NyoCoder
             // Build a preview diff even if we fail (helps debugging)
             res.PreviewDiff = BuildUnifiedDiff(res.OriginalContent ?? string.Empty, res.NewContent ?? string.Empty, 200);
 
+            // Scroll to the first change so the user can see where the diff is
+            if (res.Changes.Count > 0)
+            {
+                int firstChangeOffset = res.Changes[0].OriginalIndex;
+                FileHandler.TryScrollToOffset(expandedPath, res.OriginalContent, firstChangeOffset);
+            }
+
             if (res.Errors.Count > 0)
             {
                 return res;
@@ -493,6 +500,9 @@ namespace NyoCoder
 
             try
             {
+                string localContent = null;
+                bool localIsOpen = false;
+
                 Action read = () =>
                 {
                     DTE2 dte = FileHandler.GetDte();
@@ -504,10 +514,10 @@ namespace NyoCoder
                     TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
                     if (textDoc == null) return;
 
-                    isOpen = true;
+                    localIsOpen = true;
 
                     EditPoint start = textDoc.StartPoint.CreateEditPoint();
-                    content = NormalizeLineEndings(start.GetText(textDoc.EndPoint));
+                    localContent = NormalizeLineEndings(start.GetText(textDoc.EndPoint));
                 };
 
                 // DTE automation should run on the UI thread
@@ -519,6 +529,9 @@ namespace NyoCoder
                 {
                     read();
                 }
+
+                content = localContent;
+                isOpen = localIsOpen;
             }
             catch
             {

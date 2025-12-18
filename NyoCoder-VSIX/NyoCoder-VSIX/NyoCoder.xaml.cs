@@ -26,6 +26,10 @@ namespace NyoCoder
         // Synchronization for tool approval
         private ManualResetEvent _approvalWaitHandle;
         private ApprovalResult _approvalResult;
+        
+        private volatile bool _stopRequested;
+        private Button _stopButton;
+        private volatile bool _isRunning;
 
         public NyoCoderControl()
         {
@@ -220,6 +224,22 @@ namespace NyoCoder
         }
 
         /// <summary>
+        /// Resets the stop flag for a new session.
+        /// </summary>
+        public void ResetStopRequested()
+        {
+            _stopRequested = false;
+        }
+
+        /// <summary>
+        /// Returns true if a stop has been requested.
+        /// </summary>
+        public bool IsStopRequested()
+        {
+            return _stopRequested;
+        }
+
+        /// <summary>
         /// Requests user approval for a tool execution using Yes/No/Stop buttons.
         /// This method blocks until the user clicks Yes, No, or Stop.
         /// Thread-safe: can be called from background threads.
@@ -317,6 +337,7 @@ namespace NyoCoder
         {
             HideApprovalUI();
             _approvalResult = ApprovalResult.Stopped;
+            _stopRequested = true;
             if (_approvalWaitHandle != null)
             {
                 _approvalWaitHandle.Set();

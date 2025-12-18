@@ -3,6 +3,9 @@ using System.IO;
 using System.Text;
 using EnvDTE;
 using EnvDTE80;
+using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
 
 namespace NyoCoder
 {
@@ -96,7 +99,7 @@ public static class FileHandler
         }
     }
 
-    private static void TryOpenFileInVisualStudio(string filePath)
+    internal static void TryOpenFileInVisualStudio(string filePath)
     {
         try
         {
@@ -109,18 +112,49 @@ public static class FileHandler
 
                     // Normalize the path to ensure it matches
                     string normalizedPath = Path.GetFullPath(filePath);
-                    
-                    // Check if file is already open
-                    Document doc = FindOpenDocument(dte, normalizedPath);
-                    if (doc != null)
+
+                    // Fast-path: if already open in a text view, just activate.
+                    Document existing = FindOpenDocument(dte, normalizedPath);
+                    if (existing != null)
                     {
-                        // Activate the already open document
-                        doc.Activate();
+                        try
+                        {
+                            TextDocument textDoc = existing.Object("TextDocument") as TextDocument;
+                            if (textDoc != null)
+                            {
+                                existing.Activate();
+                                return;
+                            }
+                        }
+                        catch { }
                     }
-                    else
+
+                    // Proper VSIX way: open via shell in TextView (prevents WinForms .cs from opening in designer).
+                    IVsUIShellOpenDocument openDoc = Package.GetGlobalService(typeof(SVsUIShellOpenDocument)) as IVsUIShellOpenDocument;
+                    if (openDoc == null)
                     {
-                        // If not already open, open it
-                        dte.ItemOperations.OpenFile(normalizedPath);
+                        // Fallback: best-effort DTE open
+                        try { dte.ItemOperations.OpenFile(normalizedPath, EnvDTE.Constants.vsViewKindTextView); } catch { }
+                        return;
+                    }
+
+                    Guid viewGuid = VSConstants.LOGVIEWID_TextView;
+                    Microsoft.VisualStudio.OLE.Interop.IServiceProvider sp;
+                    IVsUIHierarchy hier;
+                    uint itemid;
+                    IVsWindowFrame frame;
+
+                    int hr = openDoc.OpenDocumentViaProject(
+                        normalizedPath,
+                        ref viewGuid,
+                        out sp,
+                        out hier,
+                        out itemid,
+                        out frame);
+
+                    if (ErrorHandler.Succeeded(hr) && frame != null)
+                    {
+                        try { frame.Show(); } catch { }
                     }
                 }
                 catch { }

@@ -125,6 +125,9 @@ namespace NyoCoder
                 return res;
             }
 
+            // Open the file in the editor first so the user sees the changes
+            FileHandler.TryOpenFileInVisualStudio(expandedPath);
+
             // Prefer editing an open document buffer (so VS updates live)
             string original = null;
             bool editedOpenDocument = false;
@@ -135,6 +138,9 @@ namespace NyoCoder
             {
                 original = File.ReadAllText(expandedPath, Encoding.UTF8);
             }
+
+            // Normalize line endings for consistent matching
+            original = NormalizeLineEndings(original);
 
             res.OriginalContent = original;
 
@@ -407,8 +413,8 @@ namespace NyoCoder
                 {
                     blocks.Add(new Block
                     {
-                        Search = (match.Groups[1].Value ?? string.Empty).TrimEnd('\r', '\n'),
-                        Replace = (match.Groups[2].Value ?? string.Empty).TrimEnd('\r', '\n')
+                        Search = NormalizeLineEndings((match.Groups[1].Value ?? string.Empty).TrimEnd('\r', '\n')),
+                        Replace = NormalizeLineEndings((match.Groups[2].Value ?? string.Empty).TrimEnd('\r', '\n'))
                     });
                 }
                 return blocks;
@@ -419,12 +425,18 @@ namespace NyoCoder
             {
                 blocks.Add(new Block
                 {
-                    Search = (match.Groups[1].Value ?? string.Empty).TrimEnd('\r', '\n'),
-                    Replace = (match.Groups[2].Value ?? string.Empty).TrimEnd('\r', '\n')
+                    Search = NormalizeLineEndings((match.Groups[1].Value ?? string.Empty).TrimEnd('\r', '\n')),
+                    Replace = NormalizeLineEndings((match.Groups[2].Value ?? string.Empty).TrimEnd('\r', '\n'))
                 });
             }
 
             return blocks;
+        }
+
+        private static string NormalizeLineEndings(string text)
+        {
+            if (text == null) return null;
+            return text.Replace("\r\n", "\n").Replace("\r", "\n");
         }
 
         private static string NormalizePath(string filePath)
@@ -481,19 +493,32 @@ namespace NyoCoder
 
             try
             {
-                DTE2 dte = FileHandler.GetDte();
-                if (dte == null) return;
+                Action read = () =>
+                {
+                    DTE2 dte = FileHandler.GetDte();
+                    if (dte == null) return;
 
-                Document doc = FileHandler.FindOpenDocument(dte, expandedPath);
-                if (doc == null) return;
+                    Document doc = FileHandler.FindOpenDocument(dte, expandedPath);
+                    if (doc == null) return;
 
-                isOpen = true;
+                    TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
+                    if (textDoc == null) return;
 
-                TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
-                if (textDoc == null) return;
+                    isOpen = true;
 
-                EditPoint start = textDoc.StartPoint.CreateEditPoint();
-                content = start.GetText(textDoc.EndPoint);
+                    EditPoint start = textDoc.StartPoint.CreateEditPoint();
+                    content = NormalizeLineEndings(start.GetText(textDoc.EndPoint));
+                };
+
+                // DTE automation should run on the UI thread
+                if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(read);
+                }
+                else
+                {
+                    read();
+                }
             }
             catch
             {

@@ -96,7 +96,8 @@ public class LLMClient
         bool outputOnly,
         bool showToolOutput,
         Action<string> outputCallback = null,
-        Func<string, string, ApprovalResult> approvalCallback = null)
+        Func<string, string, ApprovalResult> approvalCallback = null,
+        Func<bool> stopRequested = null)
     {
         // Default tools requiring approval if none specified
         if (toolsRequiringApproval == null)
@@ -121,6 +122,15 @@ public class LLMClient
 
         while (true)
         {
+            if (stopRequested != null && stopRequested())
+            {
+                if (outputCallback != null)
+                {
+                    outputCallback("\n[Session stopped by user]\n");
+                }
+                return;
+            }
+
             if (!outputOnly && outputCallback == null)
             {
                 Console.WriteLine();
@@ -146,7 +156,16 @@ public class LLMClient
                 };
             }
 
-            LLMCompletionResponse response = sendMessages(conversation, outputCallback, toolCallStreamCallback);
+            LLMCompletionResponse response = sendMessages(conversation, outputCallback, toolCallStreamCallback, stopRequested);
+
+            if ((stopRequested != null && stopRequested()) || response.FinishReason == "stopped")
+            {
+                if (outputCallback != null)
+                {
+                    outputCallback("\n[Session stopped by user]\n");
+                }
+                return;
+            }
 
             if (response.ToolCalls != null && response.ToolCalls.Count > 0)
             {
@@ -166,6 +185,15 @@ public class LLMClient
                     int exitCode = 0;
                     string toolContent;
                     ApprovalResult approvalResult = ApprovalResult.Approved;
+
+                    if (stopRequested != null && stopRequested())
+                    {
+                        if (outputCallback != null)
+                        {
+                            outputCallback("\n[Session stopped by user]\n");
+                        }
+                        return;
+                    }
 
                     // Check if tool requires approval
                     if (toolsRequiringApproval.Contains(call.Name))
@@ -484,7 +512,7 @@ public class LLMClient
         return msgObj;
     }
 
-    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null)
+    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null)
     {
         // Build payload
         JObject payload = new JObject();
@@ -516,7 +544,12 @@ public class LLMClient
 
         payload["stream"] = true;
 
-        return SendHttpRequest(payload, outputCallback, toolCallCallback);
+        if (stopRequested != null && stopRequested())
+        {
+            return new LLMCompletionResponse("", new List<ToolHandler.ToolCall>(), "stopped");
+        }
+
+        return SendHttpRequest(payload, outputCallback, toolCallCallback, stopRequested);
     }
 
     /// <summary>
@@ -534,7 +567,7 @@ public class LLMClient
         sendMessages(conversation, outputCallback);
     }
 
-    private LLMCompletionResponse SendHttpRequest(JObject payload, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null)
+    private LLMCompletionResponse SendHttpRequest(JObject payload, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null)
     {
         LLMCompletionResponse completionResponse = new LLMCompletionResponse
         {
@@ -545,6 +578,12 @@ public class LLMClient
 
         try
         {
+            if (stopRequested != null && stopRequested())
+            {
+                completionResponse.FinishReason = "stopped";
+                return completionResponse;
+            }
+
             var request = (HttpWebRequest)WebRequest.Create(llmEndpoint + "/v1/chat/completions");
             request.Method = "POST";
             request.ContentType = "application/json";
@@ -572,6 +611,13 @@ public class LLMClient
 
                 while ((line = reader.ReadLine()) != null)
                 {
+                    if (stopRequested != null && stopRequested())
+                    {
+                        try { request.Abort(); } catch { }
+                        completionResponse.FinishReason = "stopped";
+                        return completionResponse;
+                    }
+
                     if (line.StartsWith("data: "))
                     {
                         string jsonPart = line.Substring(6);
@@ -699,6 +745,12 @@ public class LLMClient
         }
         catch (Exception ex)
         {
+            if (stopRequested != null && stopRequested())
+            {
+                completionResponse.FinishReason = "stopped";
+                return completionResponse;
+            }
+
             string errorMsg = "Error sending request: " + ex.Message + "\n";
             if (outputCallback != null)
                 outputCallback(errorMsg);

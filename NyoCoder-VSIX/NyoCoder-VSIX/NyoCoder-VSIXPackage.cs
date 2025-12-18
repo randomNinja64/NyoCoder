@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.ComponentModel.Design;
+using System.Text;
 using System.Threading;
 using Microsoft.Win32;
 using Microsoft.VisualStudio;
@@ -228,6 +229,60 @@ namespace NyoCoder
         }
 
         /// <summary>
+        /// Saves all open documents in Visual Studio.
+        /// </summary>
+        private void SaveAllOpenFiles()
+        {
+            try
+            {
+                DTE2 dte = GetService(typeof(DTE)) as DTE2;
+                if (dte != null && dte.Documents != null)
+                {
+                    dte.Documents.SaveAll();
+                }
+            }
+            catch
+            {
+                // If we can't save files, continue without it
+                // This prevents the feature from breaking if there's an issue with DTE
+            }
+        }
+
+        /// <summary>
+        /// Builds context information to include with user prompts (e.g., currently open file).
+        /// Returns a formatted context section, or an empty string if no context is available.
+        /// The format clearly separates context from the user's actual prompt.
+        /// </summary>
+        private string BuildUserPromptContext()
+        {
+            StringBuilder context = new StringBuilder();
+            bool hasContext = false;
+
+            try
+            {
+                DTE2 dte = GetService(typeof(DTE)) as DTE2;
+                if (dte != null && dte.ActiveDocument != null && !string.IsNullOrWhiteSpace(dte.ActiveDocument.FullName))
+                {
+                    string currentFilePath = dte.ActiveDocument.FullName;
+                    context.AppendLine("Currently open file: " + currentFilePath);
+                    hasContext = true;
+                }
+            }
+            catch
+            {
+                // If we can't get context information, continue without it
+            }
+
+            // Only return formatted context if we have any context information
+            if (hasContext)
+            {
+                return "---Context---\n" + context.ToString().TrimEnd() + "\n---End Context---";
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
         /// This function is the callback used when the "Ask NyoCoder" context menu item is clicked.
         /// Shows a prompt form to get user input for the AI.
         /// </summary>
@@ -312,8 +367,19 @@ namespace NyoCoder
                 toolWindowControl.AppendLine("User: " + promptForm.Prompt);
                 toolWindowControl.AppendLine("\nAssistant: ");
 
-                // Capture the prompt for the background thread
+                // Save all open files before calling the AI
+                SaveAllOpenFiles();
+
+                // Build the user prompt with context
+                string context = BuildUserPromptContext();
                 string userPrompt = promptForm.Prompt;
+                if (!string.IsNullOrWhiteSpace(context))
+                {
+                    userPrompt = context + "\n\n---\n\n" + userPrompt;
+                }
+
+                // Reset stop flag for this session
+                toolWindowControl.ResetStopRequested();
 
                 // Send prompt and stream response to tool window on a background thread
                 // This prevents the UI from freezing while waiting for the LLM response
@@ -341,7 +407,8 @@ namespace NyoCoder
                             {
                                 // Use the tool window's Yes/No/Stop buttons for approval
                                 return toolWindowControl.RequestToolApproval(toolName, arguments);
-                            }
+                            },
+                            stopRequested: () => toolWindowControl.IsStopRequested()
                         );
                         toolWindowControl.AppendText(Environment.NewLine); // Add newline after response
                     }

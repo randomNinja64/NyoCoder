@@ -74,26 +74,46 @@ namespace NyoCoder
 			return GetConfigValue("llmserver");
 		}
 
-		public string GetModel()
-		{
-			return GetConfigValue("model");
-		}
+	public string GetModel()
+	{
+		return GetConfigValue("model");
+	}
 
-		// Public setter methods
-		public void SetApiKey(string value)
+	// Static accessor for MaxContentLength - used by tools and options
+	public static int MaxContentLength
+	{
+		get
 		{
-			SetConfigValue("apiKey", value);
+			ConfigHandler config = new ConfigHandler();
+			string value = config.GetConfigValue("maxContentLength", "");
+			int result;
+			return (int.TryParse(value, out result) && result > 0) ? result : 8000;
 		}
+	}
 
-		public void SetLlmServer(string value)
-		{
-			SetConfigValue("llmserver", value);
-		}
+	// Public setter methods
+	public void SetApiKey(string value)
+	{
+		SetConfigValue("apiKey", value);
+	}
 
-		public void SetModel(string value)
+	public void SetLlmServer(string value)
+	{
+		SetConfigValue("llmserver", value);
+	}
+
+	public void SetModel(string value)
+	{
+		SetConfigValue("model", value);
+	}
+
+	public void SetMaxContentLength(int value)
+	{
+		if (value > 0)
 		{
-			SetConfigValue("model", value);
+			SetConfigValue("maxContentLength", value.ToString());
 		}
+	}
 
 		// Simple INI file loader - returns Dictionary of key=value pairs
 		private Dictionary<string, string> LoadIni(string filename)

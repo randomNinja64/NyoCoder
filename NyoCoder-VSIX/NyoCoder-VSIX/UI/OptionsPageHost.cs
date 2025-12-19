@@ -15,6 +15,8 @@ namespace NyoCoder
         private TextBox txtLlmServer;
         private Label lblModel;
         private TextBox txtModel;
+        private Label lblMaxContentLength;
+        private TextBox txtMaxContentLength;
 
         public OptionsPageHost(OptionsPage page)
         {
@@ -31,6 +33,8 @@ namespace NyoCoder
             this.txtLlmServer = new TextBox();
             this.lblModel = new Label();
             this.txtModel = new TextBox();
+            this.lblMaxContentLength = new Label();
+            this.txtMaxContentLength = new TextBox();
             this.SuspendLayout();
 
             // lblTitle
@@ -70,6 +74,16 @@ namespace NyoCoder
             this.txtModel.Size = new Size(360, 23);
             this.txtModel.TextChanged += new EventHandler(this.txtModel_TextChanged);
 
+            // lblMaxContentLength
+            this.lblMaxContentLength.AutoSize = true;
+            this.lblMaxContentLength.Location = new Point(20, 230);
+            this.lblMaxContentLength.Text = "Max Content Length (characters):";
+
+            // txtMaxContentLength
+            this.txtMaxContentLength.Location = new Point(20, 250);
+            this.txtMaxContentLength.Size = new Size(360, 23);
+            this.txtMaxContentLength.TextChanged += new EventHandler(this.txtMaxContentLength_TextChanged);
+
             // OptionsPageHost
             this.BackColor = SystemColors.Control;
             this.Controls.Add(this.lblTitle);
@@ -79,7 +93,9 @@ namespace NyoCoder
             this.Controls.Add(this.txtLlmServer);
             this.Controls.Add(this.lblModel);
             this.Controls.Add(this.txtModel);
-            this.Size = new Size(400, 250);
+            this.Controls.Add(this.lblMaxContentLength);
+            this.Controls.Add(this.txtMaxContentLength);
+            this.Size = new Size(400, 310);
             this.ResumeLayout(false);
             this.PerformLayout();
         }
@@ -100,6 +116,18 @@ namespace NyoCoder
         {
             get { return txtModel.Text; }
             set { txtModel.Text = value ?? string.Empty; }
+        }
+
+        public int MaxContentLength
+        {
+            get 
+            {
+                int result;
+                if (int.TryParse(txtMaxContentLength.Text, out result) && result > 0)
+                    return result;
+                return 8000; // Default value
+            }
+            set { txtMaxContentLength.Text = value.ToString(); }
         }
 
         private void txtApiKey_TextChanged(object sender, EventArgs e)
@@ -123,6 +151,14 @@ namespace NyoCoder
             if (optionsPage != null)
             {
                 optionsPage.Model = this.Model;
+            }
+        }
+
+        private void txtMaxContentLength_TextChanged(object sender, EventArgs e)
+        {
+            if (optionsPage != null)
+            {
+                optionsPage.MaxContentLength = this.MaxContentLength;
             }
         }
     }

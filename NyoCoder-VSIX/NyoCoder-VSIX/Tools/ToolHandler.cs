@@ -401,7 +401,7 @@ public static class ToolHandler
             bool previewShownInline = false;
             if (!string.IsNullOrEmpty(preview.NormalizedFilePath))
             {
-                previewShownInline = SearchReplaceTool.TrySetOpenDocumentContent(preview.NormalizedFilePath, inline.Content, false);
+                previewShownInline = EditorService.TrySetOpenDocumentContent(preview.NormalizedFilePath, inline.Content, false);
             }
 
             // Show inline highlight adornments (background + strikethrough) for preview spans
@@ -491,7 +491,7 @@ public static class ToolHandler
                 // Restore original content if we showed an inline preview
                 if (previewShownInline && !string.IsNullOrEmpty(preview.NormalizedFilePath))
                 {
-                    SearchReplaceTool.TrySetOpenDocumentContent(preview.NormalizedFilePath, preview.OriginalContent ?? "", false);
+                    EditorService.TrySetOpenDocumentContent(preview.NormalizedFilePath, preview.OriginalContent ?? "", false);
                 }
                 addSpacer();
                 sb.AppendLine(notApprovedMessage);
@@ -518,7 +518,7 @@ public static class ToolHandler
             // If the doc is open (inline preview path), set final content in the editor and save.
             if (previewShownInline && !string.IsNullOrEmpty(preview.NormalizedFilePath))
             {
-                appliedOk = SearchReplaceTool.TrySetOpenDocumentContent(preview.NormalizedFilePath, preview.NewContent ?? "", true);
+                appliedOk = EditorService.TrySetOpenDocumentContent(preview.NormalizedFilePath, preview.NewContent ?? "", true);
             }
 
             // Fallback: apply via file write / open-doc apply

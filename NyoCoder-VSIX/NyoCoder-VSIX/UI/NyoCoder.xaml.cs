@@ -28,8 +28,6 @@ namespace NyoCoder
         private ApprovalResult _approvalResult;
         
         private volatile bool _stopRequested;
-        private Button _stopButton;
-        private volatile bool _isRunning;
 
         public NyoCoderControl()
         {

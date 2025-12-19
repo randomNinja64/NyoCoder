@@ -44,13 +44,19 @@ namespace NyoCoder
             set { configHandler.SetLlmServer(value); }
         }
 
-        public string Model
-        {
-            get { return configHandler.GetModel(); }
-            set { configHandler.SetModel(value); }
-        }
+	public string Model
+	{
+		get { return configHandler.GetModel(); }
+		set { configHandler.SetModel(value); }
+	}
 
-        public override void LoadSettingsFromStorage()
+	public int MaxContentLength
+	{
+		get { return ConfigHandler.MaxContentLength; }
+		set { configHandler.SetMaxContentLength(value); }
+	}
+
+	public override void LoadSettingsFromStorage()
         {
             base.LoadSettingsFromStorage();
             // Reload config from file (in case it was changed externally)
@@ -61,26 +67,28 @@ namespace NyoCoder
         public override void SaveSettingsToStorage()
         {
             base.SaveSettingsToStorage();
-            // Get values from host if available (it's the source of truth for UI),
-            // otherwise use properties (which read from ConfigHandler)
-            if (host != null)
-            {
-                configHandler.SetApiKey(host.ApiKey);
-                configHandler.SetLlmServer(host.LlmServer);
-                configHandler.SetModel(host.Model);
-            }
-            // Properties already update ConfigHandler when set, so we just need to save
-            configHandler.SaveConfig();
+		// Get values from host if available (it's the source of truth for UI),
+		// otherwise use properties (which read from ConfigHandler)
+		if (host != null)
+		{
+			configHandler.SetApiKey(host.ApiKey);
+			configHandler.SetLlmServer(host.LlmServer);
+			configHandler.SetModel(host.Model);
+			configHandler.SetMaxContentLength(host.MaxContentLength);
+		}
+		// Properties already update ConfigHandler when set, so we just need to save
+		configHandler.SaveConfig();
         }
 
-        private void UpdateHostFromConfig()
-        {
-            if (host != null)
-            {
-                host.ApiKey = ApiKey ?? string.Empty;
-                host.LlmServer = LlmServer ?? string.Empty;
-                host.Model = Model ?? string.Empty;
-            }
-        }
+	private void UpdateHostFromConfig()
+	{
+		if (host != null)
+		{
+			host.ApiKey = ApiKey ?? string.Empty;
+			host.LlmServer = LlmServer ?? string.Empty;
+			host.Model = Model ?? string.Empty;
+			host.MaxContentLength = MaxContentLength;
+		}
+	}
     }
 }

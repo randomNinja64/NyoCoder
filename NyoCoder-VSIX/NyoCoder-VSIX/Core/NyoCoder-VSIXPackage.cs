@@ -249,7 +249,39 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Builds context information to include with user prompts (e.g., currently open file).
+        /// Gets surrounding code lines around the cursor position.
+        /// Marks the current line with '>' for visibility.
+        /// </summary>
+        private string GetSurroundingCode(Document document, int cursorLine, int contextLines)
+        {
+            try
+            {
+                TextDocument textDoc = document.Object("TextDocument") as TextDocument;
+                if (textDoc == null) return string.Empty;
+
+                string fullText = textDoc.StartPoint.CreateEditPoint().GetText(textDoc.EndPoint);
+                string[] lines = fullText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
+                int startLine = Math.Max(0, cursorLine - 1 - contextLines);
+                int endLine = Math.Min(lines.Length, cursorLine + contextLines);
+
+                StringBuilder result = new StringBuilder();
+                for (int i = startLine; i < endLine; i++)
+                {
+                    string marker = (i == cursorLine - 1) ? "> " : "  ";
+                    result.AppendLine(marker + lines[i]);
+                }
+
+                return result.ToString().TrimEnd();
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Builds context information to include with user prompts (e.g., currently open file, cursor position, selected text).
         /// Returns a formatted context section, or an empty string if no context is available.
         /// The format clearly separates context from the user's actual prompt.
         /// </summary>
@@ -266,6 +298,43 @@ namespace NyoCoder
                     string currentFilePath = dte.ActiveDocument.FullName;
                     context.AppendLine("Currently open file: " + currentFilePath);
                     hasContext = true;
+
+                    // Try to get cursor position and selected text
+                    try
+                    {
+                        TextSelection selection = dte.ActiveDocument.Selection as TextSelection;
+                        if (selection != null)
+                        {
+                            // Get cursor position (line and column)
+                            int currentLine = selection.ActivePoint.Line;
+                            int currentColumn = selection.ActivePoint.DisplayColumn;
+                            context.AppendLine("Cursor position: Line " + currentLine + ", Column " + currentColumn);
+
+                            // Get surrounding code context (5 lines before/after cursor)
+                            string surroundingCode = GetSurroundingCode(dte.ActiveDocument, currentLine, 5);
+                            if (!string.IsNullOrEmpty(surroundingCode))
+                            {
+                                context.AppendLine("Surrounding code:");
+                                context.AppendLine("```");
+                                context.AppendLine(surroundingCode);
+                                context.AppendLine("```");
+                            }
+
+                            // Get selected/highlighted text if any
+                            string selectedText = selection.Text;
+                            if (!string.IsNullOrEmpty(selectedText))
+                            {
+                                context.AppendLine("Selected text:");
+                                context.AppendLine("```");
+                                context.AppendLine(selectedText);
+                                context.AppendLine("```");
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // If we can't get selection info, continue without it
+                    }
                 }
             }
             catch

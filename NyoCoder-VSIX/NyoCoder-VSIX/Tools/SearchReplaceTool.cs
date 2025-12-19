@@ -126,7 +126,7 @@ namespace NyoCoder
             }
 
             // Open the file in the editor first so the user sees the changes
-            FileHandler.TryOpenFileInVisualStudio(expandedPath);
+            EditorService.TryOpenFileInVisualStudio(expandedPath);
 
             // Prefer editing an open document buffer (so VS updates live)
             string original = null;
@@ -153,7 +153,7 @@ namespace NyoCoder
             if (res.Changes.Count > 0)
             {
                 int firstChangeOffset = res.Changes[0].OriginalIndex;
-                FileHandler.TryScrollToOffset(expandedPath, res.OriginalContent, firstChangeOffset);
+                EditorService.TryScrollToOffset(expandedPath, res.OriginalContent, firstChangeOffset);
             }
 
             if (res.Errors.Count > 0)
@@ -249,49 +249,6 @@ namespace NyoCoder
                 File.WriteAllText(res.NormalizedFilePath, res.NewContent, Encoding.UTF8);
             }
             return true;
-        }
-
-        internal static bool TrySetOpenDocumentContent(string fullPath, string newContent, bool save)
-        {
-            try
-            {
-                Action apply = () =>
-                {
-                    DTE2 dte = FileHandler.GetDte();
-                    if (dte == null) return;
-
-                    Document doc = FileHandler.FindOpenDocument(dte, fullPath);
-                    if (doc == null) return;
-
-                    TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
-                    if (textDoc == null) return;
-
-                    EditPoint start = textDoc.StartPoint.CreateEditPoint();
-                    start.ReplaceText(textDoc.EndPoint, newContent ?? string.Empty, (int)vsEPReplaceTextOptions.vsEPReplaceTextKeepMarkers);
-
-                    if (save)
-                    {
-                        try { doc.Save(); } catch { }
-                    }
-                };
-
-                if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
-                {
-                    System.Windows.Application.Current.Dispatcher.Invoke(apply);
-                }
-                else
-                {
-                    apply();
-                }
-
-                DTE2 check = FileHandler.GetDte();
-                if (check == null) return false;
-                return FileHandler.FindOpenDocument(check, fullPath) != null;
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         // Backwards-compatible helper: preview + apply (no approval)
@@ -505,10 +462,10 @@ namespace NyoCoder
 
                 Action read = () =>
                 {
-                    DTE2 dte = FileHandler.GetDte();
+                    DTE2 dte = EditorService.GetDte();
                     if (dte == null) return;
 
-                    Document doc = FileHandler.FindOpenDocument(dte, expandedPath);
+                    Document doc = EditorService.FindOpenDocument(dte, expandedPath);
                     if (doc == null) return;
 
                     TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
@@ -546,10 +503,10 @@ namespace NyoCoder
             {
                 Action apply = () =>
                 {
-                    DTE2 dte = FileHandler.GetDte();
+                    DTE2 dte = EditorService.GetDte();
                     if (dte == null) return;
 
-                    Document doc = FileHandler.FindOpenDocument(dte, expandedPath);
+                    Document doc = EditorService.FindOpenDocument(dte, expandedPath);
                     if (doc == null) return;
 
                     TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
@@ -579,9 +536,7 @@ namespace NyoCoder
                 }
 
                 // If we got here without throwing and the doc was open, we consider it applied
-                DTE2 check = FileHandler.GetDte();
-                if (check == null) return false;
-                return FileHandler.FindOpenDocument(check, expandedPath) != null;
+                return EditorService.IsDocumentOpen(expandedPath);
             }
             catch
             {

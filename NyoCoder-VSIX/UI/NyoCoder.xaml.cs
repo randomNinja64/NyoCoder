@@ -28,10 +28,80 @@ namespace NyoCoder
         private ApprovalResult _approvalResult;
         
         private volatile bool _stopRequested;
+        
+        // Token tracking
+        private int _totalCharacterCount;
+        
+        // Summarization threshold (90%)
+        private const double SummarizationThreshold = 0.90;
 
         public NyoCoderControl()
         {
             InitializeComponent();
+        }
+
+        /// <summary>
+        /// Checks if summarization is needed based on context window usage.
+        /// Returns true if usage exceeds 90% and context window is configured.
+        /// </summary>
+        public bool NeedsSummarization()
+        {
+            int? contextWindowSize = ConfigHandler.ContextWindowSize;
+            if (!contextWindowSize.HasValue || contextWindowSize.Value <= 0)
+                return false;
+
+            int totalCharacters = _totalCharacterCount + ContextEngine.GetBaseCharacterOverhead();
+            int approximateTokens = totalCharacters / 3;
+            double usage = (double)approximateTokens / contextWindowSize.Value;
+            
+            return usage >= SummarizationThreshold;
+        }
+
+        /// <summary>
+        /// Gets the current approximate token count including overhead.
+        /// </summary>
+        public int GetApproximateTokenCount()
+        {
+            int totalCharacters = _totalCharacterCount + ContextEngine.GetBaseCharacterOverhead();
+            return totalCharacters / 3;
+        }
+
+        /// <summary>
+        /// Resets the character count to a specific value (used after summarization).
+        /// </summary>
+        public void ResetCharacterCount(int newCount = 0)
+        {
+            if (Dispatcher.CheckAccess())
+            {
+                _totalCharacterCount = newCount;
+                RefreshTokenDisplay();
+            }
+            else
+            {
+                Dispatcher.Invoke(new Action(() => ResetCharacterCount(newCount)));
+            }
+        }
+
+        /// <summary>
+        /// Adds characters to the token counter without printing them.
+        /// Use this for hidden prompt content (e.g., editor context) that is sent to the LLM
+        /// but not displayed in the output pane.
+        /// </summary>
+        public void AddToCharacterCount(int delta)
+        {
+            if (delta == 0)
+                return;
+
+            if (Dispatcher.CheckAccess())
+            {
+                _totalCharacterCount = Math.Max(0, _totalCharacterCount + delta);
+                RefreshTokenDisplay();
+            }
+            else
+            {
+                // non-blocking to avoid locking UI/caller
+                Dispatcher.BeginInvoke(new Action(() => AddToCharacterCount(delta)));
+            }
         }
 
         /// <summary>
@@ -53,6 +123,10 @@ namespace NyoCoder
         {
             if (string.IsNullOrEmpty(text))
                 return;
+
+            // Track character count for token estimation
+            _totalCharacterCount += text.Length;
+            RefreshTokenDisplay();
 
             // Get the last paragraph, or create one if none exists
             Paragraph lastParagraph = null;
@@ -116,11 +190,41 @@ namespace NyoCoder
             if (Dispatcher.CheckAccess())
             {
                 OutputTextBox.Document.Blocks.Clear();
+                _totalCharacterCount = 0;
+                RefreshTokenDisplay();
             }
             else
             {
                 Dispatcher.Invoke(new Action(ClearOutput));
             }
+        }
+
+        /// <summary>
+        /// Refreshes the token display based on current character count.
+        /// Must be called on the UI thread.
+        /// </summary>
+        private void RefreshTokenDisplay()
+        {
+            // Calculate total characters including base overhead (system prompt + tools)
+            int totalCharacters = _totalCharacterCount + ContextEngine.GetBaseCharacterOverhead();
+            
+            // Approximate tokens as characters / 3
+            int approximateTokens = totalCharacters / 3;
+            int? contextWindowSize = ConfigHandler.ContextWindowSize;
+
+            string statusText;
+            if (contextWindowSize.HasValue && contextWindowSize.Value > 0)
+            {
+                double percentage = (double)approximateTokens / contextWindowSize.Value * 100;
+                statusText = string.Format("Tokens: ~{0:N0} / {1:N0} ({2:F1}%)", 
+                    approximateTokens, contextWindowSize.Value, percentage);
+            }
+            else
+            {
+                statusText = string.Format("Tokens: ~{0:N0}", approximateTokens);
+            }
+
+            TokenStatusText.Text = statusText;
         }
 
         /// <summary>
@@ -131,6 +235,8 @@ namespace NyoCoder
             if (Dispatcher.CheckAccess())
             {
                 OutputTextBox.Document.Blocks.Clear();
+                _totalCharacterCount = text != null ? text.Length : 0;
+                RefreshTokenDisplay();
                 var paragraph = new Paragraph(new Run(text)) { Margin = new Thickness(0), Padding = new Thickness(0) };
                 OutputTextBox.Document.Blocks.Add(paragraph);
                 OutputTextBox.ScrollToEnd();

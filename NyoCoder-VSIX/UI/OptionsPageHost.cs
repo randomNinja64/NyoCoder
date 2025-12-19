@@ -17,6 +17,8 @@ namespace NyoCoder
         private TextBox txtModel;
         private Label lblMaxContentLength;
         private TextBox txtMaxContentLength;
+        private Label lblContextWindowSize;
+        private TextBox txtContextWindowSize;
 
         public OptionsPageHost(OptionsPage page)
         {
@@ -35,54 +37,61 @@ namespace NyoCoder
             this.txtModel = new TextBox();
             this.lblMaxContentLength = new Label();
             this.txtMaxContentLength = new TextBox();
+            this.lblContextWindowSize = new Label();
+            this.txtContextWindowSize = new TextBox();
             this.SuspendLayout();
 
             // lblTitle
             this.lblTitle.AutoSize = true;
             this.lblTitle.Font = new Font(this.Font, FontStyle.Bold);
-            this.lblTitle.Location = new Point(20, 20);
+            this.lblTitle.Location = new Point(20, 10);
             this.lblTitle.Text = "Options:";
 
             // lblApiKey
             this.lblApiKey.AutoSize = true;
-            this.lblApiKey.Location = new Point(20, 50);
+            this.lblApiKey.Location = new Point(20, 35);
             this.lblApiKey.Text = "API Key:";
 
             // txtApiKey
-            this.txtApiKey.Location = new Point(20, 70);
+            this.txtApiKey.Location = new Point(20, 52);
             this.txtApiKey.Size = new Size(360, 23);
             this.txtApiKey.UseSystemPasswordChar = true;
-            this.txtApiKey.TextChanged += new EventHandler(this.txtApiKey_TextChanged);
 
             // lblLlmServer
             this.lblLlmServer.AutoSize = true;
-            this.lblLlmServer.Location = new Point(20, 110);
+            this.lblLlmServer.Location = new Point(20, 82);
             this.lblLlmServer.Text = "LLM Server (OpenAI Compatible):";
 
             // txtLlmServer
-            this.txtLlmServer.Location = new Point(20, 130);
+            this.txtLlmServer.Location = new Point(20, 99);
             this.txtLlmServer.Size = new Size(360, 23);
-            this.txtLlmServer.TextChanged += new EventHandler(this.txtLlmServer_TextChanged);
 
             // lblModel
             this.lblModel.AutoSize = true;
-            this.lblModel.Location = new Point(20, 170);
+            this.lblModel.Location = new Point(20, 129);
             this.lblModel.Text = "Model:";
 
             // txtModel
-            this.txtModel.Location = new Point(20, 190);
+            this.txtModel.Location = new Point(20, 146);
             this.txtModel.Size = new Size(360, 23);
-            this.txtModel.TextChanged += new EventHandler(this.txtModel_TextChanged);
 
             // lblMaxContentLength
             this.lblMaxContentLength.AutoSize = true;
-            this.lblMaxContentLength.Location = new Point(20, 230);
+            this.lblMaxContentLength.Location = new Point(20, 176);
             this.lblMaxContentLength.Text = "Max Content Length (characters):";
 
             // txtMaxContentLength
-            this.txtMaxContentLength.Location = new Point(20, 250);
+            this.txtMaxContentLength.Location = new Point(20, 193);
             this.txtMaxContentLength.Size = new Size(360, 23);
-            this.txtMaxContentLength.TextChanged += new EventHandler(this.txtMaxContentLength_TextChanged);
+
+            // lblContextWindowSize
+            this.lblContextWindowSize.AutoSize = true;
+            this.lblContextWindowSize.Location = new Point(20, 223);
+            this.lblContextWindowSize.Text = "Context Window Size (tokens)";
+
+            // txtContextWindowSize
+            this.txtContextWindowSize.Location = new Point(20, 240);
+            this.txtContextWindowSize.Size = new Size(360, 23);
 
             // OptionsPageHost
             this.BackColor = SystemColors.Control;
@@ -95,7 +104,9 @@ namespace NyoCoder
             this.Controls.Add(this.txtModel);
             this.Controls.Add(this.lblMaxContentLength);
             this.Controls.Add(this.txtMaxContentLength);
-            this.Size = new Size(400, 310);
+            this.Controls.Add(this.lblContextWindowSize);
+            this.Controls.Add(this.txtContextWindowSize);
+            this.Size = new Size(400, 280);
             this.ResumeLayout(false);
             this.PerformLayout();
         }
@@ -130,36 +141,22 @@ namespace NyoCoder
             set { txtMaxContentLength.Text = value.ToString(); }
         }
 
-        private void txtApiKey_TextChanged(object sender, EventArgs e)
+        public int? ContextWindowSize
         {
-            if (optionsPage != null)
+            get 
             {
-                optionsPage.ApiKey = this.ApiKey;
+                string text = txtContextWindowSize.Text != null ? txtContextWindowSize.Text.Trim() : null;
+                if (string.IsNullOrEmpty(text))
+                    return null;
+                
+                int result;
+                return (int.TryParse(text, out result) && result > 0) ? (int?)result : null;
+            }
+            set 
+            { 
+                txtContextWindowSize.Text = value.HasValue ? value.Value.ToString() : string.Empty; 
             }
         }
 
-        private void txtLlmServer_TextChanged(object sender, EventArgs e)
-        {
-            if (optionsPage != null)
-            {
-                optionsPage.LlmServer = this.LlmServer;
-            }
-        }
-
-        private void txtModel_TextChanged(object sender, EventArgs e)
-        {
-            if (optionsPage != null)
-            {
-                optionsPage.Model = this.Model;
-            }
-        }
-
-        private void txtMaxContentLength_TextChanged(object sender, EventArgs e)
-        {
-            if (optionsPage != null)
-            {
-                optionsPage.MaxContentLength = this.MaxContentLength;
-            }
-        }
     }
 }

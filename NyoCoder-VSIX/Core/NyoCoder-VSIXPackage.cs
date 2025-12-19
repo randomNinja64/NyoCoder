@@ -117,6 +117,9 @@ namespace NyoCoder
             Trace.WriteLine (string.Format(CultureInfo.CurrentCulture, "Entering Initialize() of: {0}", this.ToString()));
             base.Initialize();
 
+            // Initialize ConfigHandler to load config on extension startup
+            ConfigHandler.Initialize();
+
             // Add our command handlers for menu (commands must exist in the .vsct file)
             OleMenuCommandService mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
             if ( null != mcs )
@@ -272,10 +275,9 @@ namespace NyoCoder
                 }
 
                 // Get configuration
-                ConfigHandler config = new ConfigHandler();
-                string apiKey = config.GetApiKey();
-                string llmServer = config.GetLlmServer();
-                string model = config.GetModel();
+                string apiKey = ConfigHandler.GetApiKey();
+                string llmServer = ConfigHandler.GetLlmServer();
+                string model = ConfigHandler.GetModel();
 
                 // Validate configuration - only LLM Server is required
                 if (string.IsNullOrWhiteSpace(llmServer))
@@ -299,18 +301,8 @@ namespace NyoCoder
                     model = "";
                 }
 
-                // System prompt adapted from Mistral Vibe for NyoCoder
-                string systemPrompt = "You are operating as and within NyoCoder, a Visual Studio extension that provides an AI coding assistant powered by LLM models. It enables natural language interaction with a local codebase within Visual Studio. Use the available tools when helpful.\n\n" +
-                    "You can:\n\n" +
-                    "    Receive user prompts, project context, and files.\n" +
-                    "    Send responses and emit function calls (e.g., shell commands, code edits).\n" +
-                    "    Apply patches, run commands, based on user approvals.\n\n" +
-                    "Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.\n\n" +
-                    "Always try your hardest to use the tools to answer the user's request. If you can't use the tools, explain why and ask the user for more information.\n\n" +
-                    "Act as an agentic assistant, if a user asks for a long task, break it down and do it step by step.";
-
-                // Create LLM client
-                LLMClient llmClient = new LLMClient(llmServer, apiKey, model, systemPrompt);
+                // Create LLM client with shared system prompt
+                LLMClient llmClient = new LLMClient(llmServer, apiKey, model, ContextEngine.SystemPrompt);
 
                 // Clear previous output and show prompt
                 toolWindowControl.ClearOutput();
@@ -326,6 +318,14 @@ namespace NyoCoder
                 if (!string.IsNullOrWhiteSpace(context))
                 {
                     userPrompt = context + "\n\n---\n\n" + userPrompt;
+                }
+
+                // The UI prints only promptForm.Prompt, but we send userPrompt (includes hidden context).
+                // Add the hidden characters so the status bar matches actual context usage.
+                int hiddenDelta = userPrompt.Length - (promptForm.Prompt != null ? promptForm.Prompt.Length : 0);
+                if (hiddenDelta > 0)
+                {
+                    toolWindowControl.AddToCharacterCount(hiddenDelta);
                 }
 
                 // Reset stop flag for this session
@@ -351,6 +351,7 @@ namespace NyoCoder
                             (text) =>
                             {
                                 // AppendText already handles thread-safe marshaling via Dispatcher
+                                // Token count updates automatically when text is appended
                                 toolWindowControl.AppendText(text);
                             },
                             (toolName, arguments) =>
@@ -358,7 +359,12 @@ namespace NyoCoder
                                 // Use the tool window's Yes/No/Stop buttons for approval
                                 return toolWindowControl.RequestToolApproval(toolName, arguments);
                             },
-                            stopRequested: () => toolWindowControl.IsStopRequested()
+                            stopRequested: () => toolWindowControl.IsStopRequested(),
+                            onSummarized: (newCharCount) =>
+                            {
+                                // Reset the UI character count after summarization
+                                toolWindowControl.ResetCharacterCount(newCharCount);
+                            }
                         );
                         toolWindowControl.AppendText(Environment.NewLine); // Add newline after response
                     }

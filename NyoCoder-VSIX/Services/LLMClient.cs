@@ -85,7 +85,8 @@ public class LLMClient
         bool showToolOutput,
         Action<string> outputCallback = null,
         Func<string, string, ApprovalResult> approvalCallback = null,
-        Func<bool> stopRequested = null)
+        Func<bool> stopRequested = null,
+        Action<int> onSummarized = null)
     {
         // Default tools requiring approval if none specified
         if (toolsRequiringApproval == null)
@@ -277,6 +278,37 @@ public class LLMClient
                     }
                 }
 
+                // Check if we need to summarize before the next LLM call
+                if (ShouldSummarize(conversation))
+                {
+                    if (outputCallback != null)
+                    {
+                        outputCallback("\n[Context usage high - summarizing conversation...]\n");
+                    }
+                    
+                    string summary = SummarizeConversation(conversation, outputCallback);
+                    
+                    if (!string.IsNullOrEmpty(summary))
+                    {
+                        // Replace conversation with summary
+                        conversation.Clear();
+                        conversation.Add(new ChatMessage("user", 
+                            "[Previous conversation summary]\n" + summary + 
+                            "\n\n[Continue from this context. The user's original request is being processed.]"));
+                        
+                        if (outputCallback != null)
+                        {
+                            outputCallback("\n[Conversation summarized - continuing...]\n\n");
+                        }
+                        
+                        // Notify UI to reset character count
+                        if (onSummarized != null)
+                        {
+                            onSummarized(GetConversationCharacterCount(conversation));
+                        }
+                    }
+                }
+
                 // Run loop again so assistant can ingest tool output
                 continue;
             }
@@ -407,6 +439,49 @@ public class LLMClient
     }
 
     /// <summary>
+    /// Checks if the conversation should be summarized based on context window usage.
+    /// Returns true if usage exceeds 90% and context window is configured.
+    /// </summary>
+    private bool ShouldSummarize(List<ChatMessage> conversation)
+    {
+        int? contextWindowSize = ConfigHandler.ContextWindowSize;
+        if (!contextWindowSize.HasValue || contextWindowSize.Value <= 0)
+            return false;
+
+        int totalCharacters = GetConversationCharacterCount(conversation) + ContextEngine.GetBaseCharacterOverhead();
+        int approximateTokens = totalCharacters / 3;
+        double usage = (double)approximateTokens / contextWindowSize.Value;
+        
+        return usage >= 0.90; // 90% threshold
+    }
+
+    /// <summary>
+    /// Calculates the total character count of a conversation.
+    /// </summary>
+    private int GetConversationCharacterCount(List<ChatMessage> conversation)
+    {
+        int count = 0;
+        foreach (var msg in conversation)
+        {
+            if (!string.IsNullOrEmpty(msg.Content))
+            {
+                count += msg.Content.Length;
+            }
+            if (msg.ToolCalls != null)
+            {
+                foreach (var toolCall in msg.ToolCalls)
+                {
+                    if (!string.IsNullOrEmpty(toolCall.Name))
+                        count += toolCall.Name.Length;
+                    if (!string.IsNullOrEmpty(toolCall.Arguments))
+                        count += toolCall.Arguments.Length;
+                }
+            }
+        }
+        return count;
+    }
+
+    /// <summary>
     /// Sends a simple prompt to the LLM and streams the response to the output callback.
     /// </summary>
     public void SendPrompt(string userPrompt, Action<string> outputCallback)
@@ -419,6 +494,37 @@ public class LLMClient
         conversation.Add(userMsg);
 
         sendMessages(conversation, outputCallback);
+    }
+
+    /// <summary>
+    /// Summarizes the current conversation to reduce context usage.
+    /// Appends a summary request to the conversation, gets the summary, and returns it.
+    /// </summary>
+    public string SummarizeConversation(List<ChatMessage> conversation, Action<string> outputCallback = null)
+    {
+        if (conversation == null || conversation.Count == 0)
+            return string.Empty;
+
+        // Add a request for summary to the existing conversation
+        List<ChatMessage> summaryConversation = new List<ChatMessage>(conversation);
+        summaryConversation.Add(new ChatMessage("user", 
+            "Please provide a concise summary of our conversation so far. " +
+            "Focus on: what was requested, what actions were taken (files, commands), " +
+            "current state, and any pending tasks. Include key details like file paths."));
+
+        StringBuilder summary = new StringBuilder();
+        
+        // Use regular sendMessages - we just want the text content, ignore any tool calls
+        sendMessages(summaryConversation, (text) =>
+        {
+            summary.Append(text);
+            if (outputCallback != null)
+            {
+                outputCallback(text);
+            }
+        }, null, null);
+
+        return summary.ToString();
     }
 
     private LLMCompletionResponse SendHttpRequest(JObject payload, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null)

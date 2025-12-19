@@ -165,9 +165,6 @@
     <Compile Include="UI\OptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\OptionsPageControl.xaml.cs">
-      <DependentUpon>OptionsPageControl.xaml</DependentUpon>
-    </Compile>
     <Compile Include="UI\PromptForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -218,10 +215,6 @@
   </ItemGroup>
   <ItemGroup>
     <Page Include="UI\NyoCoder.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="UI\OptionsPageControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

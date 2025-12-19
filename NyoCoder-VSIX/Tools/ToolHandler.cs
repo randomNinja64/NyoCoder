@@ -372,13 +372,6 @@ public static class ToolHandler
                 if (sb.Length > 0) sb.AppendLine();
             };
 
-            if (!string.IsNullOrEmpty(preview.PreviewDiff))
-            {
-                addSpacer();
-                sb.AppendLine("Preview diff (truncated):");
-                sb.AppendLine(preview.PreviewDiff);
-            }
-
             if (preview.Errors.Count > 0)
             {
                 addSpacer();

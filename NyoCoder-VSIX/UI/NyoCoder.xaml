@@ -10,13 +10,28 @@
              Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}">
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
+        <!-- Status bar showing token usage -->
+        <Border x:Name="TokenStatusBar"
+                Grid.Row="0"
+                Background="#2D2D30"
+                BorderBrush="#3F3F46"
+                BorderThickness="0,0,0,1"
+                Padding="6,3">
+            <TextBlock x:Name="TokenStatusText"
+                       Foreground="#E0E0E0"
+                       FontFamily="Segoe UI"
+                       FontSize="11"
+                       Text="Tokens: 0"/>
+        </Border>
+        
         <!-- Output text box -->
         <RichTextBox x:Name="OutputTextBox"
-                     Grid.Row="0"
+                     Grid.Row="1"
                      IsReadOnly="True"
                      VerticalScrollBarVisibility="Auto"
                      HorizontalScrollBarVisibility="Auto"
@@ -41,7 +56,7 @@
         
         <!-- Button panel -->
         <StackPanel x:Name="ButtonPanel"
-                    Grid.Row="1"
+                    Grid.Row="2"
                     Orientation="Horizontal"
                     Height="36"
                     Margin="2"

@@ -157,5 +157,15 @@ namespace NyoCoder
             tool["function"] = func;
             return tool;
         }
+
+        /// <summary>
+        /// Gets the approximate character length of all tool definitions.
+        /// Used for token estimation.
+        /// </summary>
+        public static int GetToolDefinitionsLength()
+        {
+            JArray tools = BuildToolsArray();
+            return tools.ToString().Length;
+        }
     }
 }

@@ -7,11 +7,25 @@ namespace NyoCoder
 {
 	public class ConfigHandler
 	{
-		private Dictionary<string, string> configMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-		private string configFilePath;
+		private static Dictionary<string, string> configMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		private static string configFilePath;
+		
+		// Static cached values - updated when config loads/saves
+		private static string _apiKey;
+		private static string _llmServer;
+		private static string _model;
+		private static int _maxContentLength = 8000; // default
+		private static int? _contextWindowSize;
 
-		public ConfigHandler()
+		/// <summary>
+		/// Initializes and loads config from disk.
+		/// Call this during extension startup to preload configuration.
+		/// </summary>
+		public static void Initialize()
 		{
+			if (configFilePath != null)
+				return;
+
 			// For VSIX, store config in user's AppData folder
 			string appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 			string configFolder = Path.Combine(appDataFolder, "NyoCoder");
@@ -23,7 +37,7 @@ namespace NyoCoder
 			LoadConfig();
 		}
 
-		private void LoadConfig()
+		private static void LoadConfig()
 		{
 			configMap = LoadIni(configFilePath);
 			
@@ -37,20 +51,75 @@ namespace NyoCoder
 				// File doesn't exist - create it with default empty values
 				SaveConfig();
 			}
+			
+			// Cache values in static fields
+			RefreshCachedValues();
 		}
 
-		public void SaveConfig()
+		/// <summary>
+		/// Reloads config from disk and refreshes cached values.
+		/// Call this after saving config to ensure all instances see the latest values.
+		/// </summary>
+		public static void ReloadConfig()
+		{
+			configMap = LoadIni(configFilePath);
+
+			if (configMap.Count == 0 && !File.Exists(configFilePath))
+				SaveConfig();
+
+			RefreshCachedValues();
+		}
+
+		private static void RefreshCachedValues()
+		{
+			_apiKey = GetConfigValue("apiKey");
+			_llmServer = GetConfigValue("llmserver");
+			_model = GetConfigValue("model");
+			
+			string maxContentLengthStr = GetConfigValue("maxContentLength", "");
+			int maxContentLength;
+			if (int.TryParse(maxContentLengthStr, out maxContentLength) && maxContentLength > 0)
+			{
+				_maxContentLength = maxContentLength;
+			}
+			else
+			{
+				_maxContentLength = 8000; // default
+			}
+			
+			string contextWindowSizeStr = GetConfigValue("contextWindowSize", "");
+			if (string.IsNullOrEmpty(contextWindowSizeStr))
+			{
+				_contextWindowSize = null;
+			}
+			else
+			{
+				int contextWindowSize;
+				if (int.TryParse(contextWindowSizeStr, out contextWindowSize) && contextWindowSize > 0)
+				{
+					_contextWindowSize = contextWindowSize;
+				}
+				else
+				{
+					_contextWindowSize = null;
+				}
+			}
+		}
+
+		public static void SaveConfig()
 		{
 			SaveIni(configFilePath, configMap);
+			// Refresh cache after saving to ensure consistency
+			RefreshCachedValues();
 		}
 
 		// Generic helper methods to reduce repetition
-		private string GetConfigValue(string key, string defaultValue = "")
+		private static string GetConfigValue(string key, string defaultValue = "")
 		{
 			return configMap.ContainsKey(key) ? configMap[key] : defaultValue;
 		}
 
-		private void SetConfigValue(string key, string value)
+		private static void SetConfigValue(string key, string value)
 		{
 			if (string.IsNullOrEmpty(value))
 			{
@@ -63,60 +132,84 @@ namespace NyoCoder
 			}
 		}
 
-		// Public getter methods
-		public string GetApiKey()
+		// Public getter methods - use static cached values
+		public static string GetApiKey()
 		{
-			return GetConfigValue("apiKey");
+			return _apiKey ?? string.Empty;
 		}
 
-		public string GetLlmServer()
+		public static string GetLlmServer()
 		{
-			return GetConfigValue("llmserver");
+			return _llmServer ?? string.Empty;
 		}
 
-	public string GetModel()
-	{
-		return GetConfigValue("model");
-	}
-
-	// Static accessor for MaxContentLength - used by tools and options
-	public static int MaxContentLength
-	{
-		get
+		public static string GetModel()
 		{
-			ConfigHandler config = new ConfigHandler();
-			string value = config.GetConfigValue("maxContentLength", "");
-			int result;
-			return (int.TryParse(value, out result) && result > 0) ? result : 8000;
+			return _model ?? string.Empty;
 		}
-	}
 
-	// Public setter methods
-	public void SetApiKey(string value)
+		public static int? GetContextWindowSize()
+		{
+			return _contextWindowSize;
+		}
+
+		// Static accessor for MaxContentLength - used by tools and options
+		public static int MaxContentLength
+		{
+			get { return _maxContentLength; }
+		}
+
+		// Static accessor for ContextWindowSize - used by UI token display
+		public static int? ContextWindowSize
+		{
+			get { return _contextWindowSize; }
+		}
+
+	// Public setter methods - update both static cache and configMap
+	// Note: Setters are only called from UI thread, so no locking needed
+	public static void SetApiKey(string value)
 	{
+		_apiKey = value ?? string.Empty;
 		SetConfigValue("apiKey", value);
 	}
 
-	public void SetLlmServer(string value)
+	public static void SetLlmServer(string value)
 	{
+		_llmServer = value ?? string.Empty;
 		SetConfigValue("llmserver", value);
 	}
 
-	public void SetModel(string value)
+	public static void SetModel(string value)
 	{
+		_model = value ?? string.Empty;
 		SetConfigValue("model", value);
 	}
 
-	public void SetMaxContentLength(int value)
+	public static void SetMaxContentLength(int value)
 	{
 		if (value > 0)
 		{
+			_maxContentLength = value;
 			SetConfigValue("maxContentLength", value.ToString());
 		}
 	}
 
+	public static void SetContextWindowSize(int? value)
+	{
+		if (value.HasValue && value.Value > 0)
+		{
+			_contextWindowSize = value;
+			SetConfigValue("contextWindowSize", value.Value.ToString());
+		}
+		else
+		{
+			_contextWindowSize = null;
+			SetConfigValue("contextWindowSize", null);
+		}
+	}
+
 		// Simple INI file loader - returns Dictionary of key=value pairs
-		private Dictionary<string, string> LoadIni(string filename)
+		private static Dictionary<string, string> LoadIni(string filename)
 		{
 			var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -156,7 +249,7 @@ namespace NyoCoder
 		}
 
 		// Simple INI file saver
-		private void SaveIni(string filename, Dictionary<string, string> config)
+		private static void SaveIni(string filename, Dictionary<string, string> config)
 		{
 			try
 			{

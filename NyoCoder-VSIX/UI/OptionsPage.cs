@@ -10,12 +10,10 @@ namespace NyoCoder
     [Guid("8A5B5E5C-4F3D-4E8A-9B2C-1D3E4F5A6B7C")]
     public class OptionsPage : DialogPage
     {
-        private ConfigHandler configHandler;
         private OptionsPageHost host;
 
         public OptionsPage()
         {
-            configHandler = new ConfigHandler();
         }
 
         protected override IWin32Window Window
@@ -34,33 +32,39 @@ namespace NyoCoder
 
         public string ApiKey
         {
-            get { return configHandler.GetApiKey(); }
-            set { configHandler.SetApiKey(value); }
+            get { return ConfigHandler.GetApiKey(); }
+            set { ConfigHandler.SetApiKey(value); }
         }
 
         public string LlmServer
         {
-            get { return configHandler.GetLlmServer(); }
-            set { configHandler.SetLlmServer(value); }
+            get { return ConfigHandler.GetLlmServer(); }
+            set { ConfigHandler.SetLlmServer(value); }
         }
 
 	public string Model
 	{
-		get { return configHandler.GetModel(); }
-		set { configHandler.SetModel(value); }
+		get { return ConfigHandler.GetModel(); }
+		set { ConfigHandler.SetModel(value); }
 	}
 
 	public int MaxContentLength
 	{
 		get { return ConfigHandler.MaxContentLength; }
-		set { configHandler.SetMaxContentLength(value); }
+		set { ConfigHandler.SetMaxContentLength(value); }
+	}
+
+	public int? ContextWindowSize
+	{
+		get { return ConfigHandler.GetContextWindowSize(); }
+		set { ConfigHandler.SetContextWindowSize(value); }
 	}
 
 	public override void LoadSettingsFromStorage()
         {
             base.LoadSettingsFromStorage();
             // Reload config from file (in case it was changed externally)
-            configHandler = new ConfigHandler();
+            ConfigHandler.ReloadConfig();
             UpdateHostFromConfig();
         }
 
@@ -71,13 +75,16 @@ namespace NyoCoder
 		// otherwise use properties (which read from ConfigHandler)
 		if (host != null)
 		{
-			configHandler.SetApiKey(host.ApiKey);
-			configHandler.SetLlmServer(host.LlmServer);
-			configHandler.SetModel(host.Model);
-			configHandler.SetMaxContentLength(host.MaxContentLength);
+			ConfigHandler.SetApiKey(host.ApiKey);
+			ConfigHandler.SetLlmServer(host.LlmServer);
+			ConfigHandler.SetModel(host.Model);
+			ConfigHandler.SetMaxContentLength(host.MaxContentLength);
+			ConfigHandler.SetContextWindowSize(host.ContextWindowSize);
 		}
 		// Properties already update ConfigHandler when set, so we just need to save
-		configHandler.SaveConfig();
+		ConfigHandler.SaveConfig();
+		// Reload to ensure all cached values are updated
+		ConfigHandler.ReloadConfig();
         }
 
 	private void UpdateHostFromConfig()
@@ -88,6 +95,7 @@ namespace NyoCoder
 			host.LlmServer = LlmServer ?? string.Empty;
 			host.Model = Model ?? string.Empty;
 			host.MaxContentLength = MaxContentLength;
+			host.ContextWindowSize = ContextWindowSize;
 		}
 	}
     }

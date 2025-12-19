@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.ComponentModel.Design;
-using System.Text;
 using System.Threading;
 using Microsoft.Win32;
 using Microsoft.VisualStudio;
@@ -209,26 +208,6 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Checks if the current active window is a text editor.
-        /// </summary>
-        private bool IsInTextEditor()
-        {
-            try
-            {
-                DTE2 dte = GetService(typeof(DTE)) as DTE2;
-                if (dte == null) return false;
-
-                Window activeWindow = dte.ActiveWindow;
-                return dte.ActiveDocument != null &&
-                       activeWindow != null &&
-                       activeWindow.Type == vsWindowType.vsWindowTypeDocument &&
-                       !activeWindow.Caption.Contains("[Design]") &&
-                       activeWindow.Object is TextWindow;
-            }
-            catch { return false; }
-        }
-
-        /// <summary>
         /// Saves all open documents in Visual Studio.
         /// </summary>
         private void SaveAllOpenFiles()
@@ -248,108 +227,6 @@ namespace NyoCoder
             }
         }
 
-        /// <summary>
-        /// Gets surrounding code lines around the cursor position.
-        /// Marks the current line with '>' for visibility.
-        /// </summary>
-        private string GetSurroundingCode(Document document, int cursorLine, int contextLines)
-        {
-            try
-            {
-                TextDocument textDoc = document.Object("TextDocument") as TextDocument;
-                if (textDoc == null) return string.Empty;
-
-                string fullText = textDoc.StartPoint.CreateEditPoint().GetText(textDoc.EndPoint);
-                string[] lines = fullText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-
-                int startLine = Math.Max(0, cursorLine - 1 - contextLines);
-                int endLine = Math.Min(lines.Length, cursorLine + contextLines);
-
-                StringBuilder result = new StringBuilder();
-                for (int i = startLine; i < endLine; i++)
-                {
-                    string marker = (i == cursorLine - 1) ? "> " : "  ";
-                    result.AppendLine(marker + lines[i]);
-                }
-
-                return result.ToString().TrimEnd();
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
-        /// <summary>
-        /// Builds context information to include with user prompts (e.g., currently open file, cursor position, selected text).
-        /// Returns a formatted context section, or an empty string if no context is available.
-        /// The format clearly separates context from the user's actual prompt.
-        /// </summary>
-        private string BuildUserPromptContext()
-        {
-            StringBuilder context = new StringBuilder();
-            bool hasContext = false;
-
-            try
-            {
-                DTE2 dte = GetService(typeof(DTE)) as DTE2;
-                if (dte != null && dte.ActiveDocument != null && !string.IsNullOrWhiteSpace(dte.ActiveDocument.FullName))
-                {
-                    string currentFilePath = dte.ActiveDocument.FullName;
-                    context.AppendLine("Currently open file: " + currentFilePath);
-                    hasContext = true;
-
-                    // Try to get cursor position and selected text
-                    try
-                    {
-                        TextSelection selection = dte.ActiveDocument.Selection as TextSelection;
-                        if (selection != null)
-                        {
-                            // Get cursor position (line and column)
-                            int currentLine = selection.ActivePoint.Line;
-                            int currentColumn = selection.ActivePoint.DisplayColumn;
-                            context.AppendLine("Cursor position: Line " + currentLine + ", Column " + currentColumn);
-
-                            // Get surrounding code context (5 lines before/after cursor)
-                            string surroundingCode = GetSurroundingCode(dte.ActiveDocument, currentLine, 5);
-                            if (!string.IsNullOrEmpty(surroundingCode))
-                            {
-                                context.AppendLine("Surrounding code:");
-                                context.AppendLine("```");
-                                context.AppendLine(surroundingCode);
-                                context.AppendLine("```");
-                            }
-
-                            // Get selected/highlighted text if any
-                            string selectedText = selection.Text;
-                            if (!string.IsNullOrEmpty(selectedText))
-                            {
-                                context.AppendLine("Selected text:");
-                                context.AppendLine("```");
-                                context.AppendLine(selectedText);
-                                context.AppendLine("```");
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // If we can't get selection info, continue without it
-                    }
-                }
-            }
-            catch
-            {
-                // If we can't get context information, continue without it
-            }
-
-            // Only return formatted context if we have any context information
-            if (hasContext)
-            {
-                return "---Context---\n" + context.ToString().TrimEnd() + "\n---End Context---";
-            }
-
-            return string.Empty;
-        }
 
         /// <summary>
         /// This function is the callback used when the "Ask NyoCoder" context menu item is clicked.
@@ -357,8 +234,12 @@ namespace NyoCoder
         /// </summary>
         private void AskNyoCoderCallback(object sender, EventArgs e)
         {
+            // Create context engine
+            DTE2 dte = GetService(typeof(DTE)) as DTE2;
+            ContextEngine contextEngine = new ContextEngine(dte);
+
             // Only show prompt if in a text editor
-            if (!IsInTextEditor()) return;
+            if (!contextEngine.IsInTextEditor()) return;
 
             PromptForm promptForm = new PromptForm();
             if (promptForm.ShowDialog() == System.Windows.Forms.DialogResult.OK && !string.IsNullOrWhiteSpace(promptForm.Prompt))
@@ -440,7 +321,7 @@ namespace NyoCoder
                 SaveAllOpenFiles();
 
                 // Build the user prompt with context
-                string context = BuildUserPromptContext();
+                string context = contextEngine.BuildUserPromptContext();
                 string userPrompt = promptForm.Prompt;
                 if (!string.IsNullOrWhiteSpace(context))
                 {

@@ -146,6 +146,7 @@
     <Compile Include="Editor\DiffHighlightAdornmentFactory.cs" />
     <!-- Services -->
     <Compile Include="Services\ConfigHandler.cs" />
+    <Compile Include="Services\ContextEngine.cs" />
     <Compile Include="Services\EditorService.cs" />
     <Compile Include="Services\FileHandler.cs" />
     <Compile Include="Services\LLMClient.cs" />

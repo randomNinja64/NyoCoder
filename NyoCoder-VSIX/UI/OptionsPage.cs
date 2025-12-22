@@ -48,15 +48,15 @@ namespace NyoCoder
 		set { ConfigHandler.SetModel(value); }
 	}
 
-	public int MaxContentLength
+	public int MaxReadLines
 	{
-		get { return ConfigHandler.MaxContentLength; }
-		set { ConfigHandler.SetMaxContentLength(value); }
+		get { return ConfigHandler.MaxReadLines; }
+		set { ConfigHandler.SetMaxReadLines(value); }
 	}
 
 	public int? ContextWindowSize
 	{
-		get { return ConfigHandler.GetContextWindowSize(); }
+		get { return ConfigHandler.ContextWindowSize; }
 		set { ConfigHandler.SetContextWindowSize(value); }
 	}
 
@@ -78,7 +78,7 @@ namespace NyoCoder
 			ConfigHandler.SetApiKey(host.ApiKey);
 			ConfigHandler.SetLlmServer(host.LlmServer);
 			ConfigHandler.SetModel(host.Model);
-			ConfigHandler.SetMaxContentLength(host.MaxContentLength);
+			ConfigHandler.SetMaxReadLines(host.MaxReadLines);
 			ConfigHandler.SetContextWindowSize(host.ContextWindowSize);
 		}
 		// Properties already update ConfigHandler when set, so we just need to save
@@ -94,7 +94,7 @@ namespace NyoCoder
 			host.ApiKey = ApiKey ?? string.Empty;
 			host.LlmServer = LlmServer ?? string.Empty;
 			host.Model = Model ?? string.Empty;
-			host.MaxContentLength = MaxContentLength;
+			host.MaxReadLines = MaxReadLines;
 			host.ContextWindowSize = ContextWindowSize;
 		}
 	}

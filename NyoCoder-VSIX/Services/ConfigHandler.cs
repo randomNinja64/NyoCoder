@@ -14,7 +14,7 @@ namespace NyoCoder
 		private static string _apiKey;
 		private static string _llmServer;
 		private static string _model;
-		private static int _maxContentLength = 8000; // default
+		private static int _maxReadLines = 500; // default (line-based reading)
 		private static int? _contextWindowSize;
 
 		/// <summary>
@@ -76,16 +76,10 @@ namespace NyoCoder
 			_llmServer = GetConfigValue("llmserver");
 			_model = GetConfigValue("model");
 			
-			string maxContentLengthStr = GetConfigValue("maxContentLength", "");
-			int maxContentLength;
-			if (int.TryParse(maxContentLengthStr, out maxContentLength) && maxContentLength > 0)
-			{
-				_maxContentLength = maxContentLength;
-			}
-			else
-			{
-				_maxContentLength = 8000; // default
-			}
+			string maxReadLinesStr = GetConfigValue("maxReadLines", "");
+			int parsed;
+			if (int.TryParse(maxReadLinesStr, out parsed) && parsed > 0)
+				_maxReadLines = parsed;
 			
 			string contextWindowSizeStr = GetConfigValue("contextWindowSize", "");
 			if (string.IsNullOrEmpty(contextWindowSizeStr))
@@ -148,15 +142,10 @@ namespace NyoCoder
 			return _model ?? string.Empty;
 		}
 
-		public static int? GetContextWindowSize()
+		// Static accessor for MaxReadLines - used by tools and options
+		public static int MaxReadLines
 		{
-			return _contextWindowSize;
-		}
-
-		// Static accessor for MaxContentLength - used by tools and options
-		public static int MaxContentLength
-		{
-			get { return _maxContentLength; }
+			get { return _maxReadLines; }
 		}
 
 		// Static accessor for ContextWindowSize - used by UI token display
@@ -185,12 +174,12 @@ namespace NyoCoder
 		SetConfigValue("model", value);
 	}
 
-	public static void SetMaxContentLength(int value)
+	public static void SetMaxReadLines(int value)
 	{
 		if (value > 0)
 		{
-			_maxContentLength = value;
-			SetConfigValue("maxContentLength", value.ToString());
+			_maxReadLines = value;
+			SetConfigValue("maxReadLines", value.ToString());
 		}
 	}
 

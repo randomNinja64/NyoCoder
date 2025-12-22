@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -64,7 +64,7 @@
     </Reference>
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net40\Newtonsoft.Json.dll</HintPath>
+      <HintPath>packages\Newtonsoft.Json.13.0.3\lib\net40\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -214,6 +214,48 @@
     <Content Include="Resources\Package.ico" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Grep dependencies - will be copied to output root and included in VSIX from there -->
+    <!-- Using None to copy to output, then Content items will be added from output directory -->
+    <None Include="Dependencies\grep.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Dependencies\libiconv2.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Dependencies\libintl3.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Dependencies\pcre3.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Dependencies\regex2.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Content items for VSIX - reference output files directly to avoid Dependencies path -->
+    <Content Include="$(OutputPath)grep.exe" Condition="'$(OutputPath)' != ''">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>grep.exe</Link>
+    </Content>
+    <Content Include="$(OutputPath)libiconv2.dll" Condition="'$(OutputPath)' != ''">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>libiconv2.dll</Link>
+    </Content>
+    <Content Include="$(OutputPath)libintl3.dll" Condition="'$(OutputPath)' != ''">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>libintl3.dll</Link>
+    </Content>
+    <Content Include="$(OutputPath)pcre3.dll" Condition="'$(OutputPath)' != ''">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>pcre3.dll</Link>
+    </Content>
+    <Content Include="$(OutputPath)regex2.dll" Condition="'$(OutputPath)' != ''">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>regex2.dll</Link>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <Page Include="UI\NyoCoder.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -228,7 +270,14 @@
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>
-  <Target Name="AfterBuild">
-  </Target>
   -->
+  <Target Name="CopyGrepDependencies" BeforeTargets="BeforeBuild">
+    <!-- Copy grep dependencies to output directory root (not Dependencies subfolder) -->
+    <Copy SourceFiles="Dependencies\grep.exe" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="Dependencies\libiconv2.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="Dependencies\libintl3.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="Dependencies\pcre3.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="Dependencies\regex2.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  </Target>
+  
 </Project>

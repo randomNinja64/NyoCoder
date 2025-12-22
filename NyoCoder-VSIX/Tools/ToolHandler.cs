@@ -49,12 +49,12 @@ public static class ToolHandler
                     {
                         string filename = GetRequiredArg(call.Arguments, "filename");
                         string offsetStr = JsonExtractString(call.Arguments, "offset");
-                        int offset = 0;
+                        int lineOffset = 0;
                         if (!string.IsNullOrEmpty(offsetStr))
                         {
-                            int.TryParse(offsetStr.Trim(), out offset);
+                            int.TryParse(offsetStr.Trim(), out lineOffset);
                         }
-                        string output = FileHandler.ReadFile(filename, out exitCode, offset);
+                        string output = FileHandler.ReadFile(filename, out exitCode, lineOffset);
                         toolContent = FormatCommandResult("read file: " + filename, output, exitCode);
                         return true;
                     }
@@ -146,7 +146,7 @@ public static class ToolHandler
     }
 
     // Generic process execution helper (public for use by other handlers)
-    public static string ExecuteProcess(string fileName, string arguments, out int exitCode, bool combineErrorOutput = true)
+    public static string ExecuteProcess(string fileName, string arguments, out int exitCode, bool combineErrorOutput = true, int timeoutMilliseconds = -1)
     {
         try
         {
@@ -164,9 +164,24 @@ public static class ToolHandler
 
             using (System.Diagnostics.Process process = System.Diagnostics.Process.Start(psi))
             {
+                if (timeoutMilliseconds > 0)
+                {
+                    if (!process.WaitForExit(timeoutMilliseconds))
+                    {
+                        // Process timed out - kill it
+                        process.Kill();
+                        process.WaitForExit(); // Wait for kill to complete
+                        exitCode = -1;
+                        throw new TimeoutException(string.Format("Process '{0}' timed out after {1} seconds.", fileName, timeoutMilliseconds / 1000));
+                    }
+                }
+                else
+                {
+                    process.WaitForExit();
+                }
+
                 string output = process.StandardOutput.ReadToEnd();
                 string error = process.StandardError.ReadToEnd();
-                process.WaitForExit();
                 exitCode = process.ExitCode;
                 
                 // Combine stdout and stderr if requested
@@ -313,8 +328,8 @@ public static class ToolHandler
             // Search directory
             args.Append("\"" + searchPath + "\"");
 
-            // Execute grep.exe
-            string output = ExecuteProcess(grepExePath, args.ToString(), out exitCode);
+            // Execute grep.exe with 60 second timeout
+            string output = ExecuteProcess(grepExePath, args.ToString(), out exitCode, combineErrorOutput: false, timeoutMilliseconds: 60000);
 
             if (exitCode == 0 && string.IsNullOrWhiteSpace(output))
             {

@@ -27,7 +27,6 @@ namespace NyoCoder
         public static JArray BuildToolsArray()
         {
             JArray toolsArray = new JArray();
-            int maxContentLength = ConfigHandler.MaxContentLength;
 
             toolsArray.Add(CreateToolDefinition(
                 "run_shell_command",
@@ -41,11 +40,11 @@ namespace NyoCoder
 
             toolsArray.Add(CreateToolDefinition(
                 "read_file",
-                "Read the contents of a local file and return it as a string. Always reads up to " + maxContentLength + " characters. Use the offset parameter to read different parts of large files.",
+                "Read the contents of a local file and return it as a string. Always reads up to " + ConfigHandler.MaxReadLines + " lines. Use the offset parameter to read different parts of large files.",
                 new Dictionary<string, PropertyInfo>
                 {
                     { "filename", new PropertyInfo("string", "The full path of the file to read. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                    { "offset", new PropertyInfo("string", "Optional. Character offset to start reading from (default: 0). Use this to read different parts of large files. For example, offset " + maxContentLength + " reads characters " + maxContentLength + "-" + (maxContentLength * 2) + ".") }
+                    { "offset", new PropertyInfo("string", "Optional. Line number to start reading from (0-indexed, default: 0). Use this to read different parts of large files. For example, offset " + ConfigHandler.MaxReadLines + " reads lines " + ConfigHandler.MaxReadLines + "-" + (ConfigHandler.MaxReadLines * 2 - 1) + ".") }
                 },
                 new[] { "filename" }
             ));

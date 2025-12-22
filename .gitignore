@@ -399,3 +399,7 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Dependencies folder - ignore contents but keep folder
+**/[Dd]ependencies/*
+!**/[Dd]ependencies/.gitkeep

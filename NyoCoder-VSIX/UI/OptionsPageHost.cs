@@ -15,8 +15,8 @@ namespace NyoCoder
         private TextBox txtLlmServer;
         private Label lblModel;
         private TextBox txtModel;
-        private Label lblMaxContentLength;
-        private TextBox txtMaxContentLength;
+        private Label lblMaxReadLines;
+        private TextBox txtMaxReadLines;
         private Label lblContextWindowSize;
         private TextBox txtContextWindowSize;
 
@@ -35,8 +35,8 @@ namespace NyoCoder
             this.txtLlmServer = new TextBox();
             this.lblModel = new Label();
             this.txtModel = new TextBox();
-            this.lblMaxContentLength = new Label();
-            this.txtMaxContentLength = new TextBox();
+            this.lblMaxReadLines = new Label();
+            this.txtMaxReadLines = new TextBox();
             this.lblContextWindowSize = new Label();
             this.txtContextWindowSize = new TextBox();
             this.SuspendLayout();
@@ -75,14 +75,14 @@ namespace NyoCoder
             this.txtModel.Location = new Point(20, 146);
             this.txtModel.Size = new Size(360, 23);
 
-            // lblMaxContentLength
-            this.lblMaxContentLength.AutoSize = true;
-            this.lblMaxContentLength.Location = new Point(20, 176);
-            this.lblMaxContentLength.Text = "Max Content Length (characters):";
+            // lblMaxReadLines
+            this.lblMaxReadLines.AutoSize = true;
+            this.lblMaxReadLines.Location = new Point(20, 176);
+            this.lblMaxReadLines.Text = "Max Read Lines:";
 
-            // txtMaxContentLength
-            this.txtMaxContentLength.Location = new Point(20, 193);
-            this.txtMaxContentLength.Size = new Size(360, 23);
+            // txtMaxReadLines
+            this.txtMaxReadLines.Location = new Point(20, 193);
+            this.txtMaxReadLines.Size = new Size(360, 23);
 
             // lblContextWindowSize
             this.lblContextWindowSize.AutoSize = true;
@@ -102,8 +102,8 @@ namespace NyoCoder
             this.Controls.Add(this.txtLlmServer);
             this.Controls.Add(this.lblModel);
             this.Controls.Add(this.txtModel);
-            this.Controls.Add(this.lblMaxContentLength);
-            this.Controls.Add(this.txtMaxContentLength);
+            this.Controls.Add(this.lblMaxReadLines);
+            this.Controls.Add(this.txtMaxReadLines);
             this.Controls.Add(this.lblContextWindowSize);
             this.Controls.Add(this.txtContextWindowSize);
             this.Size = new Size(400, 280);
@@ -129,16 +129,16 @@ namespace NyoCoder
             set { txtModel.Text = value ?? string.Empty; }
         }
 
-        public int MaxContentLength
+        public int MaxReadLines
         {
             get 
             {
                 int result;
-                if (int.TryParse(txtMaxContentLength.Text, out result) && result > 0)
+                if (int.TryParse(txtMaxReadLines.Text, out result) && result > 0)
                     return result;
-                return 8000; // Default value
+                return 500; // Default value
             }
-            set { txtMaxContentLength.Text = value.ToString(); }
+            set { txtMaxReadLines.Text = value.ToString(); }
         }
 
         public int? ContextWindowSize

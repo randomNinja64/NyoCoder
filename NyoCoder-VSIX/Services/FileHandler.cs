@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
@@ -6,7 +7,7 @@ namespace NyoCoder
 {
 public static class FileHandler
 {
-    public static string ReadFile(string filename, out int exitCode, int offset = 0)
+    public static string ReadFile(string filename, out int exitCode, int lineOffset = 0)
     {
         exitCode = 0;
 
@@ -21,32 +22,70 @@ public static class FileHandler
                 return "File not found: " + filename;
             }
 
-            string content = File.ReadAllText(filename, Encoding.UTF8);
-            int totalLength = content.Length;
-
             // Validate offset
-            if (offset < 0)
-                offset = 0;
-            if (offset >= totalLength)
+            if (lineOffset < 0)
+                lineOffset = 0;
+
+            List<string> linesToReturn = new List<string>();
+            int totalLines = 0;
+            int currentLineIndex = 0;
+
+            // Read file line by line
+            using (StreamReader reader = new StreamReader(filename, Encoding.UTF8))
             {
-                exitCode = 1;
-                return "File length = " + totalLength + " characters. Offset " + offset + " exceeds file length.";
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    totalLines++;
+                    
+                    // Skip lines before the offset
+                    if (currentLineIndex < lineOffset)
+                    {
+                        currentLineIndex++;
+                        continue;
+                    }
+
+                    // Check if we've reached the limit
+                    if (linesToReturn.Count >= ConfigHandler.MaxReadLines)
+                    {
+                        break;
+                    }
+
+                    linesToReturn.Add(line);
+                    currentLineIndex++;
+                }
             }
 
-            // Always read up to configured max length (or until EOF)
-            int maxContentLength = ConfigHandler.MaxContentLength;
-            int endPos = Math.Min(offset + maxContentLength, totalLength);
-            string excerpt = content.Substring(offset, endPos - offset);
+            // Validate offset
+            if (lineOffset >= totalLines)
+            {
+                exitCode = 1;
+                return "File has " + totalLines + " lines (0-indexed). Line offset " + lineOffset + " exceeds file length.";
+            }
 
             // Build result with header
             StringBuilder result = new StringBuilder();
-            result.AppendLine("File length = " + totalLength + " characters, reading chars " + offset + "-" + (endPos - 1));
+            int linesRead = linesToReturn.Count;
+            int endLine = lineOffset + linesRead - 1;
+            result.AppendLine("File has " + totalLines + " lines, reading lines " + lineOffset + "-" + endLine);
             result.AppendLine("---");
-            result.Append(excerpt);
-
-            if (endPos < totalLength)
+            
+            // Join lines with newlines (ReadLine removes them, so we add them back)
+            for (int i = 0; i < linesToReturn.Count; i++)
             {
-                result.AppendLine("\n...[truncated]");
+                result.Append(linesToReturn[i]);
+                if (i < linesToReturn.Count - 1)
+                {
+                    result.AppendLine();
+                }
+            }
+
+            // Check if we truncated (either hit max lines or stopped early)
+            bool wasTruncated = (lineOffset + linesRead < totalLines) || (linesRead >= ConfigHandler.MaxReadLines && currentLineIndex < totalLines);
+            if (wasTruncated)
+            {
+                result.AppendLine();
+                result.AppendLine("...[truncated]");
             }
 
             return result.ToString();

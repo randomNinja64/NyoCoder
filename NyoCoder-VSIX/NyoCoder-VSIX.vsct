@@ -75,7 +75,7 @@
         <Parent guid="guidNyoCoder_VSIXCmdSet" id="NyoCoderGroup" />
         <Strings>
           <CommandName>nyoCoderOptionsCmd</CommandName>
-          <ButtonText>NyoCoder Options</ButtonText>
+          <ButtonText>NyoCoder Options...</ButtonText>
         </Strings>
       </Button>
 

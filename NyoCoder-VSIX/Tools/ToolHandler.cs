@@ -145,7 +145,6 @@ public static class ToolHandler
         return value;
     }
 
-    // Generic process execution helper (public for use by other handlers)
     public static string ExecuteProcess(string fileName, string arguments, out int exitCode, bool combineErrorOutput = true, int timeoutMilliseconds = -1)
     {
         try

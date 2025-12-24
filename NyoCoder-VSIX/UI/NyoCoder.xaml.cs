@@ -22,7 +22,6 @@ namespace NyoCoder
 
     /// <summary>
     /// UserControl that hosts the NyoCoder output pane content.
-    /// This control is hosted inside a Visual Studio tool window.
     /// </summary>
     public partial class NyoCoderControl : UserControl
     {
@@ -66,15 +65,12 @@ namespace NyoCoder
 
         /// <summary>
         /// Adds characters to the token counter without printing them.
-        /// Use this for hidden prompt content (e.g., editor context) that is sent to the LLM
-        /// but not displayed in the output pane.
         /// </summary>
         public void AddToCharacterCount(int delta)
         {
             if (delta == 0)
                 return;
 
-            // non-blocking to avoid locking UI/caller
             EditorService.BeginInvokeOnUIThread(() =>
             {
                 _totalCharacterCount = Math.Max(0, _totalCharacterCount + delta);
@@ -208,7 +204,7 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Creates a button with standard styling for the button panel.
+        /// Creates a button with standard styling.
         /// </summary>
         private Button CreateStandardButton(string content, RoutedEventHandler clickHandler = null)
         {
@@ -244,7 +240,7 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Adds an action button to the button panel (EventHandler overload for compatibility).
+        /// Adds an action button to the button panel.
         /// </summary>
         public Button AddButton(string text, EventHandler clickHandler)
         {
@@ -273,7 +269,7 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Resets the stop flag for a new session.
+        /// Resets the stop flag.
         /// </summary>
         public void ResetStopRequested()
         {
@@ -289,9 +285,7 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Requests user approval for a tool execution using Yes/No/Stop buttons.
-        /// This method blocks until the user clicks Yes, No, or Stop.
-        /// Thread-safe: can be called from background threads.
+        /// Requests user approval for a tool execution.
         /// </summary>
         /// <param name="toolName">Name of the tool requesting approval</param>
         /// <param name="arguments">Arguments to display to the user</param>
@@ -301,7 +295,6 @@ namespace NyoCoder
             _approvalWaitHandle = new ManualResetEvent(false);
             _approvalResult = ApprovalResult.Rejected;
 
-            // Show approval UI on the UI thread
             EditorService.InvokeOnUIThread(() => ShowApprovalUI(toolName, arguments), Dispatcher);
 
             // Block until user responds
@@ -312,11 +305,9 @@ namespace NyoCoder
 
         private void ShowApprovalUI(string toolName, string arguments)
         {
-            // Display the approval request in the output
             AppendText("\n[Approval Required] " + toolName);
             AppendText("\n" + arguments + "\n");
 
-            // Clear any existing buttons and add Approve/Reject/Stop
             ClearButtons();
 
             var yesButton = CreateStandardButton("Approve", OnApprovalYes);
@@ -395,7 +386,7 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Handles the Send button click for input messages.
+        /// Handles the Send button click.
         /// </summary>
         private void InputSendButton_Click(object sender, RoutedEventArgs e)
         {
@@ -407,7 +398,6 @@ namespace NyoCoder
         /// </summary>
         private void AttachImageButton_Checked(object sender, RoutedEventArgs e)
         {
-            // Open file dialog to select an image
             Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
                 Filter = "Image files (*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp)|*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp|All files (*.*)|*.*",
@@ -457,7 +447,6 @@ namespace NyoCoder
 
         /// <summary>
         /// Handles the Enter key press in the input box.
-        /// Enter sends the message, Shift+Enter creates a new line.
         /// </summary>
         private void InputBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -478,7 +467,7 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Sends an input message. Handles both initial prompts (with context) and follow-up messages.
+        /// Sends an input message.
         /// </summary>
         private void SendInputMessage()
         {
@@ -622,7 +611,7 @@ namespace NyoCoder
                             System.Windows.Forms.MessageBoxButtons.OK,
                             System.Windows.Forms.MessageBoxIcon.Error);
                     }, Dispatcher);
-                    ShowInputBar(); // Show bar again even on error
+                    ShowInputBar();
                 }
                 finally
                 {

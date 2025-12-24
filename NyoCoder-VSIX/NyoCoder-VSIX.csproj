@@ -165,12 +165,6 @@
     <Compile Include="UI\OptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\PromptForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="UI\PromptForm.Designer.cs">
-      <DependentUpon>PromptForm.cs</DependentUpon>
-    </Compile>
     <!-- Properties -->
     <Compile Include="Properties\AssemblyInfo.cs" />
     <!-- Resources -->

@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
+using EnvDTE80;
 
 namespace NyoCoder
 {
@@ -32,38 +35,21 @@ namespace NyoCoder
         // Token tracking
         private int _totalCharacterCount;
         
-        // Summarization threshold (90%)
-        private const double SummarizationThreshold = 0.90;
+        // Image attachment
+        private string _attachedImageBase64;
 
         public NyoCoderControl()
         {
             InitializeComponent();
         }
 
-        /// <summary>
-        /// Checks if summarization is needed based on context window usage.
-        /// Returns true if usage exceeds 90% and context window is configured.
-        /// </summary>
-        public bool NeedsSummarization()
-        {
-            int? contextWindowSize = ConfigHandler.ContextWindowSize;
-            if (!contextWindowSize.HasValue || contextWindowSize.Value <= 0)
-                return false;
-
-            int totalCharacters = _totalCharacterCount + ContextEngine.GetBaseCharacterOverhead();
-            int approximateTokens = totalCharacters / 3;
-            double usage = (double)approximateTokens / contextWindowSize.Value;
-            
-            return usage >= SummarizationThreshold;
-        }
 
         /// <summary>
         /// Gets the current approximate token count including overhead.
         /// </summary>
         public int GetApproximateTokenCount()
         {
-            int totalCharacters = _totalCharacterCount + ContextEngine.GetBaseCharacterOverhead();
-            return totalCharacters / 3;
+            return ContextEngine.ApproximateTokens(_totalCharacterCount);
         }
 
         /// <summary>
@@ -71,15 +57,11 @@ namespace NyoCoder
         /// </summary>
         public void ResetCharacterCount(int newCount = 0)
         {
-            if (Dispatcher.CheckAccess())
+            EditorService.InvokeOnUIThread(() =>
             {
                 _totalCharacterCount = newCount;
                 RefreshTokenDisplay();
-            }
-            else
-            {
-                Dispatcher.Invoke(new Action(() => ResetCharacterCount(newCount)));
-            }
+            }, Dispatcher);
         }
 
         /// <summary>
@@ -92,16 +74,12 @@ namespace NyoCoder
             if (delta == 0)
                 return;
 
-            if (Dispatcher.CheckAccess())
+            // non-blocking to avoid locking UI/caller
+            EditorService.BeginInvokeOnUIThread(() =>
             {
                 _totalCharacterCount = Math.Max(0, _totalCharacterCount + delta);
                 RefreshTokenDisplay();
-            }
-            else
-            {
-                // non-blocking to avoid locking UI/caller
-                Dispatcher.BeginInvoke(new Action(() => AddToCharacterCount(delta)));
-            }
+            }, Dispatcher);
         }
 
         /// <summary>
@@ -109,14 +87,7 @@ namespace NyoCoder
         /// </summary>
         public void AppendText(string text)
         {
-            if (Dispatcher.CheckAccess())
-            {
-                AppendTextInternal(text);
-            }
-            else
-            {
-                Dispatcher.Invoke(new Action(() => AppendTextInternal(text)));
-            }
+            EditorService.InvokeOnUIThread(() => AppendTextInternal(text), Dispatcher);
         }
 
         private void AppendTextInternal(string text)
@@ -187,16 +158,12 @@ namespace NyoCoder
         /// </summary>
         public void ClearOutput()
         {
-            if (Dispatcher.CheckAccess())
+            EditorService.InvokeOnUIThread(() =>
             {
                 OutputTextBox.Document.Blocks.Clear();
                 _totalCharacterCount = 0;
                 RefreshTokenDisplay();
-            }
-            else
-            {
-                Dispatcher.Invoke(new Action(ClearOutput));
-            }
+            }, Dispatcher);
         }
 
         /// <summary>
@@ -205,11 +172,8 @@ namespace NyoCoder
         /// </summary>
         private void RefreshTokenDisplay()
         {
-            // Calculate total characters including base overhead (system prompt + tools)
-            int totalCharacters = _totalCharacterCount + ContextEngine.GetBaseCharacterOverhead();
-            
-            // Approximate tokens as characters / 3
-            int approximateTokens = totalCharacters / 3;
+            // Calculate approximate tokens including base overhead (system prompt + tools)
+            int approximateTokens = ContextEngine.ApproximateTokens(_totalCharacterCount);
             int? contextWindowSize = ConfigHandler.ContextWindowSize;
 
             string statusText;
@@ -232,7 +196,7 @@ namespace NyoCoder
         /// </summary>
         public void SetOutput(string text)
         {
-            if (Dispatcher.CheckAccess())
+            EditorService.InvokeOnUIThread(() =>
             {
                 OutputTextBox.Document.Blocks.Clear();
                 _totalCharacterCount = text != null ? text.Length : 0;
@@ -240,11 +204,29 @@ namespace NyoCoder
                 var paragraph = new Paragraph(new Run(text)) { Margin = new Thickness(0), Padding = new Thickness(0) };
                 OutputTextBox.Document.Blocks.Add(paragraph);
                 OutputTextBox.ScrollToEnd();
-            }
-            else
+            }, Dispatcher);
+        }
+
+        /// <summary>
+        /// Creates a button with standard styling for the button panel.
+        /// </summary>
+        private Button CreateStandardButton(string content, RoutedEventHandler clickHandler = null)
+        {
+            var button = new Button
             {
-                Dispatcher.Invoke(new Action(() => SetOutput(text)));
+                Content = content,
+                Margin = new Thickness(2),
+                Padding = new Thickness(8, 4, 8, 4),
+                MinWidth = 75,
+                MinHeight = 25
+            };
+
+            if (clickHandler != null)
+            {
+                button.Click += clickHandler;
             }
+
+            return button;
         }
 
         /// <summary>
@@ -252,14 +234,13 @@ namespace NyoCoder
         /// </summary>
         public Button AddButton(string text, RoutedEventHandler clickHandler)
         {
-            if (Dispatcher.CheckAccess())
+            return EditorService.InvokeOnUIThread(() =>
             {
-                return AddButtonInternal(text, clickHandler);
-            }
-            else
-            {
-                return (Button)Dispatcher.Invoke(new Func<Button>(() => AddButtonInternal(text, clickHandler)));
-            }
+                var button = CreateStandardButton(text, clickHandler);
+                ButtonPanel.Children.Add(button);
+                ButtonPanel.Visibility = Visibility.Visible;
+                return button;
+            }, Dispatcher);
         }
 
         /// <summary>
@@ -275,41 +256,12 @@ namespace NyoCoder
             return AddButton(text, routedHandler);
         }
 
-        private Button AddButtonInternal(string text, RoutedEventHandler clickHandler)
-        {
-            var button = new Button
-            {
-                Content = text,
-                Margin = new Thickness(2),
-                Padding = new Thickness(8, 4, 8, 4),
-                MinWidth = 75,
-                MinHeight = 25
-            };
-
-            if (clickHandler != null)
-            {
-                button.Click += clickHandler;
-            }
-
-            ButtonPanel.Children.Add(button);
-            ButtonPanel.Visibility = Visibility.Visible;
-
-            return button;
-        }
-
         /// <summary>
         /// Clears all buttons from the button panel.
         /// </summary>
         public void ClearButtons()
         {
-            if (Dispatcher.CheckAccess())
-            {
-                ButtonPanel.Children.Clear();
-            }
-            else
-            {
-                Dispatcher.Invoke(new Action(ClearButtons));
-            }
+            EditorService.InvokeOnUIThread(() => ButtonPanel.Children.Clear(), Dispatcher);
         }
 
         /// <summary>
@@ -317,14 +269,7 @@ namespace NyoCoder
         /// </summary>
         public void SetButtonPanelVisible(bool visible)
         {
-            if (Dispatcher.CheckAccess())
-            {
-                ButtonPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-            }
-            else
-            {
-                Dispatcher.Invoke(new Action(() => SetButtonPanelVisible(visible)));
-            }
+            EditorService.InvokeOnUIThread(() => ButtonPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed, Dispatcher);
         }
 
         /// <summary>
@@ -357,14 +302,7 @@ namespace NyoCoder
             _approvalResult = ApprovalResult.Rejected;
 
             // Show approval UI on the UI thread
-            if (Dispatcher.CheckAccess())
-            {
-                ShowApprovalUI(toolName, arguments);
-            }
-            else
-            {
-                Dispatcher.Invoke(new Action(() => ShowApprovalUI(toolName, arguments)));
-            }
+            EditorService.InvokeOnUIThread(() => ShowApprovalUI(toolName, arguments), Dispatcher);
 
             // Block until user responds
             _approvalWaitHandle.WaitOne();
@@ -378,38 +316,12 @@ namespace NyoCoder
             AppendText("\n[Approval Required] " + toolName);
             AppendText("\n" + arguments + "\n");
 
-            // Clear any existing buttons and add Yes/No/Stop
+            // Clear any existing buttons and add Approve/Reject/Stop
             ClearButtons();
 
-            var yesButton = new Button
-            {
-                Content = "Yes",
-                Margin = new Thickness(2),
-                Padding = new Thickness(8, 4, 8, 4),
-                MinWidth = 75,
-                MinHeight = 25
-            };
-            yesButton.Click += OnApprovalYes;
-
-            var noButton = new Button
-            {
-                Content = "No",
-                Margin = new Thickness(2),
-                Padding = new Thickness(8, 4, 8, 4),
-                MinWidth = 75,
-                MinHeight = 25
-            };
-            noButton.Click += OnApprovalNo;
-
-            var stopButton = new Button
-            {
-                Content = "Stop",
-                Margin = new Thickness(2),
-                Padding = new Thickness(8, 4, 8, 4),
-                MinWidth = 75,
-                MinHeight = 25
-            };
-            stopButton.Click += OnApprovalStop;
+            var yesButton = CreateStandardButton("Approve", OnApprovalYes);
+            var noButton = CreateStandardButton("Reject", OnApprovalNo);
+            var stopButton = CreateStandardButton("Stop", OnApprovalStop);
 
             ButtonPanel.Children.Add(yesButton);
             ButtonPanel.Children.Add(noButton);
@@ -450,15 +362,274 @@ namespace NyoCoder
 
         private void HideApprovalUI()
         {
-            if (Dispatcher.CheckAccess())
+            EditorService.InvokeOnUIThread(() =>
             {
                 ClearButtons();
                 ButtonPanel.Visibility = Visibility.Collapsed;
+            }, Dispatcher);
+        }
+
+
+        /// <summary>
+        /// Shows the input bar.
+        /// </summary>
+        public void ShowInputBar()
+        {
+            EditorService.InvokeOnUIThread(() =>
+            {
+                InputBar.Visibility = Visibility.Visible;
+                InputBox.Focus();
+            }, Dispatcher);
+        }
+
+        /// <summary>
+        /// Hides the input bar.
+        /// </summary>
+        public void HideInputBar()
+        {
+            EditorService.InvokeOnUIThread(() =>
+            {
+                InputBar.Visibility = Visibility.Collapsed;
+                InputBox.Clear();
+            }, Dispatcher);
+        }
+
+        /// <summary>
+        /// Handles the Send button click for input messages.
+        /// </summary>
+        private void InputSendButton_Click(object sender, RoutedEventArgs e)
+        {
+            SendInputMessage();
+        }
+
+        /// <summary>
+        /// Handles the Attach Image toggle button checked event.
+        /// </summary>
+        private void AttachImageButton_Checked(object sender, RoutedEventArgs e)
+        {
+            // Open file dialog to select an image
+            Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Image files (*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp)|*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp|All files (*.*)|*.*",
+                Title = "Select an image to attach"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                try
+                {
+                    string imagePath = openFileDialog.FileName;
+                    
+                    // Read the image file and convert to base64
+                    byte[] imageBytes = System.IO.File.ReadAllBytes(imagePath);
+                    _attachedImageBase64 = Convert.ToBase64String(imageBytes);
+                    
+                    // Update tooltip to show image is attached
+                    AttachImageButton.ToolTip = "Image attached: " + System.IO.Path.GetFileName(imagePath);
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.Forms.MessageBox.Show(
+                        "Error loading image: " + ex.Message,
+                        "NyoCoder",
+                        System.Windows.Forms.MessageBoxButtons.OK,
+                        System.Windows.Forms.MessageBoxIcon.Error);
+                    // Uncheck the button if there was an error
+                    AttachImageButton.IsChecked = false;
+                }
             }
             else
             {
-                Dispatcher.Invoke(new Action(HideApprovalUI));
+                // User cancelled the dialog, uncheck the button
+                AttachImageButton.IsChecked = false;
             }
+        }
+
+        /// <summary>
+        /// Handles the Attach Image toggle button unchecked event.
+        /// </summary>
+        private void AttachImageButton_Unchecked(object sender, RoutedEventArgs e)
+        {
+            // Clear the attached image
+            _attachedImageBase64 = null;
+            AttachImageButton.ToolTip = null;
+        }
+
+        /// <summary>
+        /// Handles the Enter key press in the input box.
+        /// Enter sends the message, Shift+Enter creates a new line.
+        /// </summary>
+        private void InputBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+                {
+                    // Shift+Enter: Allow default behavior (new line)
+                    return;
+                }
+                else
+                {
+                    // Enter: Send message
+                    e.Handled = true;
+                    SendInputMessage();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sends an input message. Handles both initial prompts (with context) and follow-up messages.
+        /// </summary>
+        private void SendInputMessage()
+        {
+            string message = InputBox.Text != null ? InputBox.Text.Trim() : null;
+            if (string.IsNullOrWhiteSpace(message))
+                return;
+
+            // Get package instance and LLM client
+            NyoCoder_VSIXPackage package = NyoCoder_VSIXPackage.Instance;
+            LLMClient llmClient = package != null ? package.LlmClient : null;
+            
+            // Determine if this is a new session (no client or empty conversation)
+            bool isNewSession = llmClient == null || llmClient.Conversation == null || llmClient.Conversation.Count == 0;
+
+            // Check if an AI request is already running
+            if (System.Threading.Interlocked.CompareExchange(ref package._isAiRunning, 1, 0) != 0)
+            {
+                System.Windows.Forms.MessageBox.Show(
+                    "An AI request is already in progress. Please wait for it to complete.",
+                    "NyoCoder",
+                    System.Windows.Forms.MessageBoxButtons.OK,
+                    System.Windows.Forms.MessageBoxIcon.Information);
+                return;
+            }
+
+            // Get attached image before clearing
+            string attachedImage = _attachedImageBase64;
+            
+            // Clear input and hide input bar
+            InputBox.Clear();
+            
+            // Clear attached image and reset button
+            _attachedImageBase64 = null;
+            AttachImageButton.IsChecked = false;
+            AttachImageButton.ToolTip = null;
+            
+            HideInputBar();
+
+            // For new sessions, set up LLM client and clear output
+            if (isNewSession)
+            {
+                // Validate configuration and create LLM client
+                LLMClient newClient = LLMClient.CreateFromConfig();
+                if (newClient == null)
+                {
+                    System.Threading.Interlocked.Exchange(ref package._isAiRunning, 0); // Reset flag
+                    ShowInputBar(); // Show input bar again
+                    return;
+                }
+
+                llmClient = newClient;
+                package.LlmClient = llmClient;
+
+                // Clear previous output
+                ClearOutput();
+            }
+
+            // Display user message
+            string userMessageDisplay = message;
+            if (!string.IsNullOrEmpty(attachedImage))
+            {
+                userMessageDisplay += " [Image attached]";
+            }
+            
+            // Add spacing between messages for follow-up conversations
+            string prefix = isNewSession ? "" : "\n";
+            AppendLine(prefix + "User: " + userMessageDisplay);
+            AppendLine("\nAssistant: ");
+
+            // Reset stop flag
+            ResetStopRequested();
+
+            // Save all open files
+            try
+            {
+                package.SaveAllOpenFiles();
+            }
+            catch { }
+
+            // Build the user prompt - include context for new sessions
+            string userMessage = message;
+            if (isNewSession)
+            {
+                // Build context for initial prompt
+                DTE2 dte = EditorService.GetDte();
+                ContextEngine contextEngine = new ContextEngine(dte);
+                string context = contextEngine.BuildUserPromptContext();
+                if (!string.IsNullOrWhiteSpace(context))
+                {
+                    userMessage = context + "\n\n---\n\n" + message;
+                    
+                    // Add the hidden characters so the status bar matches actual context usage
+                    int hiddenDelta = userMessage.Length - message.Length;
+                    if (hiddenDelta > 0)
+                    {
+                        AddToCharacterCount(hiddenDelta);
+                    }
+                }
+            }
+
+            // Send message on background thread
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                try
+                {
+                    // ProcessConversation will use and update llmClient.Conversation automatically
+                    llmClient.ProcessConversation(
+                        userMessage,
+                        attachedImage, // image (base64 encoded)
+                        "Assistant",
+                        null, // toolsRequiringApproval - will use defaults
+                        false, // outputOnly
+                        true, // showToolOutput
+                        delegate(string text)
+                        {
+                            AppendText(text);
+                        },
+                        delegate(string toolName, string arguments)
+                        {
+                            return RequestToolApproval(toolName, arguments);
+                        },
+                        stopRequested: delegate() { return IsStopRequested(); },
+                        onSummarized: delegate(int newCharCount)
+                        {
+                            ResetCharacterCount(newCharCount);
+                        }
+                    );
+                    AppendText(Environment.NewLine);
+
+                    // Show input bar again when done
+                    ShowInputBar();
+                }
+                catch (Exception ex)
+                {
+                    AppendLine("\nError: " + ex.Message);
+                    EditorService.InvokeOnUIThread(() =>
+                    {
+                        System.Windows.Forms.MessageBox.Show(
+                            "Error communicating with LLM: " + ex.Message,
+                            "NyoCoder",
+                            System.Windows.Forms.MessageBoxButtons.OK,
+                            System.Windows.Forms.MessageBoxIcon.Error);
+                    }, Dispatcher);
+                    ShowInputBar(); // Show bar again even on error
+                }
+                finally
+                {
+                    // Reset the AI running flag
+                    System.Threading.Interlocked.Exchange(ref package._isAiRunning, 0);
+                }
+            });
         }
     }
 }

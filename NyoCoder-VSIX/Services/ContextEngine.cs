@@ -38,6 +38,18 @@ namespace NyoCoder
         }
 
         /// <summary>
+        /// Calculates approximate token count from character count, including base overhead.
+        /// Uses the standard approximation of 3 characters per token.
+        /// </summary>
+        /// <param name="characterCount">Character count excluding base overhead.</param>
+        /// <returns>Approximate token count including base overhead.</returns>
+        public static int ApproximateTokens(int characterCount)
+        {
+            int totalCharacters = characterCount + GetBaseCharacterOverhead();
+            return totalCharacters / 3;
+        }
+
+        /// <summary>
         /// Initializes a new instance of the ContextEngine class.
         /// </summary>
         /// <param name="dte">The DTE2 application object for Visual Studio integration.</param>

@@ -31,6 +31,66 @@ namespace NyoCoder
         }
 
         /// <summary>
+        /// Invokes an action on the UI thread if necessary.
+        /// If already on the UI thread, executes directly; otherwise dispatches to the UI thread.
+        /// </summary>
+        /// <param name="action">The action to invoke.</param>
+        /// <param name="dispatcher">Optional dispatcher to use. If null, uses Application.Current.Dispatcher.</param>
+        internal static void InvokeOnUIThread(Action action, System.Windows.Threading.Dispatcher dispatcher = null)
+        {
+            dispatcher = dispatcher ?? (System.Windows.Application.Current != null ? System.Windows.Application.Current.Dispatcher : null);
+            
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(action);
+            }
+            else
+            {
+                action();
+            }
+        }
+
+        /// <summary>
+        /// Invokes a function on the UI thread if necessary and returns the result.
+        /// If already on the UI thread, executes directly; otherwise dispatches to the UI thread.
+        /// </summary>
+        /// <param name="func">The function to invoke.</param>
+        /// <param name="dispatcher">Optional dispatcher to use. If null, uses Application.Current.Dispatcher.</param>
+        internal static T InvokeOnUIThread<T>(Func<T> func, System.Windows.Threading.Dispatcher dispatcher = null)
+        {
+            dispatcher = dispatcher ?? (System.Windows.Application.Current != null ? System.Windows.Application.Current.Dispatcher : null);
+            
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                return (T)dispatcher.Invoke(func);
+            }
+            else
+            {
+                return func();
+            }
+        }
+
+        /// <summary>
+        /// Begins invoking an action on the UI thread asynchronously (non-blocking).
+        /// If already on the UI thread, executes directly; otherwise dispatches to the UI thread.
+        /// </summary>
+        /// <param name="action">The action to invoke.</param>
+        /// <param name="dispatcher">Optional dispatcher to use. If null, uses Application.Current.Dispatcher.</param>
+        internal static void BeginInvokeOnUIThread(Action action, System.Windows.Threading.Dispatcher dispatcher = null)
+        {
+            dispatcher = dispatcher ?? (System.Windows.Application.Current != null ? System.Windows.Application.Current.Dispatcher : null);
+            
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.BeginInvoke(action);
+            }
+            else
+            {
+                action();
+            }
+        }
+
+        /// <summary>
         /// Finds an open document by full path.
         /// </summary>
         internal static Document FindOpenDocument(DTE2 dte, string fullPath)
@@ -106,14 +166,7 @@ namespace NyoCoder
                 };
 
                 // DTE/Shell automation should run on the UI thread
-                if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
-                {
-                    System.Windows.Application.Current.Dispatcher.Invoke(openFile);
-                }
-                else
-                {
-                    openFile();
-                }
+                InvokeOnUIThread(openFile);
             }
             catch
             {
@@ -159,14 +212,7 @@ namespace NyoCoder
                     textDoc.Selection.ActivePoint.TryToShow(vsPaneShowHow.vsPaneShowCentered, null);
                 };
 
-                if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
-                {
-                    System.Windows.Application.Current.Dispatcher.Invoke(scroll);
-                }
-                else
-                {
-                    scroll();
-                }
+                InvokeOnUIThread(scroll);
             }
             catch
             {
@@ -200,18 +246,53 @@ namespace NyoCoder
                 };
 
                 // DTE automation should run on the UI thread
-                if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
-                {
-                    System.Windows.Application.Current.Dispatcher.Invoke(closeFile);
-                }
-                else
-                {
-                    closeFile();
-                }
+                InvokeOnUIThread(closeFile);
             }
             catch
             {
                 // Silently fail if we can't close the file - it's not critical
+            }
+        }
+
+        /// <summary>
+        /// Attempts to read the content of an open document in Visual Studio.
+        /// </summary>
+        /// <param name="fullPath">Full path to the document.</param>
+        /// <param name="content">Output parameter for the document content, or null if not found/not open.</param>
+        /// <returns>True if the document was found and content was read.</returns>
+        internal static bool TryReadOpenDocument(string fullPath, out string content)
+        {
+            content = null;
+
+            try
+            {
+                string localContent = null;
+                bool found = false;
+
+                Action read = () =>
+                {
+                    DTE2 dte = GetDte();
+                    if (dte == null) return;
+
+                    Document doc = FindOpenDocument(dte, fullPath);
+                    if (doc == null) return;
+
+                    TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
+                    if (textDoc == null) return;
+
+                    found = true;
+                    EditPoint start = textDoc.StartPoint.CreateEditPoint();
+                    localContent = start.GetText(textDoc.EndPoint);
+                };
+
+                InvokeOnUIThread(read);
+                content = localContent;
+                return found;
+            }
+            catch
+            {
+                content = null;
+                return false;
             }
         }
 
@@ -246,14 +327,7 @@ namespace NyoCoder
                     }
                 };
 
-                if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
-                {
-                    System.Windows.Application.Current.Dispatcher.Invoke(apply);
-                }
-                else
-                {
-                    apply();
-                }
+                InvokeOnUIThread(apply);
 
                 DTE2 check = GetDte();
                 if (check == null) return false;
@@ -281,5 +355,40 @@ namespace NyoCoder
                 return false;
             }
         }
+
+        /// <summary>
+        /// Normalizes a file path by expanding environment variables and resolving to full path.
+        /// Expands environment variables, resolves relative paths, and returns the full absolute path.
+        /// </summary>
+        /// <param name="filePath">The file path to normalize. Can be null or empty.</param>
+        /// <returns>The normalized full path, or null if the input is null/empty, or the best-effort expanded path if normalization fails.</returns>
+        internal static string NormalizeFilePath(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath))
+                return null;
+
+            try
+            {
+                string expandedPath = Environment.ExpandEnvironmentVariables(filePath.Trim());
+                if (!System.IO.Path.IsPathRooted(expandedPath))
+                {
+                    expandedPath = System.IO.Path.Combine(Environment.CurrentDirectory, expandedPath);
+                }
+                return System.IO.Path.GetFullPath(expandedPath);
+            }
+            catch
+            {
+                // If normalization fails, return the expanded path or original
+                try
+                {
+                    return Environment.ExpandEnvironmentVariables(filePath.Trim());
+                }
+                catch
+                {
+                    return filePath;
+                }
+            }
+        }
+
     }
 }

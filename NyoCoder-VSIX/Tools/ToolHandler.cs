@@ -371,6 +371,7 @@ public static class ToolHandler
     public static event Action<string, List<DiffChange>> OnDiffChangesPreview;
     public static event Action<string> OnDiffPreviewCleared;
 
+
     // Parses SEARCH/REPLACE blocks and performs replacements in a file
     private static string SearchReplace(string filePath, string content, out int exitCode)
     {
@@ -426,19 +427,9 @@ public static class ToolHandler
                     });
                 }
 
-                string p = preview.NormalizedFilePath;
-                if (string.IsNullOrEmpty(p))
-                {
-                    p = Environment.ExpandEnvironmentVariables((filePath ?? string.Empty).Trim());
-                    try
-                    {
-                        if (!string.IsNullOrEmpty(p) && !Path.IsPathRooted(p))
-                            p = Path.Combine(Environment.CurrentDirectory, p);
-                        p = Path.GetFullPath(p);
-                    }
-                    catch { }
-                }
-
+                string p = string.IsNullOrEmpty(preview.NormalizedFilePath) 
+                    ? EditorService.NormalizeFilePath(filePath) 
+                    : preview.NormalizedFilePath;
                 OnDiffChangesPreview(p, changes);
             }
 
@@ -461,7 +452,8 @@ public static class ToolHandler
                 approvalArgs.AppendLine();
                 if (!string.IsNullOrEmpty(preview.PreviewDiff))
                 {
-                    approvalArgs.AppendLine(preview.PreviewDiff);
+                    // PreviewDiff already ends with a newline, so use Append instead of AppendLine
+                    approvalArgs.Append(preview.PreviewDiff);
                 }
                 approvalResult = toolWindowControl.RequestToolApproval("search_replace", approvalArgs.ToString());
                 
@@ -484,15 +476,9 @@ public static class ToolHandler
                 // Clear preview adornments
                 if (OnDiffPreviewCleared != null)
                 {
-                    string p = string.IsNullOrEmpty(preview.NormalizedFilePath) ? filePath : preview.NormalizedFilePath;
-                    try
-                    {
-                        p = Environment.ExpandEnvironmentVariables((p ?? string.Empty).Trim());
-                        if (!string.IsNullOrEmpty(p) && !Path.IsPathRooted(p))
-                            p = Path.Combine(Environment.CurrentDirectory, p);
-                        p = Path.GetFullPath(p);
-                    }
-                    catch { }
+                    string p = string.IsNullOrEmpty(preview.NormalizedFilePath) 
+                        ? EditorService.NormalizeFilePath(filePath) 
+                        : preview.NormalizedFilePath;
                     OnDiffPreviewCleared(p);
                 }
 
@@ -509,15 +495,9 @@ public static class ToolHandler
             // 3) Clear preview adornments, then apply changes
             if (OnDiffPreviewCleared != null)
             {
-                string p = string.IsNullOrEmpty(preview.NormalizedFilePath) ? filePath : preview.NormalizedFilePath;
-                try
-                {
-                    p = Environment.ExpandEnvironmentVariables((p ?? string.Empty).Trim());
-                    if (!string.IsNullOrEmpty(p) && !Path.IsPathRooted(p))
-                        p = Path.Combine(Environment.CurrentDirectory, p);
-                    p = Path.GetFullPath(p);
-                }
-                catch { }
+                string p = string.IsNullOrEmpty(preview.NormalizedFilePath) 
+                    ? EditorService.NormalizeFilePath(filePath) 
+                    : preview.NormalizedFilePath;
                 OnDiffPreviewCleared(p);
             }
 
@@ -544,8 +524,6 @@ public static class ToolHandler
             }
 
             exitCode = 0;
-
-            addSpacer();
             sb.AppendLine("Approved and applied " + preview.Changes.Count + " block(s).");
             return sb.ToString();
         }

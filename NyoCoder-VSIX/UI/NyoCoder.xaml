@@ -13,6 +13,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
         <!-- Status bar showing token usage -->
@@ -61,5 +62,49 @@
                     Height="36"
                     Margin="2"
                     Visibility="Collapsed"/>
+        
+        <!-- Input bar -->
+        <Border x:Name="InputBar"
+                Grid.Row="3"
+                Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}"
+                BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
+                BorderThickness="0,1,0,0"
+                Padding="4"
+                Visibility="Collapsed">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="InputBox"
+                         Grid.Column="0"
+                         Margin="0,0,4,0"
+                         MinHeight="48"
+                         Height="48"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalContentAlignment="Top"
+                         VerticalScrollBarVisibility="Auto"
+                         PreviewKeyDown="InputBox_PreviewKeyDown"/>
+                <StackPanel Grid.Column="1"
+                           Orientation="Vertical"
+                           VerticalAlignment="Top">
+                    <Button x:Name="InputSendButton"
+                            Content="Send"
+                            MinWidth="60"
+                            MinHeight="20"
+                            Padding="8,1"
+                            Margin="0,0,0,4"
+                            Click="InputSendButton_Click"/>
+                    <ToggleButton x:Name="AttachImageButton"
+                            Content="Attach Image"
+                            MinWidth="60"
+                            MinHeight="20"
+                            Padding="8,1"
+                            Checked="AttachImageButton_Checked"
+                            Unchecked="AttachImageButton_Unchecked"/>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

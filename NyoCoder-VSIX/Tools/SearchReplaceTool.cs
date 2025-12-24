@@ -90,7 +90,7 @@ namespace NyoCoder
         {
             ApplyResult res = new ApplyResult();
 
-            string expandedPath = NormalizePath(filePath);
+            string expandedPath = EditorService.NormalizeFilePath(filePath);
             if (string.IsNullOrEmpty(expandedPath))
             {
                 res.Errors.Add("File path cannot be empty");
@@ -130,9 +130,7 @@ namespace NyoCoder
 
             // Prefer editing an open document buffer (so VS updates live)
             string original = null;
-            bool editedOpenDocument = false;
-
-            TryReadFromOpenDocument(expandedPath, out original, out editedOpenDocument);
+            bool editedOpenDocument = EditorService.TryReadOpenDocument(expandedPath, out original);
 
             if (original == null)
             {
@@ -243,7 +241,7 @@ namespace NyoCoder
             if (string.Equals(res.NewContent, res.OriginalContent, StringComparison.Ordinal)) return true;
 
             // Apply to open document if it is open; otherwise write to disk
-            bool appliedToOpen = TryApplyToOpenDocument(res.NormalizedFilePath, res.NewContent);
+            bool appliedToOpen = EditorService.TrySetOpenDocumentContent(res.NormalizedFilePath, res.NewContent, true);
             if (!appliedToOpen)
             {
                 File.WriteAllText(res.NormalizedFilePath, res.NewContent, Encoding.UTF8);
@@ -403,25 +401,6 @@ namespace NyoCoder
             return text.Replace("\r\n", "\n").Replace("\r", "\n");
         }
 
-        private static string NormalizePath(string filePath)
-        {
-            if (string.IsNullOrEmpty(filePath)) return null;
-
-            string expandedPath = Environment.ExpandEnvironmentVariables(filePath.Trim());
-            if (!Path.IsPathRooted(expandedPath))
-            {
-                expandedPath = Path.Combine(Environment.CurrentDirectory, expandedPath);
-            }
-
-            try
-            {
-                return Path.GetFullPath(expandedPath);
-            }
-            catch
-            {
-                return expandedPath;
-            }
-        }
 
         private static int CountOccurrences(string text, string search)
         {
@@ -450,99 +429,6 @@ namespace NyoCoder
             return sb.ToString();
         }
 
-        private static void TryReadFromOpenDocument(string expandedPath, out string content, out bool isOpen)
-        {
-            content = null;
-            isOpen = false;
-
-            try
-            {
-                string localContent = null;
-                bool localIsOpen = false;
-
-                Action read = () =>
-                {
-                    DTE2 dte = EditorService.GetDte();
-                    if (dte == null) return;
-
-                    Document doc = EditorService.FindOpenDocument(dte, expandedPath);
-                    if (doc == null) return;
-
-                    TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
-                    if (textDoc == null) return;
-
-                    localIsOpen = true;
-
-                    EditPoint start = textDoc.StartPoint.CreateEditPoint();
-                    localContent = NormalizeLineEndings(start.GetText(textDoc.EndPoint));
-                };
-
-                // DTE automation should run on the UI thread
-                if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
-                {
-                    System.Windows.Application.Current.Dispatcher.Invoke(read);
-                }
-                else
-                {
-                    read();
-                }
-
-                content = localContent;
-                isOpen = localIsOpen;
-            }
-            catch
-            {
-                content = null;
-                isOpen = false;
-            }
-        }
-
-        private static bool TryApplyToOpenDocument(string expandedPath, string newContent)
-        {
-            try
-            {
-                Action apply = () =>
-                {
-                    DTE2 dte = EditorService.GetDte();
-                    if (dte == null) return;
-
-                    Document doc = EditorService.FindOpenDocument(dte, expandedPath);
-                    if (doc == null) return;
-
-                    TextDocument textDoc = doc.Object("TextDocument") as TextDocument;
-                    if (textDoc == null) return;
-
-                    EditPoint start = textDoc.StartPoint.CreateEditPoint();
-                    start.ReplaceText(textDoc.EndPoint, newContent, (int)vsEPReplaceTextOptions.vsEPReplaceTextKeepMarkers);
-
-                    try
-                    {
-                        if (!doc.Saved)
-                        {
-                            doc.Save();
-                        }
-                    }
-                    catch { }
-                };
-
-                // DTE automation should run on the UI thread
-                if (System.Windows.Application.Current != null && !System.Windows.Application.Current.Dispatcher.CheckAccess())
-                {
-                    System.Windows.Application.Current.Dispatcher.Invoke(apply);
-                }
-                else
-                {
-                    apply();
-                }
-
-                // If we got here without throwing and the doc was open, we consider it applied
-                return EditorService.IsDocumentOpen(expandedPath);
-            }
-            catch
-            {
-                return false;
-            }
-        }
 
         private static string BuildUnifiedDiff(string oldText, string newText, int maxLines)
         {

@@ -60,6 +60,15 @@ namespace NyoCoder
             _layer.RemoveAllAdornments();
         }
 
+        /// <summary>
+        /// Helper method to begin invoking an action on the UI thread asynchronously.
+        /// Uses the view's Dispatcher for efficiency.
+        /// </summary>
+        private void BeginInvokeOnUIThread(Action action)
+        {
+            _view.VisualElement.Dispatcher.BeginInvoke(action);
+        }
+
         private void OnDiffChangesPreview(string filePath, List<ToolHandler.DiffChange> changes)
         {
             // Check if this is the file we're viewing
@@ -67,10 +76,7 @@ namespace NyoCoder
                 return;
 
             // Must be on UI thread
-            _view.VisualElement.Dispatcher.BeginInvoke(new Action(() =>
-            {
-                ApplyHighlights(changes);
-            }));
+            BeginInvokeOnUIThread(() => ApplyHighlights(changes));
         }
 
         private void OnDiffPreviewCleared(string filePath)
@@ -78,10 +84,7 @@ namespace NyoCoder
             if (!string.Equals(filePath, _filePath, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            _view.VisualElement.Dispatcher.BeginInvoke(new Action(() =>
-            {
-                ClearHighlights();
-            }));
+            BeginInvokeOnUIThread(() => ClearHighlights());
         }
 
         private void ApplyHighlights(List<ToolHandler.DiffChange> changes)

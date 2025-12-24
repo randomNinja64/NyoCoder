@@ -19,12 +19,18 @@ public class LLMClient
     private readonly string model;
     private readonly string systemPrompt;
 
+    /// <summary>
+    /// The conversation history for this LLM client instance.
+    /// </summary>
+    public List<ChatMessage> Conversation { get; set; }
+
     public LLMClient(string llmEndpoint, string key, string mdl, string sysprompt)
     {
         this.llmEndpoint = llmEndpoint;
         this.apiKey = key;
         this.model = mdl;
         this.systemPrompt = sysprompt;
+        this.Conversation = new List<ChatMessage>();
 
         // Enable modern TLS protocols for HTTPS support
         // .NET 4.0 only has named constant for Tls (1.0)
@@ -40,6 +46,43 @@ public class LLMClient
             // If setting TLS protocols fails, continue with system defaults
             // This can happen on very old systems without TLS 1.2 support
         }
+    }
+
+    /// <summary>
+    /// Creates a new LLMClient instance from configuration.
+    /// Validates that the LLM Server is configured and shows a message box if invalid.
+    /// </summary>
+    /// <returns>New LLMClient instance if configuration is valid, null otherwise.</returns>
+    public static LLMClient CreateFromConfig()
+    {
+        // Get configuration
+        string apiKey = ConfigHandler.GetApiKey();
+        string llmServer = ConfigHandler.GetLlmServer();
+        string model = ConfigHandler.GetModel();
+
+        // Validate configuration - only LLM Server is required
+        if (string.IsNullOrWhiteSpace(llmServer))
+        {
+            MessageBox.Show(
+                "Please configure the LLM Server in Tools > NyoCoder Options...",
+                "NyoCoder",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return null;
+        }
+
+        // Use empty string for optional values if not provided
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            apiKey = "";
+        }
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            model = "";
+        }
+
+        // Create and return new LLM client
+        return new LLMClient(llmServer, apiKey, model, ContextEngine.SystemPrompt);
     }
 
     // Struct for chat messages
@@ -76,7 +119,6 @@ public class LLMClient
     }
 
     public void ProcessConversation(
-        List<ChatMessage> conversation,
         string userMessage,
         string image,
         string assistantName,
@@ -107,7 +149,7 @@ public class LLMClient
             Content = userMessage,
             Image = image
         };
-        conversation.Add(userMsg);
+        this.Conversation.Add(userMsg);
 
         while (true)
         {
@@ -145,7 +187,7 @@ public class LLMClient
                 };
             }
 
-            LLMCompletionResponse response = sendMessages(conversation, outputCallback, toolCallStreamCallback, stopRequested);
+            LLMCompletionResponse response = sendMessages(this.Conversation, outputCallback, toolCallStreamCallback, stopRequested);
 
             if ((stopRequested != null && stopRequested()) || response.FinishReason == "stopped")
             {
@@ -165,7 +207,7 @@ public class LLMClient
                     Content = string.Empty,
                     ToolCalls = response.ToolCalls
                 };
-                conversation.Add(assistantCall);
+                this.Conversation.Add(assistantCall);
 
                 for (int i = 0; i < response.ToolCalls.Count; i++)
                 {
@@ -235,17 +277,17 @@ public class LLMClient
                                 exitCode
                             );
                         }
+                        else
+                        {
+                            // User approved - execute the tool
+                            ToolHandler.ExecuteToolCall(call, out toolContent, out exitCode);
+                        }
+                    }
                     else
                     {
-                        // User approved - execute the tool
+                        // Execute the requested tool and capture its output
                         ToolHandler.ExecuteToolCall(call, out toolContent, out exitCode);
                     }
-                }
-                else
-                {
-                    // Execute the requested tool and capture its output
-                    ToolHandler.ExecuteToolCall(call, out toolContent, out exitCode);
-                }
 
                     ChatMessage toolMsg = new ChatMessage
                     {
@@ -253,7 +295,7 @@ public class LLMClient
                         Content = toolContent,
                         ToolCallId = call.Id
                     };
-                    conversation.Add(toolMsg);
+                    this.Conversation.Add(toolMsg);
 
                     // Output tool result
                     if (outputCallback != null && showToolOutput)
@@ -279,20 +321,20 @@ public class LLMClient
                 }
 
                 // Check if we need to summarize before the next LLM call
-                if (ShouldSummarize(conversation))
+                if (ShouldSummarize(GetConversationCharacterCount(this.Conversation)))
                 {
                     if (outputCallback != null)
                     {
                         outputCallback("\n[Context usage high - summarizing conversation...]\n");
                     }
                     
-                    string summary = SummarizeConversation(conversation, outputCallback);
+                    string summary = SummarizeConversation(this.Conversation, outputCallback);
                     
                     if (!string.IsNullOrEmpty(summary))
                     {
                         // Replace conversation with summary
-                        conversation.Clear();
-                        conversation.Add(new ChatMessage("user", 
+                        this.Conversation.Clear();
+                        this.Conversation.Add(new ChatMessage("user", 
                             "[Previous conversation summary]\n" + summary + 
                             "\n\n[Continue from this context. The user's original request is being processed.]"));
                         
@@ -304,7 +346,7 @@ public class LLMClient
                         // Notify UI to reset character count
                         if (onSummarized != null)
                         {
-                            onSummarized(GetConversationCharacterCount(conversation));
+                            onSummarized(GetConversationCharacterCount(this.Conversation));
                         }
                     }
                 }
@@ -319,7 +361,7 @@ public class LLMClient
                 Role = "assistant",
                 Content = response.Content
             };
-            conversation.Add(assistantMsg);
+            this.Conversation.Add(assistantMsg);
             
             if (!outputOnly && outputCallback == null)
             {
@@ -439,17 +481,18 @@ public class LLMClient
     }
 
     /// <summary>
-    /// Checks if the conversation should be summarized based on context window usage.
+    /// Checks if summarization is needed based on total character count and context window size.
     /// Returns true if usage exceeds 90% and context window is configured.
     /// </summary>
-    private bool ShouldSummarize(List<ChatMessage> conversation)
+    /// <param name="characterCount">Total character count (excluding base overhead).</param>
+    /// <returns>True if summarization is needed, false otherwise.</returns>
+    private static bool ShouldSummarize(int characterCount)
     {
         int? contextWindowSize = ConfigHandler.ContextWindowSize;
         if (!contextWindowSize.HasValue || contextWindowSize.Value <= 0)
             return false;
 
-        int totalCharacters = GetConversationCharacterCount(conversation) + ContextEngine.GetBaseCharacterOverhead();
-        int approximateTokens = totalCharacters / 3;
+        int approximateTokens = ContextEngine.ApproximateTokens(characterCount);
         double usage = (double)approximateTokens / contextWindowSize.Value;
         
         return usage >= 0.90; // 90% threshold
@@ -711,7 +754,7 @@ public class LLMClient
                 return completionResponse;
             }
 
-            string errorMsg = "Error sending request: " + ex.Message + "\n";
+            string errorMsg = "Error sending request: " + ex.Message;
             if (outputCallback != null)
                 outputCallback(errorMsg);
             else

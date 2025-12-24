@@ -41,7 +41,8 @@ namespace NyoCoder
     public sealed class NyoCoder_VSIXPackage : Package
     {
         private static NyoCoder_VSIXPackage _instance;
-        private int _isAiRunning = 0; // 0 = not running, 1 = running
+        internal int _isAiRunning = 0; // 0 = not running, 1 = running
+        public LLMClient LlmClient;
 
         /// <summary>
         /// Gets the singleton instance of the package.
@@ -149,7 +150,7 @@ namespace NyoCoder
         {
             try
             {
-                DTE2 dte = GetService(typeof(DTE)) as DTE2;
+                DTE2 dte = ApplicationObject;
                 if (dte == null || dte.Commands == null) return;
 
                 // The command name format for VSIX packages is: {guid}:{id} (numeric id)
@@ -213,11 +214,11 @@ namespace NyoCoder
         /// <summary>
         /// Saves all open documents in Visual Studio.
         /// </summary>
-        private void SaveAllOpenFiles()
+        public void SaveAllOpenFiles()
         {
             try
             {
-                DTE2 dte = GetService(typeof(DTE)) as DTE2;
+                DTE2 dte = ApplicationObject;
                 if (dte != null && dte.Documents != null)
                 {
                     dte.Documents.SaveAll();
@@ -231,163 +232,65 @@ namespace NyoCoder
         }
 
 
+
         /// <summary>
         /// This function is the callback used when the "Ask NyoCoder" context menu item is clicked.
-        /// Shows a prompt form to get user input for the AI.
+        /// Clears the LLM client/context and shows the input box for user input.
         /// </summary>
         private void AskNyoCoderCallback(object sender, EventArgs e)
         {
             // Create context engine
-            DTE2 dte = GetService(typeof(DTE)) as DTE2;
+            DTE2 dte = ApplicationObject;
             ContextEngine contextEngine = new ContextEngine(dte);
 
-            // Only show prompt if in a text editor
+            // Only proceed if in a text editor
             if (!contextEngine.IsInTextEditor()) return;
 
-            PromptForm promptForm = new PromptForm();
-            if (promptForm.ShowDialog() == System.Windows.Forms.DialogResult.OK && !string.IsNullOrWhiteSpace(promptForm.Prompt))
+            // Check if an AI request is already running
+            if (Interlocked.CompareExchange(ref _isAiRunning, 1, 0) != 0)
             {
-                // Check if an AI request is already running (atomic check-and-set)
-                if (Interlocked.CompareExchange(ref _isAiRunning, 1, 0) != 0)
-                {
-                    System.Windows.Forms.MessageBox.Show(
-                        "An AI request is already in progress. Please wait for it to complete.",
-                        "NyoCoder", 
-                        System.Windows.Forms.MessageBoxButtons.OK, 
-                        System.Windows.Forms.MessageBoxIcon.Information);
-                    return;
-                }
-
-                // Ensure tool window is created and visible
-                ShowToolWindow(null, EventArgs.Empty);
-
-                // Get the tool window control
-                NyoCoderControl toolWindowControl = ToolWindowControl;
-                if (toolWindowControl == null)
-                {
-                    Interlocked.Exchange(ref _isAiRunning, 0); // Reset flag
-                    System.Windows.Forms.MessageBox.Show(
-                        "Failed to access NyoCoder output window. Please try again.",
-                        "NyoCoder", 
-                        System.Windows.Forms.MessageBoxButtons.OK, 
-                        System.Windows.Forms.MessageBoxIcon.Error);
-                    return;
-                }
-
-                // Get configuration
-                string apiKey = ConfigHandler.GetApiKey();
-                string llmServer = ConfigHandler.GetLlmServer();
-                string model = ConfigHandler.GetModel();
-
-                // Validate configuration - only LLM Server is required
-                if (string.IsNullOrWhiteSpace(llmServer))
-                {
-                    Interlocked.Exchange(ref _isAiRunning, 0); // Reset flag
-                    System.Windows.Forms.MessageBox.Show(
-                        "Please configure the LLM Server in Tools > NyoCoder Options...",
-                        "NyoCoder", 
-                        System.Windows.Forms.MessageBoxButtons.OK, 
-                        System.Windows.Forms.MessageBoxIcon.Warning);
-                    return;
-                }
-
-                // Use empty string for optional values if not provided
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    apiKey = "";
-                }
-                if (string.IsNullOrWhiteSpace(model))
-                {
-                    model = "";
-                }
-
-                // Create LLM client with shared system prompt
-                LLMClient llmClient = new LLMClient(llmServer, apiKey, model, ContextEngine.SystemPrompt);
-
-                // Clear previous output and show prompt
-                toolWindowControl.ClearOutput();
-                toolWindowControl.AppendLine("User: " + promptForm.Prompt);
-                toolWindowControl.AppendLine("\nAssistant: ");
-
-                // Save all open files before calling the AI
-                SaveAllOpenFiles();
-
-                // Build the user prompt with context
-                string context = contextEngine.BuildUserPromptContext();
-                string userPrompt = promptForm.Prompt;
-                if (!string.IsNullOrWhiteSpace(context))
-                {
-                    userPrompt = context + "\n\n---\n\n" + userPrompt;
-                }
-
-                // The UI prints only promptForm.Prompt, but we send userPrompt (includes hidden context).
-                // Add the hidden characters so the status bar matches actual context usage.
-                int hiddenDelta = userPrompt.Length - (promptForm.Prompt != null ? promptForm.Prompt.Length : 0);
-                if (hiddenDelta > 0)
-                {
-                    toolWindowControl.AddToCharacterCount(hiddenDelta);
-                }
-
-                // Reset stop flag for this session
-                toolWindowControl.ResetStopRequested();
-
-                // Send prompt and stream response to tool window on a background thread
-                // This prevents the UI from freezing while waiting for the LLM response
-                // Using ThreadPool for .NET 4.0 compatibility (Task.Factory.StartNew also works)
-                ThreadPool.QueueUserWorkItem(state =>
-                {
-                    try
-                    {
-                        List<LLMClient.ChatMessage> conversation = new List<LLMClient.ChatMessage>();
-
-                        llmClient.ProcessConversation(
-                            conversation,
-                            userPrompt,
-                            null, // image
-                            "Assistant",
-                            null, // toolsRequiringApproval - will use defaults
-                            false, // outputOnly
-                            true, // showToolOutput
-                            (text) =>
-                            {
-                                // AppendText already handles thread-safe marshaling via Dispatcher
-                                // Token count updates automatically when text is appended
-                                toolWindowControl.AppendText(text);
-                            },
-                            (toolName, arguments) =>
-                            {
-                                // Use the tool window's Yes/No/Stop buttons for approval
-                                return toolWindowControl.RequestToolApproval(toolName, arguments);
-                            },
-                            stopRequested: () => toolWindowControl.IsStopRequested(),
-                            onSummarized: (newCharCount) =>
-                            {
-                                // Reset the UI character count after summarization
-                                toolWindowControl.ResetCharacterCount(newCharCount);
-                            }
-                        );
-                        toolWindowControl.AppendText(Environment.NewLine); // Add newline after response
-                    }
-                    catch (Exception ex)
-                    {
-                        toolWindowControl.AppendLine("\nError: " + ex.Message);
-                        // Show error message on UI thread
-                        toolWindowControl.Dispatcher.Invoke(new Action(() =>
-                        {
-                            System.Windows.Forms.MessageBox.Show(
-                                "Error communicating with LLM: " + ex.Message,
-                                "NyoCoder", 
-                                System.Windows.Forms.MessageBoxButtons.OK, 
-                                System.Windows.Forms.MessageBoxIcon.Error);
-                        }));
-                    }
-                    finally
-                    {
-                        // Reset the AI running flag when request completes (success or error)
-                        Interlocked.Exchange(ref _isAiRunning, 0);
-                    }
-                });
+                System.Windows.Forms.MessageBox.Show(
+                    "An AI request is already in progress. Please wait for it to complete.",
+                    "NyoCoder", 
+                    System.Windows.Forms.MessageBoxButtons.OK, 
+                    System.Windows.Forms.MessageBoxIcon.Information);
+                return;
             }
+
+            // Ensure tool window is created and visible
+            ShowToolWindow(null, EventArgs.Empty);
+
+            // Get the tool window control
+            NyoCoderControl toolWindowControl = ToolWindowControl;
+            if (toolWindowControl == null)
+            {
+                Interlocked.Exchange(ref _isAiRunning, 0); // Reset flag
+                System.Windows.Forms.MessageBox.Show(
+                    "Failed to access NyoCoder output window. Please try again.",
+                    "NyoCoder", 
+                    System.Windows.Forms.MessageBoxButtons.OK, 
+                    System.Windows.Forms.MessageBoxIcon.Error);
+                return;
+            }
+
+            // Validate configuration and create LLM client
+            LLMClient newClient = LLMClient.CreateFromConfig();
+            if (newClient == null)
+            {
+                Interlocked.Exchange(ref _isAiRunning, 0); // Reset flag
+                return;
+            }
+
+            LlmClient = newClient;
+
+            // Clear previous output
+            toolWindowControl.ClearOutput();
+
+            // Show input bar and focus it
+            toolWindowControl.ShowInputBar();
+
+            // Reset the AI running flag (no request is running yet, user will type and send)
+            Interlocked.Exchange(ref _isAiRunning, 0);
         }
 
     }

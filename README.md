@@ -2,7 +2,7 @@
 
 ## Description 
 
-An extension for Visual Studio 2010 that enabled AI-assisted coding with OpenAI-compatible endpoints (llama.cpp, LM Studio, etc.)
+An extension for Visual Studio 2010 that enables AI-assisted coding with OpenAI-compatible endpoints (llama.cpp, LM Studio, etc.)
 
 ## Configuration (Options > NyoCoder Options...)
 

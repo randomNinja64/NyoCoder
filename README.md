@@ -4,7 +4,7 @@
 
 An extension for Visual Studio 2010 that enabled AI-assisted coding with OpenAI-compatible endpoints (llama.cpp, LM Studio, etc.)
 
-- Configuration (Options > NyoCoder Options...) -
+-- Configuration (Options > NyoCoder Options...) --
 
 API Key - If your endpoint requires an API key, enter it here.
 LLM Server (http://ip:port) - The URL for your AI server.

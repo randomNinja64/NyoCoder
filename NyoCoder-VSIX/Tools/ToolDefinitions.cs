@@ -21,6 +21,22 @@ namespace NyoCoder
             }
         }
 
+        private struct ToolEntry
+        {
+            public string Name;
+            public string Description;
+            public Dictionary<string, PropertyInfo> Props;
+            public string[] Required;
+
+            public ToolEntry(string name, string description, Dictionary<string, PropertyInfo> props, string[] required)
+            {
+                Name = name;
+                Description = description;
+                Props = props;
+                Required = required;
+            }
+        }
+
         /// <summary>
         /// All built-in tool names, in display order.
         /// </summary>
@@ -44,9 +60,9 @@ namespace NyoCoder
         {
             HashSet<string> disabled = new HashSet<string>(ConfigHandler.GetDisabledTools(), System.StringComparer.OrdinalIgnoreCase);
 
-            var definitions = new (string Name, string Description, Dictionary<string, PropertyInfo> Props, string[] Required)[]
+            ToolEntry[] definitions = new ToolEntry[]
             {
-                (
+                new ToolEntry(
                     "run_shell_command",
                     "Execute a shell command on the host system and return its output.",
                     new Dictionary<string, PropertyInfo>
@@ -55,7 +71,7 @@ namespace NyoCoder
                     },
                     new[] { "command" }
                 ),
-                (
+                new ToolEntry(
                     "read_file",
                     "Read the contents of a local file and return it as a string. Always reads up to " + ConfigHandler.MaxReadLines + " lines. Use the offset parameter to read different parts of large files.",
                     new Dictionary<string, PropertyInfo>
@@ -65,7 +81,7 @@ namespace NyoCoder
                     },
                     new[] { "filename" }
                 ),
-                (
+                new ToolEntry(
                     "write_file",
                     "Write the given content to a local file, creating or overwriting it.",
                     new Dictionary<string, PropertyInfo>
@@ -75,7 +91,7 @@ namespace NyoCoder
                     },
                     new[] { "filename", "content" }
                 ),
-                (
+                new ToolEntry(
                     "move_file",
                     "Move or rename a file from one location to another. Destination directory will be created if it doesn't exist.",
                     new Dictionary<string, PropertyInfo>
@@ -85,7 +101,7 @@ namespace NyoCoder
                     },
                     new[] { "source_path", "destination_path" }
                 ),
-                (
+                new ToolEntry(
                     "copy_file",
                     "Copy a file from one location to another. Destination directory will be created if it doesn't exist.",
                     new Dictionary<string, PropertyInfo>
@@ -95,7 +111,7 @@ namespace NyoCoder
                     },
                     new[] { "source_path", "destination_path" }
                 ),
-                (
+                new ToolEntry(
                     "delete_file",
                     "Delete a file from the file system. Use with caution as this operation cannot be undone.",
                     new Dictionary<string, PropertyInfo>
@@ -104,7 +120,7 @@ namespace NyoCoder
                     },
                     new[] { "file_path" }
                 ),
-                (
+                new ToolEntry(
                     "list_directory",
                     "List all files and subdirectories in a given directory.",
                     new Dictionary<string, PropertyInfo>
@@ -113,7 +129,7 @@ namespace NyoCoder
                     },
                     new[] { "directory_path" }
                 ),
-                (
+                new ToolEntry(
                     "grep_search",
                     "Recursively search for a regular expression pattern in files. Very fast and automatically ignores files you should not read like .pyc files, .venv directories, node_modules, .git, bin/obj folders, etc. Use this to find where functions are defined, how variables are used, or to locate specific error messages.",
                     new Dictionary<string, PropertyInfo>
@@ -125,7 +141,7 @@ namespace NyoCoder
                     },
                     new[] { "pattern" }
                 ),
-                (
+                new ToolEntry(
                     "search_replace",
                     "Use `search_replace` to make targeted changes to files using SEARCH/REPLACE blocks. This tool finds exact text matches and replaces them. The content format uses SEARCH/REPLACE blocks: <<<<<<< SEARCH\n[exact text to find]\n=======\n[exact text to replace with]\n>>>>>>> REPLACE. You can include multiple SEARCH/REPLACE blocks to make multiple changes to the same file. The SEARCH text must match EXACTLY (including whitespace, indentation, and line endings). If the file is part of the project, it will be opened in Visual Studio with changes highlighted.",
                     new Dictionary<string, PropertyInfo>
@@ -139,7 +155,7 @@ namespace NyoCoder
 
             JArray toolsArray = new JArray();
 
-            foreach (var def in definitions)
+            foreach (ToolEntry def in definitions)
             {
                 if (!disabled.Contains(def.Name))
                     toolsArray.Add(CreateToolDefinition(def.Name, def.Description, def.Props, def.Required));

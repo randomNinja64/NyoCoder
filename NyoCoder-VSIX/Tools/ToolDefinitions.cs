@@ -50,7 +50,9 @@ namespace NyoCoder
             "delete_file",
             "list_directory",
             "grep_search",
-            "search_replace"
+            "search_replace",
+            "run_web_search",
+            "read_website"
         };
 
         /// <summary>
@@ -143,13 +145,31 @@ namespace NyoCoder
                 ),
                 new ToolEntry(
                     "search_replace",
-                    "Use `search_replace` to make targeted changes to files using SEARCH/REPLACE blocks. This tool finds exact text matches and replaces them. The content format uses SEARCH/REPLACE blocks: <<<<<<< SEARCH\n[exact text to find]\n=======\n[exact text to replace with]\n>>>>>>> REPLACE. You can include multiple SEARCH/REPLACE blocks to make multiple changes to the same file. The SEARCH text must match EXACTLY (including whitespace, indentation, and line endings). If the file is part of the project, it will be opened in Visual Studio with changes highlighted.",
+                    "Replace sections of a file using SEARCH/REPLACE blocks. The SEARCH text must match exactly (including whitespace, indentation, and line endings). Multiple blocks can be provided to make multiple changes to the same file. Format: <<<<<<< SEARCH\n[exact text to find]\n=======\n[replacement text]\n>>>>>>> REPLACE. If the file is part of the project, it will be opened in Visual Studio with changes highlighted.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "file_path", new PropertyInfo("string", "The full path of the file to modify. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
                         { "content", new PropertyInfo("string", "The SEARCH/REPLACE blocks defining the changes. Format: <<<<<<< SEARCH\n[exact text to find]\n=======\n[exact text to replace with]\n>>>>>>> REPLACE. Multiple blocks can be included for multiple changes.") }
                     },
                     new[] { "file_path", "content" }
+                ),
+                new ToolEntry(
+                    "run_web_search",
+                    "Search the web for current information that may not be in your training data. Returns a list of relevant URLs with brief snippets. Use read_website to follow up on specific results.",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "query", new PropertyInfo("string", "The search query to look up on the web.") }
+                    },
+                    new[] { "query" }
+                ),
+                new ToolEntry(
+                    "read_website",
+                    "Fetch the content of a specific URL to read current information from the web. Useful for reading documentation, articles, or any web page in full. Returns up to " + ConfigHandler.GetConfigInt("maxWebContentLength", 8000) + " characters of page content.",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "url", new PropertyInfo("string", "The URL of the web page to fetch.") }
+                    },
+                    new[] { "url" }
                 ),
             };
 

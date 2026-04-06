@@ -124,6 +124,25 @@ public static class ToolHandler
                         return true;
                     }
 
+                case "run_web_search":
+                    {
+                        string query = GetRequiredArg(call.Arguments, "query");
+                        string searxngInstance = ConfigHandler.GetConfigValue("searxngInstance");
+                        int maxSearchResults = ConfigHandler.GetConfigInt("maxSearchResults", 20);
+                        string output = WebSearchTool.RunWebSearch(query, searxngInstance, maxSearchResults, out exitCode);
+                        toolContent = FormatCommandResult("web search: " + query, output, exitCode);
+                        return true;
+                    }
+
+                case "read_website":
+                    {
+                        string url = GetRequiredArg(call.Arguments, "url");
+                        int maxContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 8000);
+                        string output = WebSearchTool.ReadWebsite(url, maxContentLength, out exitCode);
+                        toolContent = FormatCommandResult("read website: " + url, output, exitCode);
+                        return true;
+                    }
+
                 default:
                     // Fall through to external tool registry (SimpleLLMChat-compatible packages)
                     if (ExternalToolRegistry.HasTool(call.Name))

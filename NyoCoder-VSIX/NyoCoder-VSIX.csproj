@@ -155,6 +155,7 @@
     <!-- Tools -->
     <Compile Include="Tools\ExternalToolRegistry.cs" />
     <Compile Include="Tools\SearchReplaceTool.cs" />
+    <Compile Include="Tools\WebSearchTool.cs" />
     <Compile Include="Tools\ToolDefinitions.cs" />
     <Compile Include="Tools\ToolHandler.cs" />
     <!-- UI -->
@@ -172,6 +173,12 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="UI\ToolsOptionsPageHost.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\WebSearchOptionsPage.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\WebSearchOptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <!-- Properties -->

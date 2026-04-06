@@ -38,6 +38,7 @@ namespace NyoCoder
     // This attribute registers an options page exposed by this package.
     [ProvideOptionPage(typeof(OptionsPage), "NyoCoder", "General", 0, 0, true)]
     [ProvideOptionPage(typeof(ToolsOptionsPage), "NyoCoder", "Tools", 0, 0, true)]
+    [ProvideOptionPage(typeof(WebSearchOptionsPage), "NyoCoder", "Web Search", 0, 0, true)]
     [Guid(GuidList.guidNyoCoder_VSIXPkgString)]
     public sealed class NyoCoder_VSIXPackage : Package
     {

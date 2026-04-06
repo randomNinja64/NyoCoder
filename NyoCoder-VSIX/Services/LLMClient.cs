@@ -39,7 +39,7 @@ public class LLMClient
         // This ensures fallback to older protocols if newer ones aren't available
         try
         {
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls | (SecurityProtocolType)768 | (SecurityProtocolType)3072;
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls | (SecurityProtocolType)768 | (SecurityProtocolType)3072 | (SecurityProtocolType)12288;
         }
         catch
         {
@@ -604,146 +604,9 @@ public class LLMClient
             using (var responseStream = httpResponse.GetResponseStream())
             using (var reader = new StreamReader(responseStream, Encoding.UTF8))
             {
-                string line;
-                StringBuilder output = new StringBuilder();
-
-                // ✅ accumulate tool call argument chunks across deltas
-                Dictionary<int, ToolHandler.ToolCall> partialToolCalls = new Dictionary<int, ToolHandler.ToolCall>();
-                Dictionary<int, int> toolCallArgumentLength = new Dictionary<int, int>(); // Track how much we've already streamed
-                string lastEvent = null; // Track the last event type for error handling
-
-                while ((line = reader.ReadLine()) != null)
-                {
-                    if (stopRequested != null && stopRequested())
-                    {
-                        try { request.Abort(); } catch { }
-                        completionResponse.FinishReason = "stopped";
-                        return completionResponse;
-                    }
-
-                    if (line.StartsWith("data: "))
-                    {
-                        string jsonPart = line.Substring(6);
-                        if (jsonPart == "[DONE]") break;
-
-                        // Check if this is an error response (either from event: error or error object in data)
-                        if (lastEvent == "error" || jsonPart.Contains("\"error\""))
-                        {
-                            string errorMsg = "[API Error] " + jsonPart.Trim() + "\n";
-                            if (outputCallback != null)
-                                outputCallback(errorMsg);
-                            else
-                                Console.Write(errorMsg);
-                            lastEvent = null;
-                            continue;
-                        }
-                        
-                        lastEvent = null; // Reset event type after processing
-
-                        try
-                        {
-                            JObject obj = JObject.Parse(jsonPart);
-                            JArray choices = (JArray)obj["choices"];
-                            if (choices == null) continue;
-
-                            foreach (JObject choice in choices)
-                            {
-                                JObject delta = (JObject)choice["delta"];
-                                string content = delta != null ? (string)delta["content"] : null;
-                                if (!string.IsNullOrEmpty(content))
-                                {
-                                    if (outputCallback != null)
-                                        outputCallback(content);
-                                    else
-                                        Console.Write(content);
-                                    output.Append(content);
-                                }
-
-                                string finishReason = (string)choice["finish_reason"];
-                                if (!string.IsNullOrEmpty(finishReason))
-                                    completionResponse.FinishReason = finishReason;
-
-                                JArray toolCalls = delta != null ? (JArray)delta["tool_calls"] : null;
-                                if (toolCalls != null)
-                                {
-                                    foreach (JObject call in toolCalls)
-                                    {
-                                        JToken indexToken = call["index"];
-                                        int index = indexToken != null ? indexToken.Value<int>() : 0;
-                                        string id = (string)call["id"];
-                                        JObject function = (JObject)call["function"];
-
-                                        if (!partialToolCalls.ContainsKey(index))
-                                        {
-                                            partialToolCalls[index] = new ToolHandler.ToolCall
-                                            {
-                                                Id = "",
-                                                Name = "",
-                                                Arguments = ""
-                                            };
-                                            toolCallArgumentLength[index] = 0;
-                                        }
-
-                                        var temp = partialToolCalls[index];
-
-                                        if (!string.IsNullOrEmpty(id))
-                                        {
-                                            temp.Id = id;
-                                        }
-
-                                        if (function != null)
-                                        {
-                                            string name = (string)function["name"];
-                                            string argsChunk = (string)function["arguments"];
-
-                                            if (!string.IsNullOrEmpty(name))
-                                            {
-                                                temp.Name = name;
-                                                // Show tool call when we first see the name
-                                                if (toolCallCallback != null && toolCallArgumentLength[index] == 0)
-                                                {
-                                                    toolCallCallback(new ToolHandler.ToolCall(name, "", ""));
-                                                }
-                                            }
-
-                                            if (!string.IsNullOrEmpty(argsChunk))
-                                            {
-                                                temp.Arguments += argsChunk;
-                                                // Stream only new chunks as they arrive
-                                                if (toolCallCallback != null && !string.IsNullOrEmpty(temp.Name))
-                                                {
-                                                    int alreadyStreamed = toolCallArgumentLength[index];
-                                                    if (temp.Arguments.Length > alreadyStreamed)
-                                                    {
-                                                        string newChunk = temp.Arguments.Substring(alreadyStreamed);
-                                                        toolCallCallback(new ToolHandler.ToolCall(temp.Name, newChunk, temp.Id));
-                                                        toolCallArgumentLength[index] = temp.Arguments.Length;
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        partialToolCalls[index] = temp;
-                                    }
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            // ignore malformed JSON fragments
-                        }
-                    }
-                }
-
-                // finalize tool calls after stream ends
-                completionResponse.ToolCalls.AddRange(partialToolCalls.Values);
-                completionResponse.Content = output.ToString();
-                
-                // Close any open tool call parentheses
-                if (toolCallCallback != null && partialToolCalls.Count > 0)
-                {
-                    outputCallback(")\n");
-                }
+                completionResponse = SseStreamParser.Parse(
+                    reader, outputCallback, toolCallCallback, stopRequested,
+                    () => { try { request.Abort(); } catch { } });
             }
         }
         catch (Exception ex)
@@ -752,6 +615,14 @@ public class LLMClient
             {
                 completionResponse.FinishReason = "stopped";
                 return completionResponse;
+            }
+
+            // Try curl fallback for HTTPS connection errors
+            string curlPath = CurlClient.GetCurlPath();
+            if (llmEndpoint.StartsWith("https:", StringComparison.OrdinalIgnoreCase) &&
+                File.Exists(curlPath) && ShouldFallbackToCurl(ex))
+            {
+                return CurlClient.SendRequest(llmEndpoint, apiKey, payload, outputCallback, toolCallCallback, stopRequested);
             }
 
             string errorMsg = "Error sending request: " + ex.Message;
@@ -764,6 +635,27 @@ public class LLMClient
         }
 
         return completionResponse;
+    }
+
+    private static bool ShouldFallbackToCurl(Exception ex)
+    {
+        WebException webEx = ex as WebException;
+        if (webEx != null)
+            return webEx.Status == WebExceptionStatus.SecureChannelFailure
+                || webEx.Status == WebExceptionStatus.TrustFailure
+                || webEx.Status == WebExceptionStatus.ConnectFailure
+                || webEx.Status == WebExceptionStatus.ConnectionClosed
+                || webEx.Status == WebExceptionStatus.SendFailure
+                || webEx.Status == WebExceptionStatus.ReceiveFailure
+                || webEx.Status == WebExceptionStatus.Timeout
+                || webEx.Status == WebExceptionStatus.ServerProtocolViolation
+                || (webEx.InnerException != null &&
+                    webEx.InnerException.GetType().Name.Contains("Authentication"));
+
+        return ex.GetType().Name.Contains("Authentication")
+            || ex.GetType().Name.Contains("Security")
+            || ex.GetType().Name.Contains("IOException")
+            || (ex.Message != null && ex.Message.Contains("connection"));
     }
 }
 }

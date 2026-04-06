@@ -125,6 +125,12 @@ public static class ToolHandler
                     }
 
                 default:
+                    // Fall through to external tool registry (SimpleLLMChat-compatible packages)
+                    if (ExternalToolRegistry.HasTool(call.Name))
+                    {
+                        ExternalToolRegistry.ExecuteToolCall(call.Name, call.Arguments, out toolContent, out exitCode);
+                        return true;
+                    }
                     toolContent = "error: unknown tool '" + call.Name + "'.";
                     return false;
             }

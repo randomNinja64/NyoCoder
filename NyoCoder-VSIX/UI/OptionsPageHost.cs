@@ -7,7 +7,7 @@ namespace NyoCoder
     public class OptionsPageHost : UserControl
     {
         private OptionsPage optionsPage;
-        
+
         private Label lblTitle;
         private Label lblApiKey;
         private TextBox txtApiKey;
@@ -28,72 +28,60 @@ namespace NyoCoder
 
         private void InitializeComponent()
         {
-            this.lblTitle = new Label();
-            this.lblApiKey = new Label();
-            this.txtApiKey = new TextBox();
-            this.lblLlmServer = new Label();
-            this.txtLlmServer = new TextBox();
-            this.lblModel = new Label();
-            this.txtModel = new TextBox();
-            this.lblMaxReadLines = new Label();
-            this.txtMaxReadLines = new TextBox();
-            this.lblContextWindowSize = new Label();
-            this.txtContextWindowSize = new TextBox();
             this.SuspendLayout();
 
-            // lblTitle
+            this.lblTitle = new Label();
             this.lblTitle.AutoSize = true;
             this.lblTitle.Font = new Font(this.Font, FontStyle.Bold);
             this.lblTitle.Location = new Point(20, 10);
             this.lblTitle.Text = "Options:";
 
-            // lblApiKey
+            this.lblApiKey = new Label();
             this.lblApiKey.AutoSize = true;
             this.lblApiKey.Location = new Point(20, 35);
             this.lblApiKey.Text = "API Key:";
 
-            // txtApiKey
+            this.txtApiKey = new TextBox();
             this.txtApiKey.Location = new Point(20, 52);
             this.txtApiKey.Size = new Size(360, 23);
             this.txtApiKey.UseSystemPasswordChar = true;
 
-            // lblLlmServer
+            this.lblLlmServer = new Label();
             this.lblLlmServer.AutoSize = true;
             this.lblLlmServer.Location = new Point(20, 82);
             this.lblLlmServer.Text = "LLM Server (OpenAI Compatible):";
 
-            // txtLlmServer
+            this.txtLlmServer = new TextBox();
             this.txtLlmServer.Location = new Point(20, 99);
             this.txtLlmServer.Size = new Size(360, 23);
 
-            // lblModel
+            this.lblModel = new Label();
             this.lblModel.AutoSize = true;
             this.lblModel.Location = new Point(20, 129);
             this.lblModel.Text = "Model:";
 
-            // txtModel
+            this.txtModel = new TextBox();
             this.txtModel.Location = new Point(20, 146);
             this.txtModel.Size = new Size(360, 23);
 
-            // lblMaxReadLines
+            this.lblMaxReadLines = new Label();
             this.lblMaxReadLines.AutoSize = true;
             this.lblMaxReadLines.Location = new Point(20, 176);
             this.lblMaxReadLines.Text = "Max Read Lines:";
 
-            // txtMaxReadLines
+            this.txtMaxReadLines = new TextBox();
             this.txtMaxReadLines.Location = new Point(20, 193);
             this.txtMaxReadLines.Size = new Size(360, 23);
 
-            // lblContextWindowSize
+            this.lblContextWindowSize = new Label();
             this.lblContextWindowSize.AutoSize = true;
             this.lblContextWindowSize.Location = new Point(20, 223);
-            this.lblContextWindowSize.Text = "Context Window Size (tokens)";
+            this.lblContextWindowSize.Text = "Context Window Size (tokens):";
 
-            // txtContextWindowSize
+            this.txtContextWindowSize = new TextBox();
             this.txtContextWindowSize.Location = new Point(20, 240);
             this.txtContextWindowSize.Size = new Size(360, 23);
 
-            // OptionsPageHost
             this.BackColor = SystemColors.Control;
             this.Controls.Add(this.lblTitle);
             this.Controls.Add(this.lblApiKey);
@@ -131,32 +119,30 @@ namespace NyoCoder
 
         public int MaxReadLines
         {
-            get 
+            get
             {
                 int result;
                 if (int.TryParse(txtMaxReadLines.Text, out result) && result > 0)
                     return result;
-                return 500; // Default value
+                return 500;
             }
             set { txtMaxReadLines.Text = value.ToString(); }
         }
 
         public int? ContextWindowSize
         {
-            get 
+            get
             {
                 string text = txtContextWindowSize.Text != null ? txtContextWindowSize.Text.Trim() : null;
                 if (string.IsNullOrEmpty(text))
                     return null;
-                
                 int result;
                 return (int.TryParse(text, out result) && result > 0) ? (int?)result : null;
             }
-            set 
-            { 
-                txtContextWindowSize.Text = value.HasValue ? value.Value.ToString() : string.Empty; 
+            set
+            {
+                txtContextWindowSize.Text = value.HasValue ? value.Value.ToString() : string.Empty;
             }
         }
-
     }
 }

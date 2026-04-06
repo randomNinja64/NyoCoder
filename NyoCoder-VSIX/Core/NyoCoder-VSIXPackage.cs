@@ -37,6 +37,7 @@ namespace NyoCoder
     [ProvideToolWindow(typeof(NyoCoderToolWindow))]
     // This attribute registers an options page exposed by this package.
     [ProvideOptionPage(typeof(OptionsPage), "NyoCoder", "General", 0, 0, true)]
+    [ProvideOptionPage(typeof(ToolsOptionsPage), "NyoCoder", "Tools", 0, 0, true)]
     [Guid(GuidList.guidNyoCoder_VSIXPkgString)]
     public sealed class NyoCoder_VSIXPackage : Package
     {
@@ -120,6 +121,10 @@ namespace NyoCoder
 
             // Initialize ConfigHandler to load config on extension startup
             ConfigHandler.Initialize();
+
+            // Ensure the external tools folder exists so users can drop packages in
+            if (!System.IO.Directory.Exists(ExternalToolRegistry.ToolsDirectory))
+                System.IO.Directory.CreateDirectory(ExternalToolRegistry.ToolsDirectory);
 
             // Add our command handlers for menu (commands must exist in the .vsct file)
             OleMenuCommandService mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;

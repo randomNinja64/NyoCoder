@@ -147,10 +147,13 @@
     <!-- Services -->
     <Compile Include="Services\ConfigHandler.cs" />
     <Compile Include="Services\ContextEngine.cs" />
+    <Compile Include="Services\CurlClient.cs" />
     <Compile Include="Services\EditorService.cs" />
     <Compile Include="Services\FileHandler.cs" />
     <Compile Include="Services\LLMClient.cs" />
+    <Compile Include="Services\SseStreamParser.cs" />
     <!-- Tools -->
+    <Compile Include="Tools\ExternalToolRegistry.cs" />
     <Compile Include="Tools\SearchReplaceTool.cs" />
     <Compile Include="Tools\ToolDefinitions.cs" />
     <Compile Include="Tools\ToolHandler.cs" />
@@ -163,6 +166,12 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="UI\OptionsPageHost.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ToolsOptionsPage.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\ToolsOptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <!-- Properties -->
@@ -208,8 +217,14 @@
     <Content Include="Resources\Package.ico" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Grep dependencies - will be copied to output root and included in VSIX from there -->
+    <!-- Grep/curl dependencies - will be copied to output root and included in VSIX from there -->
     <!-- Using None to copy to output, then Content items will be added from output directory -->
+    <None Include="Dependencies\curl.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Dependencies\curl-ca-bundle.crt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="Dependencies\grep.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -228,6 +243,14 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Content items for VSIX - reference output files directly to avoid Dependencies path -->
+    <Content Include="$(OutputPath)curl.exe" Condition="'$(OutputPath)' != ''">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>curl.exe</Link>
+    </Content>
+    <Content Include="$(OutputPath)curl-ca-bundle.crt" Condition="'$(OutputPath)' != ''">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>curl-ca-bundle.crt</Link>
+    </Content>
     <Content Include="$(OutputPath)grep.exe" Condition="'$(OutputPath)' != ''">
       <IncludeInVSIX>true</IncludeInVSIX>
       <Link>grep.exe</Link>
@@ -266,7 +289,9 @@
   </Target>
   -->
   <Target Name="CopyGrepDependencies" BeforeTargets="BeforeBuild">
-    <!-- Copy grep dependencies to output directory root (not Dependencies subfolder) -->
+    <!-- Copy grep/curl dependencies to output directory root (not Dependencies subfolder) -->
+    <Copy SourceFiles="Dependencies\curl.exe" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="Dependencies\curl-ca-bundle.crt" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="Dependencies\grep.exe" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="Dependencies\libiconv2.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="Dependencies\libintl3.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />

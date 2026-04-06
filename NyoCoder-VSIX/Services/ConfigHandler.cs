@@ -9,195 +9,191 @@ namespace NyoCoder
 	{
 		private static Dictionary<string, string> configMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private static string configFilePath;
-		
-		// Static cached values - updated when config loads/saves
+
+		// Cached typed values — kept in sync by setters so callers pay no parsing cost
 		private static string _apiKey;
 		private static string _llmServer;
 		private static string _model;
-		private static int _maxReadLines = 500; // default (line-based reading)
+		private static int _maxReadLines = 500;
 		private static int? _contextWindowSize;
 
-		/// <summary>
-		/// Initializes and loads config from disk.
-		/// Call this during extension startup to preload configuration.
-		/// </summary>
+		// -------------------------------------------------------------------------
+		// Init / Load / Save
+		// -------------------------------------------------------------------------
+
 		public static void Initialize()
 		{
 			if (configFilePath != null)
 				return;
 
-			// For VSIX, store config in user's AppData folder
-			string appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-			string configFolder = Path.Combine(appDataFolder, "NyoCoder");
-			if (!Directory.Exists(configFolder))
-			{
-				Directory.CreateDirectory(configFolder);
-			}
-			configFilePath = Path.Combine(configFolder, "NyoCoder.ini");
-			LoadConfig();
-		}
+			string configFolder = Path.Combine(
+				Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+				"NyoCoder");
 
-		private static void LoadConfig()
-		{
-			configMap = LoadIni(configFilePath);
-			
-			if (configMap.Count == 0 && File.Exists(configFilePath))
-			{
-				// File exists but is empty or has no valid entries
-				// This is not necessarily an error, so we don't log it
-			}
-			else if (configMap.Count == 0)
-			{
-				// File doesn't exist - create it with default empty values
-				SaveConfig();
-			}
-			
-			// Cache values in static fields
-			RefreshCachedValues();
+			if (!Directory.Exists(configFolder))
+				Directory.CreateDirectory(configFolder);
+
+			configFilePath = Path.Combine(configFolder, "NyoCoder.ini");
+			LoadFromDisk(createIfMissing: true);
 		}
 
 		/// <summary>
-		/// Reloads config from disk and refreshes cached values.
-		/// Call this after saving config to ensure all instances see the latest values.
+		/// Reloads config from disk. Call after an external change to the INI file.
 		/// </summary>
 		public static void ReloadConfig()
 		{
+			LoadFromDisk(createIfMissing: false);
+		}
+
+		private static void LoadFromDisk(bool createIfMissing)
+		{
 			configMap = LoadIni(configFilePath);
 
-			if (configMap.Count == 0 && !File.Exists(configFilePath))
+			if (createIfMissing && configMap.Count == 0 && !File.Exists(configFilePath))
 				SaveConfig();
 
 			RefreshCachedValues();
-		}
-
-		private static void RefreshCachedValues()
-		{
-			_apiKey = GetConfigValue("apiKey");
-			_llmServer = GetConfigValue("llmserver");
-			_model = GetConfigValue("model");
-			
-			string maxReadLinesStr = GetConfigValue("maxReadLines", "");
-			int parsed;
-			if (int.TryParse(maxReadLinesStr, out parsed) && parsed > 0)
-				_maxReadLines = parsed;
-			
-			string contextWindowSizeStr = GetConfigValue("contextWindowSize", "");
-			if (string.IsNullOrEmpty(contextWindowSizeStr))
-			{
-				_contextWindowSize = null;
-			}
-			else
-			{
-				int contextWindowSize;
-				if (int.TryParse(contextWindowSizeStr, out contextWindowSize) && contextWindowSize > 0)
-				{
-					_contextWindowSize = contextWindowSize;
-				}
-				else
-				{
-					_contextWindowSize = null;
-				}
-			}
 		}
 
 		public static void SaveConfig()
 		{
 			SaveIni(configFilePath, configMap);
-			// Refresh cache after saving to ensure consistency
-			RefreshCachedValues();
 		}
 
-		// Generic helper methods to reduce repetition
-		private static string GetConfigValue(string key, string defaultValue = "")
+		// -------------------------------------------------------------------------
+		// Generic accessors (public — used by ExternalToolRegistry and tools)
+		// -------------------------------------------------------------------------
+
+		public static string GetConfigValue(string key, string defaultValue = "")
 		{
-			return configMap.ContainsKey(key) ? configMap[key] : defaultValue;
+			string value;
+			return configMap.TryGetValue(key, out value) ? value : defaultValue;
 		}
 
-		private static void SetConfigValue(string key, string value)
+		public static void SetConfigValue(string key, string value)
 		{
 			if (string.IsNullOrEmpty(value))
-			{
-				if (configMap.ContainsKey(key))
-					configMap.Remove(key);
-			}
+				configMap.Remove(key);
 			else
-			{
 				configMap[key] = value;
+		}
+
+		public static int GetConfigInt(string key, int defaultValue)
+		{
+			string raw = GetConfigValue(key);
+			int result;
+			return (!string.IsNullOrEmpty(raw) && int.TryParse(raw, out result)) ? result : defaultValue;
+		}
+
+		public static bool GetConfigBool(string key, bool defaultValue = false)
+		{
+			string raw = GetConfigValue(key);
+			int result;
+			return (!string.IsNullOrEmpty(raw) && int.TryParse(raw, out result)) ? result == 1 : defaultValue;
+		}
+
+		public static List<string> GetConfigList(string key)
+		{
+			var list = new List<string>();
+			string raw = GetConfigValue(key);
+			if (string.IsNullOrEmpty(raw))
+				return list;
+			foreach (string token in raw.Split(','))
+			{
+				string trimmed = token.Trim();
+				if (!string.IsNullOrEmpty(trimmed))
+					list.Add(trimmed);
 			}
+			return list;
 		}
 
-		// Public getter methods - use static cached values
-		public static string GetApiKey()
+		/// <summary>
+		/// Returns all config key/value pairs. Used by ExternalToolRegistry to pass
+		/// config to external tool processes via stdin.
+		/// </summary>
+		public static IEnumerable<KeyValuePair<string, string>> GetAllValues()
 		{
-			return _apiKey ?? string.Empty;
+			return configMap;
 		}
 
-		public static string GetLlmServer()
-		{
-			return _llmServer ?? string.Empty;
-		}
+		// -------------------------------------------------------------------------
+		// Typed property getters/setters
+		// -------------------------------------------------------------------------
 
-		public static string GetModel()
-		{
-			return _model ?? string.Empty;
-		}
+		public static string GetApiKey()    { return _apiKey    ?? string.Empty; }
+		public static string GetLlmServer() { return _llmServer ?? string.Empty; }
+		public static string GetModel()     { return _model     ?? string.Empty; }
 
-		// Static accessor for MaxReadLines - used by tools and options
 		public static int MaxReadLines
 		{
 			get { return _maxReadLines; }
 		}
 
-		// Static accessor for ContextWindowSize - used by UI token display
 		public static int? ContextWindowSize
 		{
 			get { return _contextWindowSize; }
 		}
 
-	// Public setter methods - update both static cache and configMap
-	// Note: Setters are only called from UI thread, so no locking needed
-	public static void SetApiKey(string value)
-	{
-		_apiKey = value ?? string.Empty;
-		SetConfigValue("apiKey", value);
-	}
-
-	public static void SetLlmServer(string value)
-	{
-		_llmServer = value ?? string.Empty;
-		SetConfigValue("llmserver", value);
-	}
-
-	public static void SetModel(string value)
-	{
-		_model = value ?? string.Empty;
-		SetConfigValue("model", value);
-	}
-
-	public static void SetMaxReadLines(int value)
-	{
-		if (value > 0)
+		public static void SetApiKey(string value)
 		{
+			_apiKey = value ?? string.Empty;
+			SetConfigValue("apiKey", value);
+		}
+
+		public static void SetLlmServer(string value)
+		{
+			_llmServer = value ?? string.Empty;
+			SetConfigValue("llmserver", value);
+		}
+
+		public static void SetModel(string value)
+		{
+			_model = value ?? string.Empty;
+			SetConfigValue("model", value);
+		}
+
+		public static void SetMaxReadLines(int value)
+		{
+			if (value <= 0) return;
 			_maxReadLines = value;
 			SetConfigValue("maxReadLines", value.ToString());
 		}
-	}
 
-	public static void SetContextWindowSize(int? value)
-	{
-		if (value.HasValue && value.Value > 0)
+		public static void SetContextWindowSize(int? value)
 		{
-			_contextWindowSize = value;
-			SetConfigValue("contextWindowSize", value.Value.ToString());
+			_contextWindowSize = (value.HasValue && value.Value > 0) ? value : (int?)null;
+			SetConfigValue("contextWindowSize", _contextWindowSize.HasValue ? _contextWindowSize.Value.ToString() : null);
 		}
-		else
-		{
-			_contextWindowSize = null;
-			SetConfigValue("contextWindowSize", null);
-		}
-	}
 
-		// Simple INI file loader - returns Dictionary of key=value pairs
+		// -------------------------------------------------------------------------
+		// Tool enable/disable
+		// -------------------------------------------------------------------------
+
+		public static List<string> GetDisabledTools()
+		{
+			return GetConfigList("disabledTools");
+		}
+
+		public static void SetDisabledTools(List<string> tools)
+		{
+			SetConfigValue("disabledTools",
+				tools != null && tools.Count > 0 ? string.Join(",", tools.ToArray()) : null);
+		}
+
+		// -------------------------------------------------------------------------
+		// INI read/write
+		// -------------------------------------------------------------------------
+
+		private static void RefreshCachedValues()
+		{
+			_apiKey    = GetConfigValue("apiKey");
+			_llmServer = GetConfigValue("llmserver");
+			_model     = GetConfigValue("model");
+			_maxReadLines      = GetConfigInt("maxReadLines", 500);
+			int cws            = GetConfigInt("contextWindowSize", 0);
+			_contextWindowSize = cws > 0 ? (int?)cws : null;
+		}
+
 		private static Dictionary<string, string> LoadIni(string filename)
 		{
 			var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -213,48 +209,31 @@ namespace NyoCoder
 					while ((line = reader.ReadLine()) != null)
 					{
 						line = line.Trim();
-						
-						// Skip empty lines and comments
-						if (string.IsNullOrEmpty(line) || line.StartsWith(";") || line.StartsWith("#"))
+						if (string.IsNullOrEmpty(line) || line[0] == ';' || line[0] == '#')
 							continue;
-
-						// Parse key=value pairs
-						int equalsIndex = line.IndexOf('=');
-						if (equalsIndex > 0)
-						{
-							string key = line.Substring(0, equalsIndex).Trim();
-							string value = line.Substring(equalsIndex + 1).Trim();
-							result[key] = value;
-						}
+						int eq = line.IndexOf('=');
+						if (eq > 0)
+							result[line.Substring(0, eq).Trim()] = line.Substring(eq + 1).Trim();
 					}
 				}
 			}
-			catch
-			{
-				// If we can't read the file, return empty dictionary
-			}
+			catch { }
 
 			return result;
 		}
 
-		// Simple INI file saver
 		private static void SaveIni(string filename, Dictionary<string, string> config)
 		{
 			try
 			{
 				using (StreamWriter writer = new StreamWriter(filename, false, Encoding.UTF8))
 				{
-					// Write each key-value pair
 					foreach (var kvp in config)
-					{
 						writer.WriteLine("{0}={1}", kvp.Key, kvp.Value);
-					}
 				}
 			}
-			catch
-			{
-				// If we can't write the file, silently fail
-			}
+			catch { }
 		}
 	}
 }
+

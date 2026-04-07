@@ -50,7 +50,7 @@
                     </Style>
                 </FlowDocument.Resources>
                 <Paragraph>
-                    <Run Text="NyoCoder output will appear here..."/>
+                    <Run Text="NyoCoder can be triggered via Ctrl+Alt+N or via the editor's context menu."/>
                 </Paragraph>
             </FlowDocument>
         </RichTextBox>

@@ -19,12 +19,12 @@
         <!-- Status bar showing token usage -->
         <Border x:Name="TokenStatusBar"
                 Grid.Row="0"
-                Background="#2D2D30"
-                BorderBrush="#3F3F46"
+                Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}"
+                BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
                 BorderThickness="0,0,0,1"
                 Padding="6,3">
             <TextBlock x:Name="TokenStatusText"
-                       Foreground="#E0E0E0"
+                       Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
                        FontFamily="Segoe UI"
                        FontSize="11"
                        Text="Tokens: 0"/>
@@ -36,13 +36,13 @@
                      IsReadOnly="True"
                      VerticalScrollBarVisibility="Auto"
                      HorizontalScrollBarVisibility="Auto"
-                     Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
-                     Background="White"
+                     Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                     Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
                      FontFamily="Consolas"
                      FontSize="12"
                      Padding="4"
                      BorderThickness="0">
-            <FlowDocument Background="White" LineHeight="14" LineStackingStrategy="BlockLineHeight">
+            <FlowDocument Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}" LineHeight="14" LineStackingStrategy="BlockLineHeight">
                 <FlowDocument.Resources>
                     <Style TargetType="{x:Type Paragraph}">
                         <Setter Property="Margin" Value="0"/>

@@ -85,6 +85,10 @@
                          TextWrapping="Wrap"
                          VerticalContentAlignment="Top"
                          VerticalScrollBarVisibility="Auto"
+                         Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
+                         Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                         CaretBrush="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                         BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
                          PreviewKeyDown="InputBox_PreviewKeyDown"/>
                 <StackPanel Grid.Column="1"
                            Orientation="Vertical"

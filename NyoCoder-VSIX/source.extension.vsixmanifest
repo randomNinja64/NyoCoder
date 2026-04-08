@@ -5,6 +5,7 @@
     <Author>NyoCoder</Author>
     <Version>1.1.0.0</Version>
     <Description xml:space="preserve">AI-assisted coding for Visual Studio 2010</Description>
+    <License>LICENSE.rtf</License>
     <Locale>1033</Locale>
     <InstalledByMsi>false</InstalledByMsi>
     <SupportedProducts>
@@ -23,8 +24,13 @@
         <Edition>Premium</Edition>
         <Edition>Pro</Edition>
       </VisualStudio>
+      <VisualStudio Version="14.0">
+        <Edition>Community</Edition>
+        <Edition>Pro</Edition>
+        <Edition>Enterprise</Edition>
+      </VisualStudio>
     </SupportedProducts>
-    <SupportedFrameworkRuntimeEdition MinVersion="4.0" MaxVersion="4.0" />
+    <SupportedFrameworkRuntimeEdition MinVersion="4.0" MaxVersion="4.6" />
   </Identifier>
   <References>
         <Reference Id="Microsoft.VisualStudio.MPF" MinVersion="10.0">

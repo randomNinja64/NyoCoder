@@ -222,6 +222,10 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Resources\Package.ico" />
+    <Content Include="..\LICENSE.rtf">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>LICENSE.rtf</Link>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <!-- Grep/curl dependencies - will be copied to output root and included in VSIX from there -->

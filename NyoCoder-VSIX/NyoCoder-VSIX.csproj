@@ -226,6 +226,34 @@
       <IncludeInVSIX>true</IncludeInVSIX>
       <Link>LICENSE.rtf</Link>
     </Content>
+    <Content Include="..\THIRD_PARTY_LICENSES\curl-ca-bundle.txt">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>THIRD_PARTY_LICENSES\curl-ca-bundle.txt</Link>
+    </Content>
+    <Content Include="..\THIRD_PARTY_LICENSES\curl.txt">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>THIRD_PARTY_LICENSES\curl.txt</Link>
+    </Content>
+    <Content Include="..\THIRD_PARTY_LICENSES\libidn2.txt">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>THIRD_PARTY_LICENSES\libidn2.txt</Link>
+    </Content>
+    <Content Include="..\THIRD_PARTY_LICENSES\libpsl.txt">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>THIRD_PARTY_LICENSES\libpsl.txt</Link>
+    </Content>
+    <Content Include="..\THIRD_PARTY_LICENSES\Newtonsoft.Json.txt">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>THIRD_PARTY_LICENSES\Newtonsoft.Json.txt</Link>
+    </Content>
+    <Content Include="..\THIRD_PARTY_LICENSES\openssl.txt">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>THIRD_PARTY_LICENSES\openssl.txt</Link>
+    </Content>
+    <Content Include="..\THIRD_PARTY_LICENSES\zlib.txt">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <Link>THIRD_PARTY_LICENSES\zlib.txt</Link>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <!-- Grep/curl dependencies - will be copied to output root and included in VSIX from there -->

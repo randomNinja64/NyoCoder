@@ -21,6 +21,10 @@ An extension for Visual Studio 2010-2015 that enables AI-assisted coding with Op
   - **Maximum Search Results**: Maximum number of search results to retrieve (default: `20`)
   - **Maximum Web Content Length**: Maximum number of characters to return when reading a webpage (in characters) (default: `8000`)
 
+## Installation
+
+The VSIX for the tool can be downloaded from "Releases". Download and open it to install the extension.
+
 ## Usage
 
 The extension can be triggered in a text editor either via the right-click menu with "Ask NyoCoder" or via the keybind Ctrl+Alt+N.
@@ -29,13 +33,13 @@ The extension can be triggered in a text editor either via the right-click menu 
 
 - **copy_file** - copies a file from one location to another
 - **delete_file** - deletes a file from the file system
-- **grep_search** - recursively searches for a regex pattern in files (Relies on grep.exe in the extensions directory, included with the release but not with source)
+- **grep_search** - recursively searches for a regex pattern in files (Relies on grep.exe in the extension's directory, included with the release but not with source)
 - **list_directory** - lists all files and subdirectories in a directory
 - **move_file** - moves or renames a file
 - **read_file** - reads the contents of a local file and returns it as a string
 - **read_website** - reads the contents of a webpage
 - **run_shell_command** - executes a shell command on the host system and return its output
-- **run_web_search** - runs a web search (uses SearXNG if available, DuckDuckGo and Wiby if not)
+- **run_web_search** - runs a web search (uses SearXNG if available, DuckDuckGo and Wiby if not) (Relies on curl.exe in the extension's directory, included with the release but not with source)
 - **search_replace** - makes targeted changes to files using SEARCH/REPLACE blocks
 - **write_file** - writes content to a local file
 

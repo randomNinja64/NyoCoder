@@ -188,13 +188,24 @@ public static class ToolHandler
 
             using (System.Diagnostics.Process process = System.Diagnostics.Process.Start(psi))
             {
+                // Read stdout and stderr concurrently to avoid pipe-buffer deadlocks
+                // on processes that write large amounts of output.
+                string output = "";
+                string error = "";
+
+                System.Threading.Thread outThread = new System.Threading.Thread(() => { output = process.StandardOutput.ReadToEnd(); });
+                System.Threading.Thread errThread = new System.Threading.Thread(() => { error = process.StandardError.ReadToEnd(); });
+                outThread.IsBackground = true;
+                errThread.IsBackground = true;
+                outThread.Start();
+                errThread.Start();
+
                 if (timeoutMilliseconds > 0)
                 {
                     if (!process.WaitForExit(timeoutMilliseconds))
                     {
-                        // Process timed out - kill it
-                        process.Kill();
-                        process.WaitForExit(); // Wait for kill to complete
+                        try { process.Kill(); } catch { }
+                        process.WaitForExit();
                         exitCode = -1;
                         throw new TimeoutException(string.Format("Process '{0}' timed out after {1} seconds.", fileName, timeoutMilliseconds / 1000));
                     }
@@ -204,15 +215,12 @@ public static class ToolHandler
                     process.WaitForExit();
                 }
 
-                string output = process.StandardOutput.ReadToEnd();
-                string error = process.StandardError.ReadToEnd();
+                outThread.Join();
+                errThread.Join();
+
                 exitCode = process.ExitCode;
-                
-                // Combine stdout and stderr if requested
                 if (combineErrorOutput && !string.IsNullOrEmpty(error))
-                {
                     return output + error;
-                }
                 return output;
             }
         }

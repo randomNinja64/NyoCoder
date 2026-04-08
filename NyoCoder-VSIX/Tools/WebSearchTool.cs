@@ -1,51 +1,13 @@
 using Newtonsoft.Json.Linq;
 using System;
-using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 
 namespace NyoCoder
 {
     internal static class WebSearchTool
     {
         internal const string DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36";
-
-        // Runs curl without the WaitForExit-before-read deadlock that ToolHandler.ExecuteProcess has.
-        // Reads stdout and stderr concurrently on background threads, then waits for exit.
-        private static string ExecuteWebProcess(string fileName, string arguments, out int exitCode, bool combineErrorOutput = false)
-        {
-            ProcessStartInfo psi = new ProcessStartInfo
-            {
-                FileName = fileName,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8
-            };
-
-            using (Process process = Process.Start(psi))
-            {
-                string output = "";
-                string error = "";
-
-                Thread outThread = new Thread(() => { output = process.StandardOutput.ReadToEnd(); });
-                Thread errThread = new Thread(() => { error = process.StandardError.ReadToEnd(); });
-                outThread.Start();
-                errThread.Start();
-                outThread.Join();
-                errThread.Join();
-                process.WaitForExit();
-
-                exitCode = process.ExitCode;
-                if (combineErrorOutput && !string.IsNullOrEmpty(error))
-                    return output + error;
-                return output;
-            }
-        }
 
         // Executes curl for a given URL and returns the response body
         private static string CurlExecute(string url, out int exitCode, bool combineErrorOutput = false, params string[] extraHeaders)
@@ -57,7 +19,7 @@ namespace NyoCoder
             foreach (string header in extraHeaders)
                 args.Append(" -H \"" + header + "\"");
             args.Append(" \"" + url + "\"");
-            return ExecuteWebProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput);
+            return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput);
         }
 
         // --- read_website ---

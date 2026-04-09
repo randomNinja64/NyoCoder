@@ -187,6 +187,7 @@ namespace NyoCoder
 		{
 			SetConfigValue("disabledTools",
 				tools != null && tools.Count > 0 ? string.Join(",", tools.ToArray()) : null);
+			ToolDefinitions._toolDefinitionsLength = -1;
 		}
 
 		// -------------------------------------------------------------------------

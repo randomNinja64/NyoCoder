@@ -215,11 +215,11 @@ namespace NyoCoder
             return tool;
         }
 
-        private static int _toolDefinitionsLength = -1;
+        internal static int _toolDefinitionsLength = -1;
 
         /// <summary>
         /// Gets the approximate character length of all tool definitions.
-        /// Used for token estimation. Result is cached since definitions don't change at runtime.
+        /// Used for token estimation. Cached until the disabled tools list changes.
         /// </summary>
         public static int GetToolDefinitionsLength()
         {

@@ -8,7 +8,6 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Windows.Forms;
-using NyoCoder;
 
 namespace NyoCoder
 {
@@ -123,7 +122,6 @@ public class LLMClient
         string image,
         string assistantName,
         List<string> toolsRequiringApproval,
-        bool outputOnly,
         bool showToolOutput,
         Action<string> outputCallback = null,
         Func<string, string, ApprovalResult> approvalCallback = null,
@@ -161,12 +159,6 @@ public class LLMClient
                     outputCallback("\n[Session stopped by user]\n");
                 }
                 return;
-            }
-
-            if (!outputOnly && outputCallback == null)
-            {
-                Console.WriteLine();
-                Console.Write(assistantName + ": ");
             }
 
             // Simple callback to stream tool calls as they're generated
@@ -303,22 +295,7 @@ public class LLMClient
                     {
                         outputCallback("\n[tool output]\n" + toolContent + "\n");
                     }
-                    else if (!outputOnly)
-                    {
-                        Console.WriteLine("[tool output]");
-                        if (showToolOutput)
-                        {
-                            Console.Write(toolContent);
-                            if (!toolContent.EndsWith("\n"))
-                            {
-                                Console.WriteLine();
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("Exit Code: " + exitCode);
-                        }
-                    }
+
                 }
 
                 // Check if we need to summarize before the next LLM call
@@ -364,10 +341,6 @@ public class LLMClient
             };
             this.Conversation.Add(assistantMsg);
             
-            if (!outputOnly && outputCallback == null)
-            {
-                Console.WriteLine(); // Add newline after assistant response
-            }
             break;
         }
     }

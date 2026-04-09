@@ -29,7 +29,7 @@ namespace NyoCoder
             string response;
             try
             {
-                response = CurlExecute(url, out exitCode, combineErrorOutput: false, headers);
+                response = CurlExecute(url, out exitCode, false, headers);
             }
             catch (Exception ex)
             {

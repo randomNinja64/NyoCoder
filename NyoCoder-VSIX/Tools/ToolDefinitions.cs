@@ -217,14 +217,17 @@ namespace NyoCoder
             return tool;
         }
 
+        private static int _toolDefinitionsLength = -1;
+
         /// <summary>
         /// Gets the approximate character length of all tool definitions.
-        /// Used for token estimation.
+        /// Used for token estimation. Result is cached since definitions don't change at runtime.
         /// </summary>
         public static int GetToolDefinitionsLength()
         {
-            JArray tools = BuildToolsArray();
-            return tools.ToString().Length;
+            if (_toolDefinitionsLength < 0)
+                _toolDefinitionsLength = BuildToolsArray().ToString().Length;
+            return _toolDefinitionsLength;
         }
     }
 }

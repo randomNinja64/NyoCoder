@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using EnvDTE;
 using EnvDTE80;
-using NyoCoder;
 
 namespace NyoCoder
 {

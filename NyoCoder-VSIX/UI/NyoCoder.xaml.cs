@@ -419,11 +419,11 @@ namespace NyoCoder
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.Forms.MessageBox.Show(
+                    System.Windows.MessageBox.Show(
                         "Error loading image: " + ex.Message,
                         "NyoCoder",
-                        System.Windows.Forms.MessageBoxButtons.OK,
-                        System.Windows.Forms.MessageBoxIcon.Error);
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
                     // Uncheck the button if there was an error
                     AttachImageButton.IsChecked = false;
                 }
@@ -485,11 +485,11 @@ namespace NyoCoder
             // Check if an AI request is already running
             if (System.Threading.Interlocked.CompareExchange(ref package._isAiRunning, 1, 0) != 0)
             {
-                System.Windows.Forms.MessageBox.Show(
+                System.Windows.MessageBox.Show(
                     "An AI request is already in progress. Please wait for it to complete.",
                     "NyoCoder",
-                    System.Windows.Forms.MessageBoxButtons.OK,
-                    System.Windows.Forms.MessageBoxIcon.Information);
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
                 return;
             }
 
@@ -579,7 +579,6 @@ namespace NyoCoder
                         attachedImage, // image (base64 encoded)
                         "Assistant",
                         null, // toolsRequiringApproval - will use defaults
-                        false, // outputOnly
                         true, // showToolOutput
                         delegate(string text)
                         {
@@ -605,11 +604,11 @@ namespace NyoCoder
                     AppendLine("\nError: " + ex.Message);
                     EditorService.InvokeOnUIThread(() =>
                     {
-                        System.Windows.Forms.MessageBox.Show(
+                        System.Windows.MessageBox.Show(
                             "Error communicating with LLM: " + ex.Message,
                             "NyoCoder",
-                            System.Windows.Forms.MessageBoxButtons.OK,
-                            System.Windows.Forms.MessageBoxIcon.Error);
+                            System.Windows.MessageBoxButton.OK,
+                            System.Windows.MessageBoxImage.Error);
                     }, Dispatcher);
                     ShowInputBar();
                 }

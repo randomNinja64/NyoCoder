@@ -163,6 +163,9 @@
     <Compile Include="UI\NyoCoder.xaml.cs">
       <DependentUpon>NyoCoder.xaml</DependentUpon>
     </Compile>
+    <Compile Include="UI\ConfigDialogPage.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="UI\OptionsPage.cs">
       <SubType>Component</SubType>
     </Compile>

@@ -8,7 +8,6 @@ using System.IO;
 using System.Windows.Forms;
 using System.Reflection;
 using EnvDTE;
-using NyoCoder;
 
 namespace NyoCoder
 {
@@ -35,11 +34,14 @@ public static class ToolHandler
 
         try
         {
+            // Parse arguments once; all cases reuse this object.
+            JObject args = ParseArguments(call.Arguments);
+
             switch (call.Name)
             {
                 case "run_shell_command":
                     {
-                        string command = GetRequiredArg(call.Arguments, "command");
+                        string command = GetRequiredArg(args, "command");
                         string output = RunShellCommand(command, out exitCode);
                         toolContent = FormatCommandResult(command, output, exitCode);
                         return true;
@@ -47,13 +49,11 @@ public static class ToolHandler
 
                 case "read_file":
                     {
-                        string filename = GetRequiredArg(call.Arguments, "filename");
-                        string offsetStr = JsonExtractString(call.Arguments, "offset");
+                        string filename = GetRequiredArg(args, "filename");
+                        string offsetStr = JsonExtractString(args, "offset");
                         int lineOffset = 0;
                         if (!string.IsNullOrEmpty(offsetStr))
-                        {
                             int.TryParse(offsetStr.Trim(), out lineOffset);
-                        }
                         string output = FileHandler.ReadFile(filename, out exitCode, lineOffset);
                         toolContent = FormatCommandResult("read file: " + filename, output, exitCode);
                         return true;
@@ -61,8 +61,8 @@ public static class ToolHandler
 
                 case "write_file":
                     {
-                        string filename = GetRequiredArg(call.Arguments, "filename");
-                        string contentStr = JsonExtractString(call.Arguments, "content");
+                        string filename = GetRequiredArg(args, "filename");
+                        string contentStr = JsonExtractString(args, "content");
                         string content = string.IsNullOrEmpty(contentStr) ? "" : contentStr.Trim();
                         string output = FileHandler.WriteFile(filename, content, out exitCode);
                         toolContent = FormatCommandResult("write file: " + filename, output, exitCode);
@@ -71,8 +71,8 @@ public static class ToolHandler
 
                 case "move_file":
                     {
-                        string sourcePath = GetRequiredArg(call.Arguments, "source_path");
-                        string destinationPath = GetRequiredArg(call.Arguments, "destination_path");
+                        string sourcePath = GetRequiredArg(args, "source_path");
+                        string destinationPath = GetRequiredArg(args, "destination_path");
                         string output = FileHandler.MoveFile(sourcePath, destinationPath, out exitCode);
                         toolContent = FormatCommandResult("move file: " + sourcePath, output, exitCode);
                         return true;
@@ -80,8 +80,8 @@ public static class ToolHandler
 
                 case "copy_file":
                     {
-                        string sourcePath = GetRequiredArg(call.Arguments, "source_path");
-                        string destinationPath = GetRequiredArg(call.Arguments, "destination_path");
+                        string sourcePath = GetRequiredArg(args, "source_path");
+                        string destinationPath = GetRequiredArg(args, "destination_path");
                         string output = FileHandler.CopyFile(sourcePath, destinationPath, out exitCode);
                         toolContent = FormatCommandResult("copy file: " + sourcePath, output, exitCode);
                         return true;
@@ -89,7 +89,7 @@ public static class ToolHandler
 
                 case "delete_file":
                     {
-                        string filePath = GetRequiredArg(call.Arguments, "file_path");
+                        string filePath = GetRequiredArg(args, "file_path");
                         string output = FileHandler.DeleteFile(filePath, out exitCode);
                         toolContent = FormatCommandResult("delete file: " + filePath, output, exitCode);
                         return true;
@@ -97,7 +97,7 @@ public static class ToolHandler
 
                 case "list_directory":
                     {
-                        string directoryPath = GetRequiredArg(call.Arguments, "directory_path");
+                        string directoryPath = GetRequiredArg(args, "directory_path");
                         string output = FileHandler.ListDirectory(directoryPath, out exitCode);
                         toolContent = FormatCommandResult("list directory: " + directoryPath, output, exitCode);
                         return true;
@@ -105,10 +105,10 @@ public static class ToolHandler
 
                 case "grep_search":
                     {
-                        string pattern = GetRequiredArg(call.Arguments, "pattern");
-                        string directoryPath = JsonExtractString(call.Arguments, "directory_path");
-                        string filePattern = JsonExtractString(call.Arguments, "file_pattern");
-                        string caseInsensitive = JsonExtractString(call.Arguments, "case_insensitive");
+                        string pattern = GetRequiredArg(args, "pattern");
+                        string directoryPath = JsonExtractString(args, "directory_path");
+                        string filePattern = JsonExtractString(args, "file_pattern");
+                        string caseInsensitive = JsonExtractString(args, "case_insensitive");
                         string output = GrepSearch(pattern, directoryPath, filePattern, caseInsensitive, out exitCode);
                         string searchDesc = "grep '" + pattern + "'" + (string.IsNullOrEmpty(directoryPath) ? "" : " in " + directoryPath);
                         toolContent = FormatCommandResult(searchDesc, output, exitCode);
@@ -117,8 +117,8 @@ public static class ToolHandler
 
                 case "search_replace":
                     {
-                        string filePath = GetRequiredArg(call.Arguments, "file_path");
-                        string content = GetRequiredArg(call.Arguments, "content");
+                        string filePath = GetRequiredArg(args, "file_path");
+                        string content = GetRequiredArg(args, "content");
                         string output = SearchReplace(filePath, content, out exitCode);
                         toolContent = FormatCommandResult("search_replace: " + filePath, output, exitCode);
                         return true;
@@ -126,7 +126,7 @@ public static class ToolHandler
 
                 case "run_web_search":
                     {
-                        string query = GetRequiredArg(call.Arguments, "query");
+                        string query = GetRequiredArg(args, "query");
                         string searxngInstance = ConfigHandler.GetConfigValue("searxngInstance");
                         int maxSearchResults = ConfigHandler.GetConfigInt("maxSearchResults", 20);
                         string output = WebSearchTool.RunWebSearch(query, searxngInstance, maxSearchResults, out exitCode);
@@ -136,7 +136,7 @@ public static class ToolHandler
 
                 case "read_website":
                     {
-                        string url = GetRequiredArg(call.Arguments, "url");
+                        string url = GetRequiredArg(args, "url");
                         int maxContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 8000);
                         string output = WebSearchTool.ReadWebsite(url, maxContentLength, out exitCode);
                         toolContent = FormatCommandResult("read website: " + url, output, exitCode);
@@ -161,10 +161,22 @@ public static class ToolHandler
         }
     }
 
-    private static string GetRequiredArg(string arguments, string argName)
+    // Parses a raw JSON string into a JObject once. Returns null on empty/invalid input.
+    private static JObject ParseArguments(string arguments)
     {
-        string valueStr = JsonExtractString(arguments, argName);
-        string value = string.IsNullOrEmpty(valueStr) ? "" : valueStr.Trim();
+        if (string.IsNullOrWhiteSpace(arguments))
+            return null;
+        try
+        {
+            JToken root = JToken.Parse(arguments.Trim());
+            return root as JObject;
+        }
+        catch { return null; }
+    }
+
+    private static string GetRequiredArg(JObject args, string argName)
+    {
+        string value = JsonExtractString(args, argName);
         if (string.IsNullOrEmpty(value))
             throw new ArgumentException("missing '" + argName + "' argument.");
         return value;
@@ -231,47 +243,27 @@ public static class ToolHandler
         }
     }
 
-    private static string JsonExtractString(string json, string key)
+    // Extracts a string value from a pre-parsed JObject.
+    private static string JsonExtractString(JObject obj, string key)
     {
-        if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(key))
-        {
+        if (obj == null || string.IsNullOrEmpty(key))
             return "";
-        }
 
-        try
+        JToken token;
+        if (!obj.TryGetValue(key, out token))
         {
-            string trimmedJson = json.Trim();
-            if (trimmedJson.Length == 0)
+            foreach (JProperty property in obj.Properties())
             {
-                return "";
-            }
-
-            JToken root = JToken.Parse(trimmedJson);
-            if (root.Type == JTokenType.Object)
-            {
-                JObject obj = (JObject)root;
-                JToken token;
-                if (!obj.TryGetValue(key, out token))
+                if (string.Equals(property.Name, key, StringComparison.OrdinalIgnoreCase))
                 {
-                    foreach (JProperty property in obj.Properties())
-                    {
-                        if (string.Equals(property.Name, key, StringComparison.OrdinalIgnoreCase))
-                        {
-                            token = property.Value;
-                            break;
-                        }
-                    }
-                }
-
-                if (token != null && token.Type != JTokenType.Null)
-                {
-                    return token.Type == JTokenType.String ? token.Value<string>() ?? "" : token.ToString();
+                    token = property.Value;
+                    break;
                 }
             }
         }
-        catch
-        {
-        }
+
+        if (token != null && token.Type != JTokenType.Null)
+            return token.Type == JTokenType.String ? token.Value<string>() ?? "" : token.ToString();
 
         return "";
     }

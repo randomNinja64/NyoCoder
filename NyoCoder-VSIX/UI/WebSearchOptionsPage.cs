@@ -1,63 +1,36 @@
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
-using Microsoft.VisualStudio.Shell;
 
 namespace NyoCoder
 {
     [ClassInterface(ClassInterfaceType.AutoDual)]
     [ComVisible(true)]
     [Guid("B2C3D4E5-F6A7-4B8C-9D0E-1F2A3B4C5D6E")]
-    public class WebSearchOptionsPage : DialogPage
+    public class WebSearchOptionsPage : ConfigDialogPage<WebSearchOptionsPageHost>
     {
-        private WebSearchOptionsPageHost host;
-
-        protected override IWin32Window Window
+        protected override WebSearchOptionsPageHost CreateHost()
         {
-            get
-            {
-                if (host == null)
-                {
-                    host = new WebSearchOptionsPageHost(this);
-                    UpdateHostFromConfig();
-                }
-                return host;
-            }
+            return new WebSearchOptionsPageHost(this);
         }
 
-        public override void LoadSettingsFromStorage()
+        protected override void UpdateHostFromConfig()
         {
-            base.LoadSettingsFromStorage();
-            ConfigHandler.ReloadConfig();
-            UpdateHostFromConfig();
+            if (Host == null) return;
+            Host.SearXNGInstance = ConfigHandler.GetConfigValue("searxngInstance", "");
+            Host.UserAgent = ConfigHandler.GetConfigValue("webUserAgent", WebSearchTool.DefaultUserAgent);
+            Host.MaxSearchResults = ConfigHandler.GetConfigInt("maxSearchResults", 20);
+            Host.MaxWebContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 8000);
         }
 
-        public override void SaveSettingsToStorage()
+        protected override void SaveHostToConfig()
         {
-            base.SaveSettingsToStorage();
-            if (host != null)
-            {
-                ConfigHandler.SetConfigValue("searxngInstance", host.SearXNGInstance);
-                ConfigHandler.SetConfigValue("webUserAgent", host.UserAgent);
+            ConfigHandler.SetConfigValue("searxngInstance", Host.SearXNGInstance);
+            ConfigHandler.SetConfigValue("webUserAgent", Host.UserAgent);
 
-                int maxSearchResults = host.MaxSearchResults;
-                ConfigHandler.SetConfigValue("maxSearchResults", maxSearchResults > 0 ? maxSearchResults.ToString() : null);
+            int maxSearchResults = Host.MaxSearchResults;
+            ConfigHandler.SetConfigValue("maxSearchResults", maxSearchResults > 0 ? maxSearchResults.ToString() : null);
 
-                int maxWebContentLength = host.MaxWebContentLength;
-                ConfigHandler.SetConfigValue("maxWebContentLength", maxWebContentLength > 0 ? maxWebContentLength.ToString() : null);
-            }
-            ConfigHandler.SaveConfig();
-            ConfigHandler.ReloadConfig();
-        }
-
-        private void UpdateHostFromConfig()
-        {
-            if (host != null)
-            {
-                host.SearXNGInstance = ConfigHandler.GetConfigValue("searxngInstance", "");
-                host.UserAgent = ConfigHandler.GetConfigValue("webUserAgent", WebSearchTool.DefaultUserAgent);
-                host.MaxSearchResults = ConfigHandler.GetConfigInt("maxSearchResults", 20);
-                host.MaxWebContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 8000);
-            }
+            int maxWebContentLength = Host.MaxWebContentLength;
+            ConfigHandler.SetConfigValue("maxWebContentLength", maxWebContentLength > 0 ? maxWebContentLength.ToString() : null);
         }
     }
 }

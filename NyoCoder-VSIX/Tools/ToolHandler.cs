@@ -376,23 +376,8 @@ public static class ToolHandler
 
     #region SearchReplace
 
-    public enum DiffChangeType
-    {
-        Addition,
-        Deletion,
-        Modification
-    }
-
-    public sealed class DiffChange
-    {
-        // Start index in the CURRENT buffer content (for preview)
-        public int StartIndex;
-        public int Length;
-        public DiffChangeType Type;
-    }
-
     // Preview events (show adornments BEFORE applying)
-    public static event Action<string, List<DiffChange>> OnDiffChangesPreview;
+    public static event Action<string, List<SearchReplaceTool.InlineSpan>> OnDiffChangesPreview;
     public static event Action<string> OnDiffPreviewCleared;
 
 
@@ -440,21 +425,10 @@ public static class ToolHandler
             // Show inline highlight adornments (background + strikethrough) for preview spans
             if (previewShownInline && inline.Spans.Count > 0 && OnDiffChangesPreview != null)
             {
-                List<DiffChange> changes = new List<DiffChange>();
-                foreach (SearchReplaceTool.InlineSpan s in inline.Spans)
-                {
-                    changes.Add(new DiffChange
-                    {
-                        StartIndex = s.Start,
-                        Length = s.Length,
-                        Type = s.Type == SearchReplaceTool.ChangeType.Addition ? DiffChangeType.Addition : DiffChangeType.Deletion
-                    });
-                }
-
                 string p = string.IsNullOrEmpty(preview.NormalizedFilePath) 
                     ? EditorService.NormalizeFilePath(filePath) 
                     : preview.NormalizedFilePath;
-                OnDiffChangesPreview(p, changes);
+                OnDiffChangesPreview(p, inline.Spans);
             }
 
             // 2) Ask user to approve/reject using the bottom bar in the NyoCoder panel

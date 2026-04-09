@@ -69,7 +69,7 @@ namespace NyoCoder
             _view.VisualElement.Dispatcher.BeginInvoke(action);
         }
 
-        private void OnDiffChangesPreview(string filePath, List<ToolHandler.DiffChange> changes)
+        private void OnDiffChangesPreview(string filePath, List<SearchReplaceTool.InlineSpan> changes)
         {
             // Check if this is the file we're viewing
             if (!string.Equals(filePath, _filePath, StringComparison.OrdinalIgnoreCase))
@@ -87,7 +87,7 @@ namespace NyoCoder
             BeginInvokeOnUIThread(() => ClearHighlights());
         }
 
-        private void ApplyHighlights(List<ToolHandler.DiffChange> changes)
+        private void ApplyHighlights(List<SearchReplaceTool.InlineSpan> changes)
         {
             // Clear existing highlights
             _spans.Clear();
@@ -95,11 +95,11 @@ namespace NyoCoder
 
             ITextSnapshot snapshot = _view.TextSnapshot;
 
-            foreach (ToolHandler.DiffChange change in changes)
+            foreach (SearchReplaceTool.InlineSpan change in changes)
             {
                 try
                 {
-                    int start = Math.Max(0, Math.Min(change.StartIndex, snapshot.Length));
+                    int start = Math.Max(0, Math.Min(change.Start, snapshot.Length));
                     int len = Math.Max(0, change.Length);
                     if (len == 0) continue;
                     if (start + len > snapshot.Length) len = snapshot.Length - start;
@@ -154,7 +154,7 @@ namespace NyoCoder
                     Geometry geom = _view.TextViewLines.GetMarkerGeometry(span);
                     if (geom == null) continue;
 
-                    Brush fill = (h.Type == ToolHandler.DiffChangeType.Addition) ? AddBrush : DelBrush;
+                    Brush fill = (h.Type == SearchReplaceTool.ChangeType.Addition) ? AddBrush : DelBrush;
 
                     System.Windows.Shapes.Path path = new System.Windows.Shapes.Path
                     {
@@ -165,7 +165,7 @@ namespace NyoCoder
 
                     _layer.AddAdornment(AdornmentPositioningBehavior.TextRelative, span, null, path, null);
 
-                    if (h.Type == ToolHandler.DiffChangeType.Deletion)
+                    if (h.Type == SearchReplaceTool.ChangeType.Deletion)
                     {
                         Rect b = geom.Bounds;
                         System.Windows.Shapes.Line line = new System.Windows.Shapes.Line
@@ -212,7 +212,7 @@ namespace NyoCoder
         private sealed class HighlightSpan
         {
             public SnapshotSpan Span { get; set; }
-            public ToolHandler.DiffChangeType Type { get; set; }
+            public SearchReplaceTool.ChangeType Type { get; set; }
         }
     }
 }

@@ -145,7 +145,7 @@ namespace NyoCoder
                 ),
                 new ToolEntry(
                     "search_replace",
-                    "Replace sections of a file using SEARCH/REPLACE blocks. The SEARCH text must match exactly (including whitespace, indentation, and line endings). Multiple blocks can be provided to make multiple changes to the same file. Format: <<<<<<< SEARCH\n[exact text to find]\n=======\n[replacement text]\n>>>>>>> REPLACE. If the file is part of the project, it will be opened in Visual Studio with changes highlighted.",
+                    "Replace sections of a file using SEARCH/REPLACE blocks. The SEARCH text must match exactly (including whitespace, indentation, and line endings) and must be unique in the file. Multiple blocks can be provided to make multiple changes to the same file. Format: <<<<<<< SEARCH\n[exact text to find]\n=======\n[replacement text]\n>>>>>>> REPLACE. If the file is part of the project, it will be opened in Visual Studio with changes highlighted.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "file_path", new PropertyInfo("string", "The full path of the file to modify. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },

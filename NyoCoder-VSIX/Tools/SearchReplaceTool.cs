@@ -8,7 +8,7 @@ using EnvDTE80;
 
 namespace NyoCoder
 {
-    internal static class SearchReplaceTool
+    public static class SearchReplaceTool
     {
         private static readonly Regex BlockWithFenceRegex = new Regex(
             @"```[\s\S]*?\n<{5,} SEARCH\r?\n(.*?)\r?\n?={5,}\r?\n(.*?)\r?\n?>{5,} REPLACE\s*\n```",
@@ -24,14 +24,14 @@ namespace NyoCoder
             public string Replace;
         }
 
-        internal enum ChangeType
+        public enum ChangeType
         {
             Addition,
             Deletion,
             Modification
         }
 
-        internal struct InlineSpan
+        public struct InlineSpan
         {
             public int Start;
             public int Length;
@@ -199,6 +199,20 @@ namespace NyoCoder
                 if (newPreviewText.Length > 0)
                 {
                     current = current.Substring(0, insertPos) + newPreviewText + current.Substring(insertPos);
+
+                    // Shift all spans already recorded for higher-indexed blocks (processed before this one).
+                    // Their positions in `current` are now displaced by the length of this insertion.
+                    int insertLen = newPreviewText.Length;
+                    for (int j = 0; j < spans.Count; j++)
+                    {
+                        InlineSpan sp = spans[j];
+                        if (sp.Start >= insertPos)
+                        {
+                            sp.Start += insertLen;
+                            spans[j] = sp;
+                        }
+                    }
+
                     spans.Add(new InlineSpan { Start = insertPos, Length = newPreviewText.Length, Type = ChangeType.Addition });
                 }
 

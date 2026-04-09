@@ -443,7 +443,7 @@ namespace NyoCoder
         }
 
 
-        private static string BuildUnifiedDiff(string oldText, string newText, int maxLines)
+        internal static string BuildUnifiedDiff(string oldText, string newText, int maxLines)
         {
             // Simple line-based diff (good enough for a preview)
             string[] a = (oldText ?? string.Empty).Replace("\r\n", "\n").Split('\n');

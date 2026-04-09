@@ -134,7 +134,6 @@ public class LLMClient
             toolsRequiringApproval = new List<string>
             {
                 "run_shell_command",
-                "write_file",
                 "move_file",
                 "delete_file",
                 "copy_file"

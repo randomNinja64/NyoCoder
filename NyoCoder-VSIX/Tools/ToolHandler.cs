@@ -64,7 +64,7 @@ public static class ToolHandler
                         string filename = GetRequiredArg(args, "filename");
                         string contentStr = JsonExtractString(args, "content");
                         string content = string.IsNullOrEmpty(contentStr) ? "" : contentStr.Trim();
-                        string output = FileHandler.WriteFile(filename, content, out exitCode);
+                        string output = WriteFileTool.Write(filename, content, out exitCode);
                         toolContent = FormatCommandResult("write file: " + filename, output, exitCode);
                         return true;
                     }
@@ -109,7 +109,7 @@ public static class ToolHandler
                         string directoryPath = JsonExtractString(args, "directory_path");
                         string filePattern = JsonExtractString(args, "file_pattern");
                         string caseInsensitive = JsonExtractString(args, "case_insensitive");
-                        string output = GrepSearch(pattern, directoryPath, filePattern, caseInsensitive, out exitCode);
+                        string output = GrepSearchTool.Search(pattern, directoryPath, filePattern, caseInsensitive, out exitCode);
                         string searchDesc = "grep '" + pattern + "'" + (string.IsNullOrEmpty(directoryPath) ? "" : " in " + directoryPath);
                         toolContent = FormatCommandResult(searchDesc, output, exitCode);
                         return true;
@@ -119,7 +119,7 @@ public static class ToolHandler
                     {
                         string filePath = GetRequiredArg(args, "file_path");
                         string content = GetRequiredArg(args, "content");
-                        string output = SearchReplace(filePath, content, out exitCode);
+                        string output = SearchReplaceHandler.Apply(filePath, content, out exitCode);
                         toolContent = FormatCommandResult("search_replace: " + filePath, output, exitCode);
                         return true;
                     }
@@ -286,263 +286,25 @@ public static class ToolHandler
         return ExecuteProcess("cmd.exe", "/c " + command, out exitCode);
     }
 
-    // Recursively search for a regex pattern in files using grep.exe
-    private static string GrepSearch(string pattern, string directoryPath, string filePattern, string caseInsensitive, out int exitCode)
-    {
-        exitCode = 0;
-
-        try
-        {
-            // Get the directory where the executable is located
-            string exeDirectory = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            string grepExePath = System.IO.Path.Combine(exeDirectory, "grep.exe");
-
-            if (!System.IO.File.Exists(grepExePath))
-            {
-                exitCode = 1;
-                return "Error: grep.exe not found in: " + exeDirectory;
-            }
-
-            // Expand environment variables and determine search directory
-            string searchPath = string.IsNullOrEmpty(directoryPath) 
-                ? Environment.CurrentDirectory 
-                : Environment.ExpandEnvironmentVariables(directoryPath.Trim());
-
-            if (!System.IO.Directory.Exists(searchPath))
-            {
-                exitCode = 1;
-                return "Error: Directory not found: " + searchPath;
-            }
-
-            // Build grep command arguments
-            StringBuilder args = new StringBuilder();
-            
-            // Recursive search
-            args.Append("-r ");
-            
-            // Case insensitive flag
-            if (!string.IsNullOrEmpty(caseInsensitive) && 
-                caseInsensitive.Trim().Equals("true", StringComparison.OrdinalIgnoreCase))
-            {
-                args.Append("-i ");
-            }
-            
-            // Extended regex (supports more regex features)
-            args.Append("-E ");
-            
-            // Include file pattern if specified
-            if (!string.IsNullOrEmpty(filePattern) && filePattern.Trim().Length > 0)
-            {
-                args.Append("--include=");
-                args.Append("\"" + filePattern.Trim() + "\" ");
-            }
-            
-            // Exclude common directories and files that should be ignored
-            args.Append("--exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg ");
-            args.Append("--exclude-dir=.venv --exclude-dir=venv --exclude-dir=__pycache__ ");
-            args.Append("--exclude-dir=node_modules --exclude-dir=bin --exclude-dir=obj ");
-            args.Append("--exclude-dir=.vs --exclude-dir=packages --exclude-dir=dist ");
-            args.Append("--exclude-dir=build --exclude-dir=.idea --exclude-dir=.vscode ");
-            args.Append("--exclude-dir=target --exclude-dir=vendor --exclude-dir=bower_components ");
-            args.Append("--exclude-dir=.nuget --exclude-dir=TestResults ");
-            args.Append("--exclude=*.pyc --exclude=*.pyo --exclude=*.exe --exclude=*.dll ");
-            args.Append("--exclude=*.so --exclude=*.dylib --exclude=*.obj --exclude=*.o ");
-            args.Append("--exclude=*.a --exclude=*.lib --exclude=*.pdb --exclude=*.ilk ");
-            args.Append("--exclude=*.class --exclude=*.jar --exclude=*.war --exclude=*.ear ");
-            args.Append("--exclude=*.zip --exclude=*.tar --exclude=*.gz --exclude=*.rar ");
-            args.Append("--exclude=*.png --exclude=*.jpg --exclude=*.jpeg --exclude=*.gif ");
-            args.Append("--exclude=*.bmp --exclude=*.ico --exclude=*.svg --exclude=*.pdf ");
-            args.Append("--exclude=*.mp3 --exclude=*.mp4 --exclude=*.avi --exclude=*.mov ");
-            args.Append("--exclude=*.ttf --exclude=*.woff --exclude=*.woff2 --exclude=*.eot ");
-            args.Append("--exclude=*.min.js --exclude=*.min.css --exclude=*.map ");
-            args.Append("--exclude=*.lock --exclude=*.cache ");
-            
-            // Pattern (escape quotes if needed)
-            string escapedPattern = pattern.Replace("\"", "\\\"");
-            args.Append("\"" + escapedPattern + "\" ");
-            
-            // Search directory
-            args.Append("\"" + searchPath + "\"");
-
-            // Execute grep.exe with 60 second timeout
-            string output = ExecuteProcess(grepExePath, args.ToString(), out exitCode, combineErrorOutput: false, timeoutMilliseconds: 60000);
-
-            if (exitCode == 0 && string.IsNullOrWhiteSpace(output))
-            {
-                return "No matches found for pattern: " + pattern;
-            }
-
-            return output;
-        }
-        catch (Exception ex)
-        {
-            exitCode = 1;
-            return "Error: " + ex.Message;
-        }
-    }
-
     public static string FormatCommandResult(string command, string output, int exitCode)
     {
         return "Exit Code: " + exitCode + "\nOutput:\n" + output;
     }
 
-    #region SearchReplace
-
-    // Preview events (show adornments BEFORE applying)
+    // Preview events — raised by SearchReplaceHandler and WriteFileTool via the helpers below.
     public static event Action<string, List<SearchReplaceTool.InlineSpan>> OnDiffChangesPreview;
     public static event Action<string> OnDiffPreviewCleared;
 
-
-    // Parses SEARCH/REPLACE blocks and performs replacements in a file
-    private static string SearchReplace(string filePath, string content, out int exitCode)
+    internal static void RaiseDiffChangesPreview(string filePath, List<SearchReplaceTool.InlineSpan> spans)
     {
-        try
-        {
-            // 1) Preview only (no changes applied yet)
-            SearchReplaceTool.ApplyResult preview = SearchReplaceTool.Preview(filePath, content);
-
-            exitCode = preview.Errors.Count > 0 ? 1 : 0;
-
-            StringBuilder sb = new StringBuilder();
-            Action addSpacer = () =>
-            {
-                if (sb.Length > 0) sb.AppendLine();
-            };
-
-            if (preview.Errors.Count > 0)
-            {
-                addSpacer();
-                sb.AppendLine("Errors:");
-                foreach (string err in preview.Errors) sb.AppendLine(err);
-                return sb.ToString();
-            }
-
-            if (string.Equals(preview.NewContent, preview.OriginalContent, StringComparison.Ordinal))
-            {
-                addSpacer();
-                sb.AppendLine("No changes were necessary (file already matches).");
-                return sb.ToString();
-            }
-
-            // 1b) Build an inline preview buffer (old + new right next to each other)
-            SearchReplaceTool.InlinePreview inline = SearchReplaceTool.BuildInlinePreview(preview);
-
-            // Try to apply the inline preview to the open document (no save) so it shows inline in the editor.
-            bool previewShownInline = false;
-            if (!string.IsNullOrEmpty(preview.NormalizedFilePath))
-            {
-                previewShownInline = EditorService.TrySetOpenDocumentContent(preview.NormalizedFilePath, inline.Content, false);
-            }
-
-            // Show inline highlight adornments (background + strikethrough) for preview spans
-            if (previewShownInline && inline.Spans.Count > 0 && OnDiffChangesPreview != null)
-            {
-                string p = string.IsNullOrEmpty(preview.NormalizedFilePath) 
-                    ? EditorService.NormalizeFilePath(filePath) 
-                    : preview.NormalizedFilePath;
-                OnDiffChangesPreview(p, inline.Spans);
-            }
-
-            // 2) Ask user to approve/reject using the bottom bar in the NyoCoder panel
-            NyoCoderControl toolWindowControl = null;
-            try
-            {
-                toolWindowControl = NyoCoder_VSIXPackage.Instance != null ? NyoCoder_VSIXPackage.Instance.ToolWindowControl : null;
-            }
-            catch { }
-
-            // Fail-closed: do not apply changes unless explicitly approved via UI.
-            ApprovalResult approvalResult = ApprovalResult.Rejected;
-            string notApprovedMessage = "Rejected by user. No changes applied.";
-            if (toolWindowControl != null)
-            {
-                StringBuilder approvalArgs = new StringBuilder();
-                approvalArgs.AppendLine("Apply these changes?");
-                approvalArgs.AppendLine("File: " + (string.IsNullOrEmpty(preview.NormalizedFilePath) ? filePath : preview.NormalizedFilePath));
-                approvalArgs.AppendLine();
-                if (!string.IsNullOrEmpty(preview.PreviewDiff))
-                {
-                    // PreviewDiff already ends with a newline, so use Append instead of AppendLine
-                    approvalArgs.Append(preview.PreviewDiff);
-                }
-                approvalResult = toolWindowControl.RequestToolApproval("search_replace", approvalArgs.ToString());
-                
-                // If user stopped, treat as rejected (session will be stopped by LLMClient)
-                if (approvalResult == ApprovalResult.Stopped)
-                {
-                    notApprovedMessage = "Session stopped by user. No changes applied.";
-                }
-            }
-            else
-            {
-                // No approval UI available: treat as not approved.
-                // This prevents unexpected file modifications when running headless / without the tool window.
-                exitCode = 1;
-                notApprovedMessage = "Error: Approval UI unavailable. No changes applied.";
-            }
-
-            if (approvalResult != ApprovalResult.Approved)
-            {
-                // Clear preview adornments
-                if (OnDiffPreviewCleared != null)
-                {
-                    string p = string.IsNullOrEmpty(preview.NormalizedFilePath) 
-                        ? EditorService.NormalizeFilePath(filePath) 
-                        : preview.NormalizedFilePath;
-                    OnDiffPreviewCleared(p);
-                }
-
-                // Restore original content if we showed an inline preview
-                if (previewShownInline && !string.IsNullOrEmpty(preview.NormalizedFilePath))
-                {
-                    EditorService.TrySetOpenDocumentContent(preview.NormalizedFilePath, preview.OriginalContent ?? "", false);
-                }
-                addSpacer();
-                sb.AppendLine(notApprovedMessage);
-                return sb.ToString();
-            }
-
-            // 3) Clear preview adornments, then apply changes
-            if (OnDiffPreviewCleared != null)
-            {
-                string p = string.IsNullOrEmpty(preview.NormalizedFilePath) 
-                    ? EditorService.NormalizeFilePath(filePath) 
-                    : preview.NormalizedFilePath;
-                OnDiffPreviewCleared(p);
-            }
-
-            bool appliedOk = false;
-
-            // If the doc is open (inline preview path), set final content in the editor and save.
-            if (previewShownInline && !string.IsNullOrEmpty(preview.NormalizedFilePath))
-            {
-                appliedOk = EditorService.TrySetOpenDocumentContent(preview.NormalizedFilePath, preview.NewContent ?? "", true);
-            }
-
-            // Fallback: apply via file write / open-doc apply
-            if (!appliedOk)
-            {
-                appliedOk = SearchReplaceTool.ApplyPreview(preview);
-            }
-
-            if (!appliedOk)
-            {
-                exitCode = 1;
-                addSpacer();
-                sb.AppendLine("Error: Failed to apply changes.");
-                return sb.ToString();
-            }
-
-            exitCode = 0;
-            sb.AppendLine("Approved and applied " + preview.Changes.Count + " block(s).");
-            return sb.ToString();
-        }
-        catch (Exception ex)
-        {
-            exitCode = 1;
-            return "Error: " + ex.Message;
-        }
+        if (OnDiffChangesPreview != null)
+            OnDiffChangesPreview(filePath, spans);
     }
-    #endregion
+
+    internal static void RaiseDiffPreviewCleared(string filePath)
+    {
+        if (OnDiffPreviewCleared != null)
+            OnDiffPreviewCleared(filePath);
+    }
 }
 }

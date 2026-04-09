@@ -9,6 +9,8 @@ namespace NyoCoder
     {
         internal const string DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36";
 
+        private delegate string SearchResultParser(string response);
+
         // Executes curl for a given URL and returns the response body
         private static string CurlExecute(string url, out int exitCode, bool combineErrorOutput = false, params string[] extraHeaders)
         {
@@ -20,6 +22,36 @@ namespace NyoCoder
                 args.Append(" -H \"" + header + "\"");
             args.Append(" \"" + url + "\"");
             return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput);
+        }
+
+        private static string ExecuteSearch(string url, SearchResultParser parser, int maxSearchResults, out int exitCode, params string[] headers)
+        {
+            string response;
+            try
+            {
+                response = CurlExecute(url, out exitCode, combineErrorOutput: false, headers);
+            }
+            catch (Exception ex)
+            {
+                exitCode = -1;
+                return "Error running curl.exe for search: " + ex.Message;
+            }
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                exitCode = -1;
+                return "";
+            }
+
+            try
+            {
+                return TruncateResults(parser(response), maxSearchResults);
+            }
+            catch
+            {
+                exitCode = -1;
+                return "";
+            }
         }
 
         // --- read_website ---
@@ -121,34 +153,13 @@ namespace NyoCoder
         private static string RunDDGSearch(string query, int maxSearchResults, out int exitCode)
         {
             string url = "https://duckduckgo.com/html/?q=" + Uri.EscapeDataString(query);
-            string response;
-            try
-            {
-                response = CurlExecute(url, out exitCode, false,
-                    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                    "Accept-Language: en-US,en;q=0.5");
-            }
-            catch (Exception ex)
-            {
-                exitCode = -1;
-                return "Error running curl.exe for search: " + ex.Message;
-            }
-
-            if (string.IsNullOrWhiteSpace(response))
-            {
-                exitCode = -1;
-                return "";
-            }
-
-            try
-            {
-                return TruncateResults(ParseDDGResults(response), maxSearchResults);
-            }
-            catch
-            {
-                exitCode = -1;
-                return "";
-            }
+            return ExecuteSearch(
+                url,
+                ParseDDGResults,
+                maxSearchResults,
+                out exitCode,
+                "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language: en-US,en;q=0.5");
         }
 
         private static string ParseDDGResults(string html)
@@ -180,32 +191,7 @@ namespace NyoCoder
         private static string RunWibySearch(string query, int maxSearchResults, out int exitCode)
         {
             string url = "https://wiby.me/json/?q=" + Uri.EscapeDataString(query);
-            string response;
-            try
-            {
-                response = CurlExecute(url, out exitCode, combineErrorOutput: false);
-            }
-            catch (Exception ex)
-            {
-                exitCode = -1;
-                return "Error running curl.exe for search: " + ex.Message;
-            }
-
-            if (string.IsNullOrWhiteSpace(response))
-            {
-                exitCode = -1;
-                return "";
-            }
-
-            try
-            {
-                return TruncateResults(ParseWibyResults(response), maxSearchResults);
-            }
-            catch
-            {
-                exitCode = -1;
-                return "";
-            }
+            return ExecuteSearch(url, ParseWibyResults, maxSearchResults, out exitCode);
         }
 
         private static string ParseWibyResults(string json)
@@ -230,32 +216,7 @@ namespace NyoCoder
         private static string RunSearXNGSearch(string query, string searxngInstance, int maxSearchResults, out int exitCode)
         {
             string url = searxngInstance.TrimEnd('/') + "/search?q=" + Uri.EscapeDataString(query) + "&format=json";
-            string response;
-            try
-            {
-                response = CurlExecute(url, out exitCode, combineErrorOutput: false);
-            }
-            catch (Exception ex)
-            {
-                exitCode = -1;
-                return "Error running curl.exe for search: " + ex.Message;
-            }
-
-            if (string.IsNullOrWhiteSpace(response))
-            {
-                exitCode = -1;
-                return "";
-            }
-
-            try
-            {
-                return TruncateResults(ParseSearXNGResults(response), maxSearchResults);
-            }
-            catch
-            {
-                exitCode = -1;
-                return "";
-            }
+            return ExecuteSearch(url, ParseSearXNGResults, maxSearchResults, out exitCode);
         }
 
         private static string ParseSearXNGResults(string json)

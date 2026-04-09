@@ -182,7 +182,7 @@ public static class ToolHandler
         return value;
     }
 
-    public static string ExecuteProcess(string fileName, string arguments, out int exitCode, bool combineErrorOutput = true, int timeoutMilliseconds = -1)
+    public static string ExecuteProcess(string fileName, string arguments, out int exitCode, bool combineErrorOutput = true, int timeoutMilliseconds = -1, string stdinData = null, string workingDirectory = null)
     {
         try
         {
@@ -192,14 +192,26 @@ public static class ToolHandler
                 Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                RedirectStandardInput = stdinData != null,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8
             };
 
+            if (!string.IsNullOrEmpty(workingDirectory))
+                psi.WorkingDirectory = workingDirectory;
+
             using (System.Diagnostics.Process process = System.Diagnostics.Process.Start(psi))
             {
+                // Write stdin synchronously before reading; the payload is small so it fits
+                // in the pipe buffer without risk of deadlock.
+                if (stdinData != null)
+                {
+                    process.StandardInput.Write(stdinData);
+                    process.StandardInput.Close();
+                }
+
                 // Read stdout and stderr concurrently to avoid pipe-buffer deadlocks
                 // on processes that write large amounts of output.
                 string output = "";

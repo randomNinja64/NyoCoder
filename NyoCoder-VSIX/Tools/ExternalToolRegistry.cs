@@ -2,10 +2,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace NyoCoder
 {
@@ -328,41 +326,15 @@ namespace NyoCoder
 
                 string stdinData = stdinPayload.ToString(Formatting.None);
 
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = def.ExecutablePath,
-                    Arguments = toolName,
-                    WorkingDirectory = Path.GetDirectoryName(def.ExecutablePath),
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    RedirectStandardInput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8
-                };
+                string output = ToolHandler.ExecuteProcess(
+                    def.ExecutablePath,
+                    toolName,
+                    out exitCode,
+                    combineErrorOutput: true,
+                    stdinData: stdinData,
+                    workingDirectory: Path.GetDirectoryName(def.ExecutablePath));
 
-                using (Process process = Process.Start(psi))
-                {
-                    process.StandardInput.Write(stdinData);
-                    process.StandardInput.Close();
-
-                    // Read stdout/stderr async to avoid deadlock on large output
-                    Task<string> stdoutTask = Task.Factory.StartNew(() => process.StandardOutput.ReadToEnd());
-                    Task<string> stderrTask = Task.Factory.StartNew(() => process.StandardError.ReadToEnd());
-
-                    process.WaitForExit();
-
-                    string stdout = stdoutTask.Result;
-                    string stderr = stderrTask.Result;
-                    exitCode = process.ExitCode;
-
-                    string output = stdout;
-                    if (!string.IsNullOrEmpty(stderr))
-                        output += stderr;
-
-                    toolContent = ToolHandler.FormatCommandResult(toolName, output, exitCode);
-                }
+                toolContent = ToolHandler.FormatCommandResult(toolName, output, exitCode);
             }
             catch (Exception ex)
             {

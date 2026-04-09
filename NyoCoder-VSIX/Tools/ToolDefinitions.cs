@@ -60,8 +60,6 @@ namespace NyoCoder
         /// </summary>
         public static JArray BuildToolsArray()
         {
-            HashSet<string> disabled = new HashSet<string>(ConfigHandler.GetDisabledTools(), System.StringComparer.OrdinalIgnoreCase);
-
             ToolEntry[] definitions = new ToolEntry[]
             {
                 new ToolEntry(
@@ -177,7 +175,7 @@ namespace NyoCoder
 
             foreach (ToolEntry def in definitions)
             {
-                if (!disabled.Contains(def.Name))
+                if (!ConfigHandler.IsToolDisabled(def.Name))
                     toolsArray.Add(CreateToolDefinition(def.Name, def.Description, def.Props, def.Required));
             }
 

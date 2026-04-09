@@ -239,20 +239,10 @@ namespace NyoCoder
         {
             EnsureLoaded();
             var result = new JArray();
-            List<string> disabled = ConfigHandler.GetDisabledTools();
 
             foreach (var kvp in _tools)
             {
-                bool isDisabled = false;
-                foreach (string t in disabled)
-                {
-                    if (string.Equals(t, kvp.Key, StringComparison.OrdinalIgnoreCase))
-                    {
-                        isDisabled = true;
-                        break;
-                    }
-                }
-                if (isDisabled)
+                if (ConfigHandler.IsToolDisabled(kvp.Key))
                     continue;
 
                 ExternalToolDefinition def = kvp.Value;

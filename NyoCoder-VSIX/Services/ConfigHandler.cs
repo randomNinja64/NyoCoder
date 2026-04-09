@@ -174,6 +174,15 @@ namespace NyoCoder
 			return GetConfigList("disabledTools");
 		}
 
+		public static bool IsToolDisabled(string toolName)
+		{
+			if (string.IsNullOrEmpty(toolName)) return false;
+			foreach (string t in GetConfigList("disabledTools"))
+				if (string.Equals(t, toolName, StringComparison.OrdinalIgnoreCase))
+					return true;
+			return false;
+		}
+
 		public static void SetDisabledTools(List<string> tools)
 		{
 			SetConfigValue("disabledTools",

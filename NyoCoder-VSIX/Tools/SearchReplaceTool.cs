@@ -129,7 +129,7 @@ namespace NyoCoder
 
             // Prefer editing an open document buffer (so VS updates live)
             string original = null;
-            bool editedOpenDocument = EditorService.TryReadOpenDocument(expandedPath, out original);
+            EditorService.TryReadOpenDocument(expandedPath, out original);
 
             if (original == null)
             {
@@ -153,11 +153,6 @@ namespace NyoCoder
                 EditorService.TryScrollToOffset(expandedPath, res.OriginalContent, firstChangeOffset);
             }
 
-            if (res.Errors.Count > 0)
-            {
-                return res;
-            }
-
             return res;
         }
 
@@ -174,8 +169,8 @@ namespace NyoCoder
             string current = res.OriginalContent ?? string.Empty;
             List<InlineSpan> spans = new List<InlineSpan>();
 
-            // Build inline preview by inserting trimmed replacement text immediately AFTER the original text,
-            // leaving the original text in place. This makes the diff visible inline before applying.
+            // Build inline preview using line-level LCS diff so that unchanged lines
+            // are kept without highlighting — only deleted / inserted lines are marked.
             //
             // Process from the end so indices remain stable.
             List<Change> changes = new List<Change>(res.Changes);
@@ -192,34 +187,41 @@ namespace NyoCoder
                 int oldLen = Math.Max(0, c.OldLength);
                 if (start + oldLen > current.Length) oldLen = current.Length - start;
 
-                string newPreviewText = TrimLeadingWhitespaceFirstLine(c.NewText ?? string.Empty);
-                int insertPos = start + oldLen;
+                string oldText = c.OldText ?? string.Empty;
+                string newText = c.NewText ?? string.Empty;
 
-                // Insert new preview text right after old text
-                if (newPreviewText.Length > 0)
+                // Compute interleaved line-level diff
+                string interleaved;
+                List<InlineSpan> localSpans;
+                BuildInterleavedDiff(oldText, newText, out interleaved, out localSpans);
+
+                // Replace the old text region with the interleaved content
+                current = current.Substring(0, start) + interleaved + current.Substring(start + oldLen);
+
+                // Shift existing spans that sit after this region
+                int delta = interleaved.Length - oldLen;
+                if (delta != 0)
                 {
-                    current = current.Substring(0, insertPos) + newPreviewText + current.Substring(insertPos);
-
-                    // Shift all spans already recorded for higher-indexed blocks (processed before this one).
-                    // Their positions in `current` are now displaced by the length of this insertion.
-                    int insertLen = newPreviewText.Length;
                     for (int j = 0; j < spans.Count; j++)
                     {
                         InlineSpan sp = spans[j];
-                        if (sp.Start >= insertPos)
+                        if (sp.Start >= start + oldLen)
                         {
-                            sp.Start += insertLen;
+                            sp.Start += delta;
                             spans[j] = sp;
                         }
                     }
-
-                    spans.Add(new InlineSpan { Start = insertPos, Length = newPreviewText.Length, Type = ChangeType.Addition });
                 }
 
-                // Highlight old text in-place as deletion
-                if (oldLen > 0)
+                // Offset local spans to document position and add
+                foreach (InlineSpan ls in localSpans)
                 {
-                    spans.Add(new InlineSpan { Start = start, Length = oldLen, Type = ChangeType.Deletion });
+                    spans.Add(new InlineSpan
+                    {
+                        Start = start + ls.Start,
+                        Length = ls.Length,
+                        Type = ls.Type
+                    });
                 }
             }
 
@@ -228,21 +230,141 @@ namespace NyoCoder
             return preview;
         }
 
+        // ---- Line-level diff helpers ----------------------------------------
+
+        private enum DiffOpType { Equal, Delete, Insert }
+
+        private struct DiffOp
+        {
+            public DiffOpType Type;
+            public string Text;
+        }
+
+        /// <summary>
+        /// Builds an interleaved diff string from oldText and newText using LCS-based
+        /// line diffing. Equal lines appear once (unhighlighted), deleted lines are
+        /// marked as Deletion spans, inserted lines as Addition spans.
+        /// Falls back to block-level diff for very large inputs.
+        /// </summary>
+        private static void BuildInterleavedDiff(string oldText, string newText,
+            out string interleaved, out List<InlineSpan> spans)
+        {
+            spans = new List<InlineSpan>();
+
+            if (string.IsNullOrEmpty(oldText) && string.IsNullOrEmpty(newText))
+            {
+                interleaved = string.Empty;
+                return;
+            }
+            if (string.IsNullOrEmpty(oldText))
+            {
+                interleaved = newText;
+                spans.Add(new InlineSpan { Start = 0, Length = newText.Length, Type = ChangeType.Addition });
+                return;
+            }
+            if (string.IsNullOrEmpty(newText))
+            {
+                interleaved = oldText;
+                spans.Add(new InlineSpan { Start = 0, Length = oldText.Length, Type = ChangeType.Deletion });
+                return;
+            }
+
+            string[] oldLines = oldText.Split('\n');
+            string[] newLines = newText.Split('\n');
+
+            // Guard against very large inputs — fall back to block-level diff
+            const int MaxLines = 1000;
+            if (oldLines.Length > MaxLines || newLines.Length > MaxLines)
+            {
+                StringBuilder fb = new StringBuilder();
+                fb.Append(oldText);
+                fb.Append('\n');
+                fb.Append(newText);
+                interleaved = fb.ToString();
+                spans.Add(new InlineSpan { Start = 0, Length = oldText.Length, Type = ChangeType.Deletion });
+                spans.Add(new InlineSpan { Start = oldText.Length + 1, Length = newText.Length, Type = ChangeType.Addition });
+                return;
+            }
+
+            List<DiffOp> ops = ComputeLineDiff(oldLines, newLines);
+
+            StringBuilder sb = new StringBuilder();
+            bool first = true;
+
+            foreach (DiffOp op in ops)
+            {
+                if (!first) sb.Append('\n');
+                first = false;
+
+                int lineStart = sb.Length;
+                sb.Append(op.Text);
+
+                if (op.Type == DiffOpType.Delete)
+                    spans.Add(new InlineSpan { Start = lineStart, Length = op.Text.Length, Type = ChangeType.Deletion });
+                else if (op.Type == DiffOpType.Insert)
+                    spans.Add(new InlineSpan { Start = lineStart, Length = op.Text.Length, Type = ChangeType.Addition });
+            }
+
+            interleaved = sb.ToString();
+        }
+
+        /// <summary>
+        /// LCS-based line diff producing Equal / Delete / Insert operations.
+        /// Deletions are ordered before insertions within each hunk.
+        /// </summary>
+        private static List<DiffOp> ComputeLineDiff(string[] oldLines, string[] newLines)
+        {
+            int m = oldLines.Length;
+            int n = newLines.Length;
+
+            // Build LCS table
+            int[,] dp = new int[m + 1, n + 1];
+            for (int i = 1; i <= m; i++)
+            {
+                for (int j = 1; j <= n; j++)
+                {
+                    if (string.Equals(oldLines[i - 1], newLines[j - 1], StringComparison.Ordinal))
+                        dp[i, j] = dp[i - 1, j - 1] + 1;
+                    else
+                        dp[i, j] = Math.Max(dp[i - 1, j], dp[i, j - 1]);
+                }
+            }
+
+            // Backtrack — prefer consuming from new first (Insert) when tied,
+            // so that after reversal deletes precede inserts within each hunk.
+            List<DiffOp> ops = new List<DiffOp>();
+            int ii = m, jj = n;
+            while (ii > 0 || jj > 0)
+            {
+                if (ii > 0 && jj > 0 && string.Equals(oldLines[ii - 1], newLines[jj - 1], StringComparison.Ordinal))
+                {
+                    ops.Add(new DiffOp { Type = DiffOpType.Equal, Text = oldLines[ii - 1] });
+                    ii--; jj--;
+                }
+                else if (jj > 0 && (ii == 0 || dp[ii, jj - 1] >= dp[ii - 1, jj]))
+                {
+                    ops.Add(new DiffOp { Type = DiffOpType.Insert, Text = newLines[jj - 1] });
+                    jj--;
+                }
+                else
+                {
+                    ops.Add(new DiffOp { Type = DiffOpType.Delete, Text = oldLines[ii - 1] });
+                    ii--;
+                }
+            }
+
+            ops.Reverse();
+            return ops;
+        }
+
         private static string TrimLeadingWhitespaceFirstLine(string text)
         {
             if (string.IsNullOrEmpty(text)) return text;
 
             int i = 0;
-            while (i < text.Length)
-            {
-                char ch = text[i];
-                if (ch == ' ' || ch == '\t')
-                {
-                    i++;
-                    continue;
-                }
-                break;
-            }
+            while (i < text.Length && (text[i] == ' ' || text[i] == '\t'))
+                i++;
+
             return i > 0 ? text.Substring(i) : text;
         }
 
@@ -414,7 +536,6 @@ namespace NyoCoder
             return text.Replace("\r\n", "\n").Replace("\r", "\n");
         }
 
-
         private static int CountOccurrences(string text, string search)
         {
             if (string.IsNullOrEmpty(search)) return 0;
@@ -442,12 +563,11 @@ namespace NyoCoder
             return sb.ToString();
         }
 
-
         internal static string BuildUnifiedDiff(string oldText, string newText, int maxLines)
         {
             // Simple line-based diff (good enough for a preview)
-            string[] a = (oldText ?? string.Empty).Replace("\r\n", "\n").Split('\n');
-            string[] b = (newText ?? string.Empty).Replace("\r\n", "\n").Split('\n');
+            string[] a = NormalizeLineEndings(oldText ?? string.Empty).Split('\n');
+            string[] b = NormalizeLineEndings(newText ?? string.Empty).Split('\n');
 
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("--- original");

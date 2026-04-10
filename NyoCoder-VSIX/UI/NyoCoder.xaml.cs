@@ -596,8 +596,9 @@ namespace NyoCoder
                     );
                     AppendText(Environment.NewLine);
 
-                    // Show input bar again when done
-                    ShowInputBar();
+                    // Show input bar again when done (but not if user stopped)
+                    if (!IsStopRequested())
+                        ShowInputBar();
                 }
                 catch (Exception ex)
                 {

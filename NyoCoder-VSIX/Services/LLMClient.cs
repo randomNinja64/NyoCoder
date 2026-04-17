@@ -328,6 +328,16 @@ public class LLMClient
                     }
                 }
 
+                // Check if a plan was just created — break so the caller can orchestrate step execution
+                if (StepPlanner.Instance != null && StepPlanner.Instance.PlanRequiresExecution)
+                {
+                    if (outputCallback != null)
+                    {
+                        outputCallback("\n[Plan created — executing steps...]\n");
+                    }
+                    break;
+                }
+
                 // Run loop again so assistant can ingest tool output
                 continue;
             }
@@ -474,7 +484,7 @@ public class LLMClient
     /// <summary>
     /// Calculates the total character count of a conversation.
     /// </summary>
-    private int GetConversationCharacterCount(List<ChatMessage> conversation)
+    internal int GetConversationCharacterCount(List<ChatMessage> conversation)
     {
         int count = 0;
         foreach (var msg in conversation)

@@ -152,6 +152,7 @@
     <Compile Include="Services\FileHandler.cs" />
     <Compile Include="Services\LLMClient.cs" />
     <Compile Include="Services\SseStreamParser.cs" />
+    <Compile Include="Services\StepPlanner.cs" />
     <!-- Tools -->
     <Compile Include="Tools\ExternalToolRegistry.cs" />
     <Compile Include="Tools\GrepSearchTool.cs" />

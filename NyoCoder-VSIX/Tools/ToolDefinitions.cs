@@ -13,7 +13,6 @@ namespace NyoCoder
         {
             public string Type;
             public string Description;
-            /// <summary>For array types, the type of each item (e.g. "string").</summary>
             public string ItemType;
 
             public PropertyInfo(string type, string description, string itemType = null)
@@ -56,7 +55,8 @@ namespace NyoCoder
             "search_replace",
             "run_web_search",
             "read_website",
-            "ask_user_question"
+            "ask_user_question",
+            "manage_plan"
         };
 
         /// <summary>
@@ -182,6 +182,16 @@ namespace NyoCoder
                         { "options", new PropertyInfo("array", "Preset answer choices (2-4 recommended). Each appears as a clickable button. A free-form text field is always shown in addition to these.", "string") }
                     },
                     new[] { "question" }
+                ),
+                new ToolEntry(
+                    "manage_plan",
+                    "Track progress on multi-step tasks. Use proactively for complex tasks (3+ steps) or when the user provides multiple tasks. Skip for single straightforward tasks or conversational requests.\n\nRules:\n- Only ONE step in_progress at a time\n- Mark a step in_progress BEFORE starting it\n- Mark completed IMMEDIATELY after finishing (only when fully done)\n- When writing, include ALL steps — omitted steps are removed\n- Add newly discovered work as new steps",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "action", new PropertyInfo("string", "'read' to view the current plan, or 'write' to replace it entirely.") },
+                        { "steps", new PropertyInfo("array", "Required for 'write'. Complete list of steps, each with 'title' (string) and 'status' (pending, in_progress, completed, failed, skipped).", "object") }
+                    },
+                    new[] { "action" }
                 ),
             };
 

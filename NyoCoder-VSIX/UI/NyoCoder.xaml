@@ -16,18 +16,41 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <!-- Status bar showing token usage -->
+        <!-- Status bar showing token usage and step progress -->
         <Border x:Name="TokenStatusBar"
                 Grid.Row="0"
                 Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}"
                 BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
                 BorderThickness="0,0,0,1"
                 Padding="6,3">
-            <TextBlock x:Name="TokenStatusText"
-                       Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
-                       FontFamily="Segoe UI"
-                       FontSize="11"
-                       Text="Tokens: 0"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TokenStatusText"
+                           Grid.Column="0"
+                           Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           Text="Tokens: 0"/>
+                <TextBlock x:Name="StepTokenStatusText"
+                           Grid.Column="1"
+                           Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           Margin="12,0,0,0"
+                           Visibility="Collapsed"/>
+                <TextBlock x:Name="StepStatusText"
+                           Grid.Column="2"
+                           Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           Margin="12,0,0,0"
+                           HorizontalAlignment="Right"
+                           Visibility="Collapsed"/>
+            </Grid>
         </Border>
         
         <!-- Output text box -->

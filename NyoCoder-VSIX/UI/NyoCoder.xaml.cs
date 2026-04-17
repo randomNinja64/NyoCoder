@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -36,6 +38,13 @@ namespace NyoCoder
         
         // Image attachment
         private string _attachedImageBase64;
+
+        // Step planner for complex task decomposition
+        private StepPlanner _stepPlanner;
+
+        // Step-level token tracking
+        private int _stepCharacterCount;
+        private bool _isTrackingStepTokens;
 
         public NyoCoderControl()
         {
@@ -84,8 +93,16 @@ namespace NyoCoder
                 return;
 
             // Track character count for token estimation
-            _totalCharacterCount += text.Length;
-            RefreshTokenDisplay();
+            if (_isTrackingStepTokens)
+            {
+                _stepCharacterCount += text.Length;
+                RefreshStepTokenDisplay();
+            }
+            else
+            {
+                _totalCharacterCount += text.Length;
+                RefreshTokenDisplay();
+            }
 
             // Get the last paragraph, or create one if none exists
             Paragraph lastParagraph = null;
@@ -140,6 +157,18 @@ namespace NyoCoder
                 OutputTextBox.Document.Blocks.Clear();
                 _totalCharacterCount = 0;
                 RefreshTokenDisplay();
+
+                // Reset step planner display
+                _isTrackingStepTokens = false;
+                _stepCharacterCount = 0;
+                StepTokenStatusText.Visibility = Visibility.Collapsed;
+                if (_stepPlanner != null)
+                {
+                    _stepPlanner.Reset();
+                    _stepPlanner = null;
+                }
+                StepStatusText.Visibility = Visibility.Collapsed;
+                StepStatusText.ToolTip = null;
             }, Dispatcher);
         }
 
@@ -166,6 +195,60 @@ namespace NyoCoder
             }
 
             TokenStatusText.Text = statusText;
+        }
+
+        /// <summary>
+        /// Refreshes the step token display based on current step character count.
+        /// Must be called on the UI thread.
+        /// </summary>
+        private void RefreshStepTokenDisplay()
+        {
+            int approximateTokens = ContextEngine.ApproximateTokens(_stepCharacterCount);
+            int? contextWindowSize = ConfigHandler.ContextWindowSize;
+
+            string statusText;
+            if (contextWindowSize.HasValue && contextWindowSize.Value > 0)
+            {
+                double percentage = (double)approximateTokens / contextWindowSize.Value * 100;
+                statusText = string.Format("Step Tokens: ~{0:N0} / {1:N0} ({2:F1}%)",
+                    approximateTokens, contextWindowSize.Value, percentage);
+            }
+            else
+            {
+                statusText = string.Format("Step Tokens: ~{0:N0}", approximateTokens);
+            }
+
+            StepTokenStatusText.Text = statusText;
+        }
+
+        /// <summary>
+        /// Updates the step progress indicator in the status bar.
+        /// Must be called on the UI thread.
+        /// </summary>
+        private void RefreshStepDisplay()
+        {
+            if (_stepPlanner == null || _stepPlanner.Steps.Count == 0)
+            {
+                StepStatusText.Visibility = Visibility.Collapsed;
+                StepStatusText.ToolTip = null;
+                return;
+            }
+
+            StepStatusText.Text = _stepPlanner.GetStepIndicator();
+            StepStatusText.ToolTip = _stepPlanner.GetDetailedTooltip();
+            StepStatusText.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>
+        /// Hides the step progress indicator.
+        /// </summary>
+        private void HideStepDisplay()
+        {
+            EditorService.BeginInvokeOnUIThread(() =>
+            {
+                StepStatusText.Visibility = Visibility.Collapsed;
+                StepStatusText.ToolTip = null;
+            }, Dispatcher);
         }
 
         /// <summary>
@@ -610,6 +693,16 @@ namespace NyoCoder
             {
                 try
                 {
+                    // Initialize step planner for new sessions so the LLM can use manage_plan
+                    if (isNewSession)
+                    {
+                        _stepPlanner = StepPlanner.Initialize();
+                        _stepPlanner.StepsChanged += delegate
+                        {
+                            EditorService.BeginInvokeOnUIThread(() => RefreshStepDisplay(), Dispatcher);
+                        };
+                    }
+
                     // ProcessConversation will use and update llmClient.Conversation automatically
                     llmClient.ProcessConversation(
                         userMessage,
@@ -631,6 +724,164 @@ namespace NyoCoder
                             ResetCharacterCount(newCharCount);
                         }
                     );
+
+                    // If a plan was created, orchestrate step-by-step execution
+                    StepPlanner planner = StepPlanner.Instance;
+                    if (planner != null && planner.PlanRequiresExecution)
+                    {
+                        planner.PlanRequiresExecution = false;
+                        planner.IsExecutingSteps = true;
+
+                        // Snapshot pre-plan conversation (user message + assistant plan call + tool result)
+                        List<LLMClient.ChatMessage> prePlanConversation = new List<LLMClient.ChatMessage>(llmClient.Conversation);
+                        int prePlanCharCount = llmClient.GetConversationCharacterCount(prePlanConversation);
+
+                        // Switch to step-level token tracking and show the secondary display
+                        _isTrackingStepTokens = true;
+                        EditorService.InvokeOnUIThread(() =>
+                        {
+                            StepTokenStatusText.Visibility = Visibility.Visible;
+                        }, Dispatcher);
+
+                        try
+                        {
+                            for (int stepIdx = 0; stepIdx < planner.Steps.Count; stepIdx++)
+                            {
+                                if (IsStopRequested())
+                                {
+                                    // Mark remaining steps as skipped
+                                    for (int j = stepIdx; j < planner.Steps.Count; j++)
+                                    {
+                                        if (planner.Steps[j].Status != StepStatus.Completed)
+                                            planner.SetStepStatus(j, StepStatus.Skipped);
+                                    }
+                                    break;
+                                }
+
+                                PlanStep step = planner.Steps[stepIdx];
+                                if (step.Status == StepStatus.Completed || step.Status == StepStatus.Skipped)
+                                    continue;
+
+                                planner.SetStepStatus(stepIdx, StepStatus.InProgress);
+
+                                AppendText("\n\u2501\u2501\u2501 Step " + (stepIdx + 1) + "/" + planner.Steps.Count + ": " + step.Title + " \u2501\u2501\u2501\n\n");
+
+                                try
+                                {
+                                    // Fresh LLM client for this step
+                                    LLMClient stepClient = LLMClient.CreateFromConfig();
+                                    if (stepClient == null)
+                                    {
+                                        planner.SetStepStatus(stepIdx, StepStatus.Failed);
+                                        AppendText("[Step failed: could not create LLM client]\n");
+                                        continue;
+                                    }
+
+                                    // Seed with pre-plan conversation
+                                    stepClient.Conversation = new List<LLMClient.ChatMessage>(prePlanConversation);
+
+                                    // Initialize step token tracking with pre-plan context size
+                                    _stepCharacterCount = prePlanCharCount;
+                                    EditorService.InvokeOnUIThread(() => RefreshStepTokenDisplay(), Dispatcher);
+
+                                    // Build fresh editor context
+                                    string freshContext = string.Empty;
+                                    DTE2 dte = EditorService.GetDte();
+                                    if (dte != null)
+                                    {
+                                        ContextEngine contextEngine = new ContextEngine(dte);
+                                        freshContext = contextEngine.BuildUserPromptContext();
+                                    }
+
+                                    // Build step prompt with plan state + step identity
+                                    StringBuilder stepPrompt = new StringBuilder();
+                                    if (!string.IsNullOrWhiteSpace(freshContext))
+                                    {
+                                        stepPrompt.Append(freshContext);
+                                        stepPrompt.Append("\n\n");
+                                    }
+                                    stepPrompt.Append(planner.ReadPlan());
+                                    stepPrompt.Append("\n\nYou are now working on Step " + (stepIdx + 1) + ": \"" + step.Title + "\"\n");
+                                    stepPrompt.Append("Focus on completing this step only.");
+
+                                    // Add step prompt chars to step tracking
+                                    _stepCharacterCount += stepPrompt.Length;
+                                    EditorService.InvokeOnUIThread(() => RefreshStepTokenDisplay(), Dispatcher);
+
+                                    // Execute step with its own context (auto-summarize enabled)
+                                    stepClient.ProcessConversation(
+                                        stepPrompt.ToString(),
+                                        null, // no image for steps
+                                        "Assistant",
+                                        null, // toolsRequiringApproval - will use defaults
+                                        true, // showToolOutput
+                                        delegate(string text)
+                                        {
+                                            AppendText(text);
+                                        },
+                                        delegate(string toolName, string arguments)
+                                        {
+                                            return RequestToolApproval(toolName, arguments);
+                                        },
+                                        stopRequested: delegate() { return IsStopRequested(); },
+                                        onSummarized: delegate(int newCharCount)
+                                        {
+                                            _stepCharacterCount = newCharCount;
+                                            EditorService.InvokeOnUIThread(() => RefreshStepTokenDisplay(), Dispatcher);
+                                        }
+                                    );
+
+                                    // Auto-mark completed if the LLM didn't already update it
+                                    if (step.Status == StepStatus.InProgress)
+                                    {
+                                        planner.SetStepStatus(stepIdx, StepStatus.Completed);
+                                    }
+
+                                    // Extract the step's final assistant response and carry it into subsequent steps
+                                    string stepResult = null;
+                                    for (int i = stepClient.Conversation.Count - 1; i >= 0; i--)
+                                    {
+                                        LLMClient.ChatMessage msg = stepClient.Conversation[i];
+                                        if (msg.Role == "assistant" && !string.IsNullOrWhiteSpace(msg.Content))
+                                        {
+                                            stepResult = msg.Content;
+                                            break;
+                                        }
+                                    }
+
+                                    if (stepResult != null)
+                                    {
+                                        // Inject into prePlanConversation so subsequent steps see it
+                                        string stepLabel = "[Step " + (stepIdx + 1) + " completed: " + step.Title + "]";
+                                        prePlanConversation.Add(new LLMClient.ChatMessage("user", stepLabel));
+                                        prePlanConversation.Add(new LLMClient.ChatMessage("assistant", stepResult));
+                                        prePlanCharCount += stepLabel.Length + stepResult.Length;
+
+                                        // Also record in the main session conversation
+                                        llmClient.Conversation.Add(new LLMClient.ChatMessage("user", stepLabel));
+                                        llmClient.Conversation.Add(new LLMClient.ChatMessage("assistant", stepResult));
+                                    }
+                                }
+                                catch (Exception stepEx)
+                                {
+                                    planner.SetStepStatus(stepIdx, StepStatus.Failed);
+                                    AppendText("\n[Step failed: " + stepEx.Message + "]\n");
+                                }
+                            }
+
+                            AppendText("\n\u2501\u2501\u2501 All steps completed \u2501\u2501\u2501\n");
+                        }
+                        finally
+                        {
+                            planner.IsExecutingSteps = false;
+                            _isTrackingStepTokens = false;
+                            _stepCharacterCount = 0;
+                            EditorService.InvokeOnUIThread(() =>
+                            {
+                                StepTokenStatusText.Visibility = Visibility.Collapsed;
+                            }, Dispatcher);
+                        }
+                    }
                     AppendText(Environment.NewLine);
 
                     // Show input bar again when done (but not if user stopped)

@@ -14,12 +14,17 @@ namespace NyoCoder
             public string Type;
             public string Description;
             public string ItemType;
+            public Dictionary<string, PropertyInfo> ItemProperties;
+            public string[] ItemRequired;
 
-            public PropertyInfo(string type, string description, string itemType = null)
+            public PropertyInfo(string type, string description, string itemType = null,
+                Dictionary<string, PropertyInfo> itemProperties = null, string[] itemRequired = null)
             {
                 Type = type;
                 Description = description;
                 ItemType = itemType;
+                ItemProperties = itemProperties;
+                ItemRequired = itemRequired;
             }
         }
 
@@ -189,7 +194,13 @@ namespace NyoCoder
                     new Dictionary<string, PropertyInfo>
                     {
                         { "action", new PropertyInfo("string", "'read' to view the current plan, or 'write' to replace it entirely.") },
-                        { "steps", new PropertyInfo("array", "Required for 'write'. Complete list of steps, each with 'title' (string) and 'status' (pending, in_progress, completed, failed, skipped).", "object") }
+                        { "steps", new PropertyInfo("array", "Required for 'write'. Complete list of ALL steps — omitted steps are removed.", "object",
+                            new Dictionary<string, PropertyInfo>
+                            {
+                                { "title", new PropertyInfo("string", "Short description of the step.") },
+                                { "status", new PropertyInfo("string", "One of: pending, in_progress, completed, failed, skipped.") }
+                            },
+                            new[] { "title", "status" }) }
                     },
                     new[] { "action" }
                 ),
@@ -233,6 +244,20 @@ namespace NyoCoder
                 {
                     JObject itemsObj = new JObject();
                     itemsObj["type"] = prop.Value.ItemType;
+                    if (prop.Value.ItemProperties != null)
+                    {
+                        JObject itemProps = new JObject();
+                        foreach (var itemProp in prop.Value.ItemProperties)
+                        {
+                            JObject itemPropObj = new JObject();
+                            itemPropObj["type"] = itemProp.Value.Type;
+                            itemPropObj["description"] = itemProp.Value.Description;
+                            itemProps[itemProp.Key] = itemPropObj;
+                        }
+                        itemsObj["properties"] = itemProps;
+                        if (prop.Value.ItemRequired != null && prop.Value.ItemRequired.Length > 0)
+                            itemsObj["required"] = new JArray(prop.Value.ItemRequired);
+                    }
                     propObj["items"] = itemsObj;
                 }
                 props[prop.Key] = propObj;

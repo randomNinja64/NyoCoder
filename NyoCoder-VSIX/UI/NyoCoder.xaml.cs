@@ -1,11 +1,10 @@
 using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
 using EnvDTE80;
 
 namespace NyoCoder
@@ -25,8 +24,9 @@ namespace NyoCoder
     /// </summary>
     public partial class NyoCoderControl : UserControl
     {
-        // Synchronization for tool approval
-        private ManualResetEvent _approvalWaitHandle;
+        // Shared synchronization for approval and question prompts.
+        // Only one interaction can be pending at a time.
+        private ManualResetEvent _pendingWaitHandle;
         private ApprovalResult _approvalResult;
         
         private volatile bool _stopRequested;
@@ -42,14 +42,6 @@ namespace NyoCoder
             InitializeComponent();
         }
 
-
-        /// <summary>
-        /// Gets the current approximate token count including overhead.
-        /// </summary>
-        public int GetApproximateTokenCount()
-        {
-            return ContextEngine.ApproximateTokens(_totalCharacterCount);
-        }
 
         /// <summary>
         /// Resets the character count to a specific value (used after summarization).
@@ -109,32 +101,21 @@ namespace NyoCoder
                 OutputTextBox.Document.Blocks.Add(lastParagraph);
             }
 
-            // Check if text contains newlines
-            if (text.Contains("\n") || text.Contains("\r"))
+            // Split by newlines and handle each part
+            string[] parts = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
+
+            for (int i = 0; i < parts.Length; i++)
             {
-                // Split by newlines and handle each part
-                string[] parts = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
-                
-                for (int i = 0; i < parts.Length; i++)
+                if (i > 0)
                 {
-                    if (i > 0)
-                    {
-                        // Create a new paragraph for each newline (except the first)
-                        lastParagraph = new Paragraph();
-                        OutputTextBox.Document.Blocks.Add(lastParagraph);
-                    }
-                    
-                    if (!string.IsNullOrEmpty(parts[i]))
-                    {
-                        // Append text to the current paragraph
-                        lastParagraph.Inlines.Add(new Run(parts[i]));
-                    }
+                    lastParagraph = new Paragraph();
+                    OutputTextBox.Document.Blocks.Add(lastParagraph);
                 }
-            }
-            else
-            {
-                // No newlines, just append directly to the last paragraph
-                lastParagraph.Inlines.Add(new Run(text));
+
+                if (!string.IsNullOrEmpty(parts[i]))
+                {
+                    lastParagraph.Inlines.Add(new Run(parts[i]));
+                }
             }
             
             // Scroll to end
@@ -261,14 +242,6 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Shows or hides the button panel.
-        /// </summary>
-        public void SetButtonPanelVisible(bool visible)
-        {
-            EditorService.InvokeOnUIThread(() => ButtonPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed, Dispatcher);
-        }
-
-        /// <summary>
         /// Resets the stop flag.
         /// </summary>
         public void ResetStopRequested()
@@ -292,15 +265,19 @@ namespace NyoCoder
         /// <returns>ApprovalResult indicating the user's choice</returns>
         public ApprovalResult RequestToolApproval(string toolName, string arguments)
         {
-            _approvalWaitHandle = new ManualResetEvent(false);
-            _approvalResult = ApprovalResult.Rejected;
+            using (var waitHandle = new ManualResetEvent(false))
+            {
+                _pendingWaitHandle = waitHandle;
+                _approvalResult = ApprovalResult.Rejected;
 
-            EditorService.InvokeOnUIThread(() => ShowApprovalUI(toolName, arguments), Dispatcher);
+                EditorService.InvokeOnUIThread(() => ShowApprovalUI(toolName, arguments), Dispatcher);
 
-            // Block until user responds
-            _approvalWaitHandle.WaitOne();
+                // Block until user responds
+                waitHandle.WaitOne();
+                _pendingWaitHandle = null;
 
-            return _approvalResult;
+                return _approvalResult;
+            }
         }
 
         private void ShowApprovalUI(string toolName, string arguments)
@@ -308,58 +285,123 @@ namespace NyoCoder
             AppendText("\n[Approval Required] " + toolName);
             AppendText("\n" + arguments + "\n");
 
-            ClearButtons();
+            ButtonPanel.Children.Clear();
 
-            var yesButton = CreateStandardButton("Approve", OnApprovalYes);
-            var noButton = CreateStandardButton("Reject", OnApprovalNo);
-            var stopButton = CreateStandardButton("Stop", OnApprovalStop);
+            ButtonPanel.Children.Add(CreateStandardButton("Approve", OnApprovalYes));
+            ButtonPanel.Children.Add(CreateStandardButton("Reject", OnApprovalNo));
+            ButtonPanel.Children.Add(CreateStandardButton("Stop", OnStopButton));
 
-            ButtonPanel.Children.Add(yesButton);
-            ButtonPanel.Children.Add(noButton);
-            ButtonPanel.Children.Add(stopButton);
             ButtonPanel.Visibility = Visibility.Visible;
         }
 
-        private void OnApprovalYes(object sender, RoutedEventArgs e)
+        private void OnApprovalYes(object sender, RoutedEventArgs e) { SetApprovalResult(ApprovalResult.Approved); }
+        private void OnApprovalNo(object sender, RoutedEventArgs e) { SetApprovalResult(ApprovalResult.Rejected); }
+
+        private void SetApprovalResult(ApprovalResult result)
         {
-            HideApprovalUI();
-            _approvalResult = ApprovalResult.Approved;
-            if (_approvalWaitHandle != null)
-            {
-                _approvalWaitHandle.Set();
-            }
+            HideInteractionUI();
+            _approvalResult = result;
+            if (_pendingWaitHandle != null) _pendingWaitHandle.Set();
         }
 
-        private void OnApprovalNo(object sender, RoutedEventArgs e)
+        private void OnStopButton(object sender, RoutedEventArgs e)
         {
-            HideApprovalUI();
-            _approvalResult = ApprovalResult.Rejected;
-            if (_approvalWaitHandle != null)
-            {
-                _approvalWaitHandle.Set();
-            }
-        }
-
-        private void OnApprovalStop(object sender, RoutedEventArgs e)
-        {
-            HideApprovalUI();
+            _questionOtherBox = null;
             _approvalResult = ApprovalResult.Stopped;
+            HideInteractionUI();
             _stopRequested = true;
-            if (_approvalWaitHandle != null)
+            if (_pendingWaitHandle != null) _pendingWaitHandle.Set();
+        }
+
+        private void HideInteractionUI()
+        {
+            ButtonPanel.Children.Clear();
+            ButtonPanel.Visibility = Visibility.Collapsed;
+        }
+
+        // Synchronization for user questions (ask_user_question tool).
+        private string _questionAnswer;
+        private TextBox _questionOtherBox;
+
+        /// <summary>
+        /// Prompts the user with a question and a list of preset options plus a
+        /// free-form "Other" text field. Blocks the calling (background) thread
+        /// until the user responds. Returns the chosen option text, the typed
+        /// free-form answer, or an empty string if cancelled.
+        /// </summary>
+        public string RequestUserQuestion(string question, string[] options)
+        {
+            using (var waitHandle = new ManualResetEvent(false))
             {
-                _approvalWaitHandle.Set();
+                _pendingWaitHandle = waitHandle;
+                _questionAnswer = null;
+
+                EditorService.InvokeOnUIThread(() => ShowQuestionUI(question, options), Dispatcher);
+
+                waitHandle.WaitOne();
+                _pendingWaitHandle = null;
+                return _questionAnswer ?? "";
             }
         }
 
-        private void HideApprovalUI()
+        private void ShowQuestionUI(string question, string[] options)
         {
-            EditorService.InvokeOnUIThread(() =>
+            AppendText("\n[Question] " + (question ?? "") + "\n");
+
+            ButtonPanel.Children.Clear();
+
+            if (options != null)
             {
-                ClearButtons();
-                ButtonPanel.Visibility = Visibility.Collapsed;
-            }, Dispatcher);
+                foreach (string option in options)
+                {
+                    string captured = option;
+                    ButtonPanel.Children.Add(CreateStandardButton(captured, (s, e) => OnQuestionAnswered(captured)));
+                }
+            }
+
+            _questionOtherBox = new TextBox
+            {
+                MinWidth = 160,
+                MinHeight = 25,
+                Margin = new Thickness(2),
+                VerticalContentAlignment = VerticalAlignment.Center,
+                ToolTip = "Type your own answer..."
+            };
+            _questionOtherBox.KeyDown += QuestionOtherBox_KeyDown;
+            ButtonPanel.Children.Add(_questionOtherBox);
+            ButtonPanel.Children.Add(CreateStandardButton("Submit", OnQuestionSubmitOther));
+            ButtonPanel.Children.Add(CreateStandardButton("Stop", OnStopButton));
+
+            ButtonPanel.Visibility = Visibility.Visible;
         }
 
+        private void QuestionOtherBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                OnQuestionSubmitOther(sender, null);
+            }
+        }
+
+        private void OnQuestionSubmitOther(object sender, RoutedEventArgs e)
+        {
+            string text = _questionOtherBox != null ? _questionOtherBox.Text.Trim() : "";
+            if (string.IsNullOrEmpty(text))
+                return;
+            OnQuestionAnswered(text);
+        }
+
+        private void OnQuestionAnswered(string answer)
+        {
+            _questionOtherBox = null;
+            HideInteractionUI();
+
+            _questionAnswer = answer;
+            AppendText("[Answer] " + answer + "\n");
+
+            if (_pendingWaitHandle != null) _pendingWaitHandle.Set();
+        }
 
         /// <summary>
         /// Shows the input bar.
@@ -411,19 +453,19 @@ namespace NyoCoder
                     string imagePath = openFileDialog.FileName;
                     
                     // Read the image file and convert to base64
-                    byte[] imageBytes = System.IO.File.ReadAllBytes(imagePath);
+                    byte[] imageBytes = File.ReadAllBytes(imagePath);
                     _attachedImageBase64 = Convert.ToBase64String(imageBytes);
                     
                     // Update tooltip to show image is attached
-                    AttachImageButton.ToolTip = "Image attached: " + System.IO.Path.GetFileName(imagePath);
+                    AttachImageButton.ToolTip = "Image attached: " + Path.GetFileName(imagePath);
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show(
+                    MessageBox.Show(
                         "Error loading image: " + ex.Message,
                         "NyoCoder",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Error);
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
                     // Uncheck the button if there was an error
                     AttachImageButton.IsChecked = false;
                 }
@@ -471,7 +513,7 @@ namespace NyoCoder
         /// </summary>
         private void SendInputMessage()
         {
-            string message = InputBox.Text != null ? InputBox.Text.Trim() : null;
+            string message = InputBox.Text.Trim();
             if (string.IsNullOrWhiteSpace(message))
                 return;
 
@@ -483,26 +525,21 @@ namespace NyoCoder
             bool isNewSession = llmClient == null || llmClient.Conversation == null || llmClient.Conversation.Count == 0;
 
             // Check if an AI request is already running
-            if (System.Threading.Interlocked.CompareExchange(ref package._isAiRunning, 1, 0) != 0)
+            if (Interlocked.CompareExchange(ref package._isAiRunning, 1, 0) != 0)
             {
-                System.Windows.MessageBox.Show(
+                MessageBox.Show(
                     "An AI request is already in progress. Please wait for it to complete.",
                     "NyoCoder",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Information);
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 return;
             }
 
             // Get attached image before clearing
             string attachedImage = _attachedImageBase64;
             
-            // Clear input and hide input bar
-            InputBox.Clear();
-            
-            // Clear attached image and reset button
-            _attachedImageBase64 = null;
+            // Clear attached image and reset button (setting IsChecked=false fires AttachImageButton_Unchecked)
             AttachImageButton.IsChecked = false;
-            AttachImageButton.ToolTip = null;
             
             HideInputBar();
 
@@ -513,7 +550,7 @@ namespace NyoCoder
                 LLMClient newClient = LLMClient.CreateFromConfig();
                 if (newClient == null)
                 {
-                    System.Threading.Interlocked.Exchange(ref package._isAiRunning, 0); // Reset flag
+                    Interlocked.Exchange(ref package._isAiRunning, 0); // Reset flag
                     ShowInputBar(); // Show input bar again
                     return;
                 }
@@ -569,7 +606,7 @@ namespace NyoCoder
             }
 
             // Send message on background thread
-            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            ThreadPool.QueueUserWorkItem(delegate
             {
                 try
                 {
@@ -605,18 +642,18 @@ namespace NyoCoder
                     AppendLine("\nError: " + ex.Message);
                     EditorService.InvokeOnUIThread(() =>
                     {
-                        System.Windows.MessageBox.Show(
+                        MessageBox.Show(
                             "Error communicating with LLM: " + ex.Message,
                             "NyoCoder",
-                            System.Windows.MessageBoxButton.OK,
-                            System.Windows.MessageBoxImage.Error);
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
                     }, Dispatcher);
                     ShowInputBar();
                 }
                 finally
                 {
                     // Reset the AI running flag
-                    System.Threading.Interlocked.Exchange(ref package._isAiRunning, 0);
+                    Interlocked.Exchange(ref package._isAiRunning, 0);
                 }
             });
         }

@@ -13,11 +13,14 @@ namespace NyoCoder
         {
             public string Type;
             public string Description;
+            /// <summary>For array types, the type of each item (e.g. "string").</summary>
+            public string ItemType;
 
-            public PropertyInfo(string type, string description)
+            public PropertyInfo(string type, string description, string itemType = null)
             {
                 Type = type;
                 Description = description;
+                ItemType = itemType;
             }
         }
 
@@ -52,7 +55,8 @@ namespace NyoCoder
             "grep_search",
             "search_replace",
             "run_web_search",
-            "read_website"
+            "read_website",
+            "ask_user_question"
         };
 
         /// <summary>
@@ -169,6 +173,16 @@ namespace NyoCoder
                     },
                     new[] { "url" }
                 ),
+                new ToolEntry(
+                    "ask_user_question",
+                    "Ask the user a question and wait for their response. The UI displays a button for each option plus a free-form text field so the user can type their own answer. Use this to gather preferences, clarify ambiguous requirements, or get a decision before continuing. Prefer this over guessing when the user's intent is unclear.",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "question", new PropertyInfo("string", "The question text to present to the user.") },
+                        { "options", new PropertyInfo("array", "Preset answer choices (2-4 recommended). Each appears as a clickable button. A free-form text field is always shown in addition to these.", "string") }
+                    },
+                    new[] { "question" }
+                ),
             };
 
             JArray toolsArray = new JArray();
@@ -205,6 +219,12 @@ namespace NyoCoder
                 JObject propObj = new JObject();
                 propObj["type"] = prop.Value.Type;
                 propObj["description"] = prop.Value.Description;
+                if (prop.Value.Type == "array" && prop.Value.ItemType != null)
+                {
+                    JObject itemsObj = new JObject();
+                    itemsObj["type"] = prop.Value.ItemType;
+                    propObj["items"] = itemsObj;
+                }
                 props[prop.Key] = propObj;
             }
             parameters["properties"] = props;

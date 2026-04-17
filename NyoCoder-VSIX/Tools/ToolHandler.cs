@@ -143,6 +143,15 @@ public static class ToolHandler
                         return true;
                     }
 
+                case "ask_user_question":
+                    {
+                        string question = GetRequiredArg(args, "question");
+                        JArray optionsArray = args != null ? args["options"] as JArray : null;
+                        string output = AskUserQuestionTool.Ask(question, optionsArray, out exitCode);
+                        toolContent = FormatCommandResult("ask user: " + question, output, exitCode);
+                        return true;
+                    }
+
                 default:
                     // Fall through to external tool registry (SimpleLLMChat-compatible packages)
                     if (ExternalToolRegistry.HasTool(call.Name))

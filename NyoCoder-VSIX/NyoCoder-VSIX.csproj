@@ -157,6 +157,7 @@
     <Compile Include="Tools\GrepSearchTool.cs" />
     <Compile Include="Tools\SearchReplaceHandler.cs" />
     <Compile Include="Tools\SearchReplaceTool.cs" />
+    <Compile Include="Tools\AskUserQuestionTool.cs" />
     <Compile Include="Tools\WebSearchTool.cs" />
     <Compile Include="Tools\WriteFileTool.cs" />
     <Compile Include="Tools\ToolDefinitions.cs" />

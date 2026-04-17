@@ -31,6 +31,7 @@ The extension can be triggered in a text editor either via the right-click menu 
 
 ## Tools
 
+- **ask_user_question** - presents the user with a question and a set of answers, as well as a text box to provide a custom answer
 - **copy_file** - copies a file from one location to another
 - **delete_file** - deletes a file from the file system
 - **grep_search** - recursively searches for a regex pattern in files (Relies on grep.exe in the extension's directory, included with the release but not with source)

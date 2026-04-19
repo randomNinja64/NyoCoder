@@ -155,29 +155,8 @@ public static class ToolHandler
                 case "manage_plan":
                     {
                         string action = GetRequiredArg(args, "action");
-                        StepPlanner planner = StepPlanner.Instance;
-                        if (planner == null)
-                        {
-                            toolContent = FormatCommandResult("manage_plan", "Error: No active session.", 1);
-                            exitCode = 1;
-                            return true;
-                        }
-
-                        string output;
-                        if (string.Equals(action, "read", StringComparison.OrdinalIgnoreCase))
-                        {
-                            output = planner.ReadPlan();
-                        }
-                        else if (string.Equals(action, "write", StringComparison.OrdinalIgnoreCase))
-                        {
-                            JArray stepsArray = args != null ? args["steps"] as JArray : null;
-                            output = planner.WritePlan(stepsArray);
-                        }
-                        else
-                        {
-                            output = "Error: Invalid action '" + action + "'. Use 'read' or 'write'.";
-                            exitCode = 1;
-                        }
+                        JArray stepsArray = args != null ? args["steps"] as JArray : null;
+                        string output = ManagePlanTool.Execute(action, stepsArray, out exitCode);
                         toolContent = FormatCommandResult("manage_plan (" + action + ")", output, exitCode);
                         return true;
                     }

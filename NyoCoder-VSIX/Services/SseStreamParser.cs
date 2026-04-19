@@ -22,7 +22,8 @@ namespace NyoCoder
             Action<string> outputCallback,
             Action<ToolHandler.ToolCall> toolCallCallback,
             Func<bool> stopRequested,
-            Action onStop = null)
+            Action onStop = null,
+            Action<string> onReasoningChunk = null)
         {
             LLMClient.LLMCompletionResponse response = new LLMClient.LLMCompletionResponse
             {
@@ -34,6 +35,7 @@ namespace NyoCoder
             StringBuilder output = new StringBuilder();
             Dictionary<int, ToolHandler.ToolCall> partialToolCalls = new Dictionary<int, ToolHandler.ToolCall>();
             Dictionary<int, int> toolCallArgumentLength = new Dictionary<int, int>();
+            bool inReasoning = false;
             string lastEvent = null;
             string line;
 
@@ -81,9 +83,37 @@ namespace NyoCoder
                     foreach (JObject choice in choices)
                     {
                         JObject delta = (JObject)choice["delta"];
+
+                        // Stream reasoning content (e.g. from DeepSeek-R1 or compatible models)
+                        string reasoningChunk = delta != null
+                            ? ((string)delta["reasoning_content"] ?? (string)delta["reasoning"])
+                            : null;
+                        if (!string.IsNullOrEmpty(reasoningChunk))
+                        {
+                            if (onReasoningChunk != null)
+                            {
+                                if (!inReasoning)
+                                {
+                                    onReasoningChunk("[thinking]\n");
+                                    inReasoning = true;
+                                }
+                                onReasoningChunk(reasoningChunk);
+                            }
+                            else if (!inReasoning)
+                            {
+                                inReasoning = true;
+                            }
+                        }
+
                         string content = delta != null ? (string)delta["content"] : null;
                         if (!string.IsNullOrEmpty(content))
                         {
+                            if (inReasoning)
+                            {
+                                if (onReasoningChunk != null)
+                                    onReasoningChunk("\n[/thinking]\n\n");
+                                inReasoning = false;
+                            }
                             if (outputCallback != null)
                                 outputCallback(content);
                             else
@@ -153,6 +183,10 @@ namespace NyoCoder
                     // ignore malformed JSON fragments
                 }
             }
+
+            // Close any open reasoning block if the stream ended while still in reasoning
+            if (inReasoning && onReasoningChunk != null)
+                onReasoningChunk("\n[/thinking]\n\n");
 
             response.ToolCalls.AddRange(partialToolCalls.Values);
             response.Content = output.ToString();

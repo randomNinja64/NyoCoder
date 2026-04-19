@@ -589,7 +589,8 @@ public class LLMClient
             {
                 completionResponse = SseStreamParser.Parse(
                     reader, outputCallback, toolCallCallback, stopRequested,
-                    () => { try { request.Abort(); } catch { } });
+                    () => { try { request.Abort(); } catch { } },
+                    onReasoningChunk: outputCallback);
             }
         }
         catch (Exception ex)

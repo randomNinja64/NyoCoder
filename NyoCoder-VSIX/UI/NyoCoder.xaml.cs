@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -26,29 +24,26 @@ namespace NyoCoder
     /// </summary>
     public partial class NyoCoderControl : UserControl
     {
-        // Shared synchronization for approval and question prompts.
-        // Only one interaction can be pending at a time.
-        private ManualResetEvent _pendingWaitHandle;
-        private ApprovalResult _approvalResult;
-        
         private volatile bool _stopRequested;
-        
-        // Token tracking
-        private int _totalCharacterCount;
-        
+
         // Image attachment
         private string _attachedImageBase64;
 
         // Step planner for complex task decomposition
         private StepPlanner _stepPlanner;
 
-        // Step-level token tracking
-        private int _stepCharacterCount;
-        private bool _isTrackingStepTokens;
+        // Manages blocking approval / question prompts
+        private InteractionManager _interactionManager;
+
+        // Owns main + step character counts and status-bar labels
+        private TokenTracker _tokenTracker;
 
         public NyoCoderControl()
         {
             InitializeComponent();
+            _interactionManager = new InteractionManager(ButtonPanel, AppendText);
+            _interactionManager.StopRequested += () => { _stopRequested = true; };
+            _tokenTracker = new TokenTracker(TokenStatusText, StepTokenStatusText, Dispatcher);
         }
 
 
@@ -57,11 +52,7 @@ namespace NyoCoder
         /// </summary>
         public void ResetCharacterCount(int newCount = 0)
         {
-            EditorService.InvokeOnUIThread(() =>
-            {
-                _totalCharacterCount = newCount;
-                RefreshTokenDisplay();
-            }, Dispatcher);
+            _tokenTracker.ResetCharacterCount(newCount);
         }
 
         /// <summary>
@@ -69,14 +60,7 @@ namespace NyoCoder
         /// </summary>
         public void AddToCharacterCount(int delta)
         {
-            if (delta == 0)
-                return;
-
-            EditorService.BeginInvokeOnUIThread(() =>
-            {
-                _totalCharacterCount = Math.Max(0, _totalCharacterCount + delta);
-                RefreshTokenDisplay();
-            }, Dispatcher);
+            _tokenTracker.AddToCharacterCount(delta);
         }
 
         /// <summary>
@@ -93,16 +77,7 @@ namespace NyoCoder
                 return;
 
             // Track character count for token estimation
-            if (_isTrackingStepTokens)
-            {
-                _stepCharacterCount += text.Length;
-                RefreshStepTokenDisplay();
-            }
-            else
-            {
-                _totalCharacterCount += text.Length;
-                RefreshTokenDisplay();
-            }
+            _tokenTracker.OnTextAppended(text.Length);
 
             // Get the last paragraph, or create one if none exists
             Paragraph lastParagraph = null;
@@ -155,13 +130,9 @@ namespace NyoCoder
             EditorService.InvokeOnUIThread(() =>
             {
                 OutputTextBox.Document.Blocks.Clear();
-                _totalCharacterCount = 0;
-                RefreshTokenDisplay();
+                _tokenTracker.Reset();
 
                 // Reset step planner display
-                _isTrackingStepTokens = false;
-                _stepCharacterCount = 0;
-                StepTokenStatusText.Visibility = Visibility.Collapsed;
                 if (_stepPlanner != null)
                 {
                     _stepPlanner.Reset();
@@ -170,55 +141,6 @@ namespace NyoCoder
                 StepStatusText.Visibility = Visibility.Collapsed;
                 StepStatusText.ToolTip = null;
             }, Dispatcher);
-        }
-
-        /// <summary>
-        /// Refreshes the token display based on current character count.
-        /// Must be called on the UI thread.
-        /// </summary>
-        private void RefreshTokenDisplay()
-        {
-            // Calculate approximate tokens including base overhead (system prompt + tools)
-            int approximateTokens = ContextEngine.ApproximateTokens(_totalCharacterCount);
-            int? contextWindowSize = ConfigHandler.ContextWindowSize;
-
-            string statusText;
-            if (contextWindowSize.HasValue && contextWindowSize.Value > 0)
-            {
-                double percentage = (double)approximateTokens / contextWindowSize.Value * 100;
-                statusText = string.Format("Tokens: ~{0:N0} / {1:N0} ({2:F1}%)", 
-                    approximateTokens, contextWindowSize.Value, percentage);
-            }
-            else
-            {
-                statusText = string.Format("Tokens: ~{0:N0}", approximateTokens);
-            }
-
-            TokenStatusText.Text = statusText;
-        }
-
-        /// <summary>
-        /// Refreshes the step token display based on current step character count.
-        /// Must be called on the UI thread.
-        /// </summary>
-        private void RefreshStepTokenDisplay()
-        {
-            int approximateTokens = ContextEngine.ApproximateTokens(_stepCharacterCount);
-            int? contextWindowSize = ConfigHandler.ContextWindowSize;
-
-            string statusText;
-            if (contextWindowSize.HasValue && contextWindowSize.Value > 0)
-            {
-                double percentage = (double)approximateTokens / contextWindowSize.Value * 100;
-                statusText = string.Format("Step Tokens: ~{0:N0} / {1:N0} ({2:F1}%)",
-                    approximateTokens, contextWindowSize.Value, percentage);
-            }
-            else
-            {
-                statusText = string.Format("Step Tokens: ~{0:N0}", approximateTokens);
-            }
-
-            StepTokenStatusText.Text = statusText;
         }
 
         /// <summary>
@@ -259,69 +181,11 @@ namespace NyoCoder
             EditorService.InvokeOnUIThread(() =>
             {
                 OutputTextBox.Document.Blocks.Clear();
-                _totalCharacterCount = text != null ? text.Length : 0;
-                RefreshTokenDisplay();
+                _tokenTracker.ResetCharacterCount(text != null ? text.Length : 0);
                 var paragraph = new Paragraph(new Run(text)) { Margin = new Thickness(0), Padding = new Thickness(0) };
                 OutputTextBox.Document.Blocks.Add(paragraph);
                 OutputTextBox.ScrollToEnd();
             }, Dispatcher);
-        }
-
-        /// <summary>
-        /// Creates a button with standard styling.
-        /// </summary>
-        private Button CreateStandardButton(string content, RoutedEventHandler clickHandler = null)
-        {
-            var button = new Button
-            {
-                Content = content,
-                Margin = new Thickness(2),
-                Padding = new Thickness(8, 4, 8, 4),
-                MinWidth = 75,
-                MinHeight = 25
-            };
-
-            if (clickHandler != null)
-            {
-                button.Click += clickHandler;
-            }
-
-            return button;
-        }
-
-        /// <summary>
-        /// Adds an action button to the button panel.
-        /// </summary>
-        public Button AddButton(string text, RoutedEventHandler clickHandler)
-        {
-            return EditorService.InvokeOnUIThread(() =>
-            {
-                var button = CreateStandardButton(text, clickHandler);
-                ButtonPanel.Children.Add(button);
-                ButtonPanel.Visibility = Visibility.Visible;
-                return button;
-            }, Dispatcher);
-        }
-
-        /// <summary>
-        /// Adds an action button to the button panel.
-        /// </summary>
-        public Button AddButton(string text, EventHandler clickHandler)
-        {
-            RoutedEventHandler routedHandler = null;
-            if (clickHandler != null)
-            {
-                routedHandler = (sender, e) => clickHandler(sender, e);
-            }
-            return AddButton(text, routedHandler);
-        }
-
-        /// <summary>
-        /// Clears all buttons from the button panel.
-        /// </summary>
-        public void ClearButtons()
-        {
-            EditorService.InvokeOnUIThread(() => ButtonPanel.Children.Clear(), Dispatcher);
         }
 
         /// <summary>
@@ -342,148 +206,20 @@ namespace NyoCoder
 
         /// <summary>
         /// Requests user approval for a tool execution.
+        /// Delegates to the InteractionManager.
         /// </summary>
-        /// <param name="toolName">Name of the tool requesting approval</param>
-        /// <param name="arguments">Arguments to display to the user</param>
-        /// <returns>ApprovalResult indicating the user's choice</returns>
         public ApprovalResult RequestToolApproval(string toolName, string arguments)
         {
-            using (var waitHandle = new ManualResetEvent(false))
-            {
-                _pendingWaitHandle = waitHandle;
-                _approvalResult = ApprovalResult.Rejected;
-
-                EditorService.InvokeOnUIThread(() => ShowApprovalUI(toolName, arguments), Dispatcher);
-
-                // Block until user responds
-                waitHandle.WaitOne();
-                _pendingWaitHandle = null;
-
-                return _approvalResult;
-            }
+            return _interactionManager.RequestToolApproval(toolName, arguments);
         }
-
-        private void ShowApprovalUI(string toolName, string arguments)
-        {
-            AppendText("\n[Approval Required] " + toolName);
-            AppendText("\n" + arguments + "\n");
-
-            ButtonPanel.Children.Clear();
-
-            ButtonPanel.Children.Add(CreateStandardButton("Approve", OnApprovalYes));
-            ButtonPanel.Children.Add(CreateStandardButton("Reject", OnApprovalNo));
-            ButtonPanel.Children.Add(CreateStandardButton("Stop", OnStopButton));
-
-            ButtonPanel.Visibility = Visibility.Visible;
-        }
-
-        private void OnApprovalYes(object sender, RoutedEventArgs e) { SetApprovalResult(ApprovalResult.Approved); }
-        private void OnApprovalNo(object sender, RoutedEventArgs e) { SetApprovalResult(ApprovalResult.Rejected); }
-
-        private void SetApprovalResult(ApprovalResult result)
-        {
-            HideInteractionUI();
-            _approvalResult = result;
-            if (_pendingWaitHandle != null) _pendingWaitHandle.Set();
-        }
-
-        private void OnStopButton(object sender, RoutedEventArgs e)
-        {
-            _questionOtherBox = null;
-            _approvalResult = ApprovalResult.Stopped;
-            HideInteractionUI();
-            _stopRequested = true;
-            if (_pendingWaitHandle != null) _pendingWaitHandle.Set();
-        }
-
-        private void HideInteractionUI()
-        {
-            ButtonPanel.Children.Clear();
-            ButtonPanel.Visibility = Visibility.Collapsed;
-        }
-
-        // Synchronization for user questions (ask_user_question tool).
-        private string _questionAnswer;
-        private TextBox _questionOtherBox;
 
         /// <summary>
-        /// Prompts the user with a question and a list of preset options plus a
-        /// free-form "Other" text field. Blocks the calling (background) thread
-        /// until the user responds. Returns the chosen option text, the typed
-        /// free-form answer, or an empty string if cancelled.
+        /// Prompts the user with a question and preset options.
+        /// Delegates to the InteractionManager.
         /// </summary>
         public string RequestUserQuestion(string question, string[] options)
         {
-            using (var waitHandle = new ManualResetEvent(false))
-            {
-                _pendingWaitHandle = waitHandle;
-                _questionAnswer = null;
-
-                EditorService.InvokeOnUIThread(() => ShowQuestionUI(question, options), Dispatcher);
-
-                waitHandle.WaitOne();
-                _pendingWaitHandle = null;
-                return _questionAnswer ?? "";
-            }
-        }
-
-        private void ShowQuestionUI(string question, string[] options)
-        {
-            AppendText("\n[Question] " + (question ?? "") + "\n");
-
-            ButtonPanel.Children.Clear();
-
-            if (options != null)
-            {
-                foreach (string option in options)
-                {
-                    string captured = option;
-                    ButtonPanel.Children.Add(CreateStandardButton(captured, (s, e) => OnQuestionAnswered(captured)));
-                }
-            }
-
-            _questionOtherBox = new TextBox
-            {
-                MinWidth = 160,
-                MinHeight = 25,
-                Margin = new Thickness(2),
-                VerticalContentAlignment = VerticalAlignment.Center,
-                ToolTip = "Type your own answer..."
-            };
-            _questionOtherBox.KeyDown += QuestionOtherBox_KeyDown;
-            ButtonPanel.Children.Add(_questionOtherBox);
-            ButtonPanel.Children.Add(CreateStandardButton("Submit", OnQuestionSubmitOther));
-            ButtonPanel.Children.Add(CreateStandardButton("Stop", OnStopButton));
-
-            ButtonPanel.Visibility = Visibility.Visible;
-        }
-
-        private void QuestionOtherBox_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter)
-            {
-                e.Handled = true;
-                OnQuestionSubmitOther(sender, null);
-            }
-        }
-
-        private void OnQuestionSubmitOther(object sender, RoutedEventArgs e)
-        {
-            string text = _questionOtherBox != null ? _questionOtherBox.Text.Trim() : "";
-            if (string.IsNullOrEmpty(text))
-                return;
-            OnQuestionAnswered(text);
-        }
-
-        private void OnQuestionAnswered(string answer)
-        {
-            _questionOtherBox = null;
-            HideInteractionUI();
-
-            _questionAnswer = answer;
-            AppendText("[Answer] " + answer + "\n");
-
-            if (_pendingWaitHandle != null) _pendingWaitHandle.Set();
+            return _interactionManager.RequestUserQuestion(question, options);
         }
 
         /// <summary>
@@ -727,160 +463,45 @@ namespace NyoCoder
 
                     // If a plan was created, orchestrate step-by-step execution
                     StepPlanner planner = StepPlanner.Instance;
+                    if (planner != null && !planner.PlanRequiresExecution && !isNewSession)
+                    {
+                        // Follow-up message that didn't produce a new plan — hide any previous plan display
+                        EditorService.BeginInvokeOnUIThread(() =>
+                        {
+                            StepStatusText.Visibility = Visibility.Collapsed;
+                            StepStatusText.ToolTip = null;
+                        }, Dispatcher);
+                    }
                     if (planner != null && planner.PlanRequiresExecution)
                     {
-                        planner.PlanRequiresExecution = false;
-                        planner.IsExecutingSteps = true;
+                        var executor = new StepExecutor(
+                            planner,
+                            llmClient,
+                            delegate(string text) { AppendText(text); },
+                            delegate(string toolName, string arguments) { return RequestToolApproval(toolName, arguments); },
+                            delegate() { return IsStopRequested(); });
 
-                        // Snapshot pre-plan conversation (user message + assistant plan call + tool result)
-                        List<LLMClient.ChatMessage> prePlanConversation = new List<LLMClient.ChatMessage>(llmClient.Conversation);
-                        int prePlanCharCount = llmClient.GetConversationCharacterCount(prePlanConversation);
-
-                        // Switch to step-level token tracking and show the secondary display
-                        _isTrackingStepTokens = true;
-                        EditorService.InvokeOnUIThread(() =>
+                        executor.ExecutionStarted += delegate(int prePlanCharCount)
                         {
-                            StepTokenStatusText.Visibility = Visibility.Visible;
-                        }, Dispatcher);
+                            _tokenTracker.BeginStepTracking(prePlanCharCount);
+                        };
 
-                        try
+                        executor.MainTokenCountChanged += delegate(int count)
                         {
-                            for (int stepIdx = 0; stepIdx < planner.Steps.Count; stepIdx++)
-                            {
-                                if (IsStopRequested())
-                                {
-                                    // Mark remaining steps as skipped
-                                    for (int j = stepIdx; j < planner.Steps.Count; j++)
-                                    {
-                                        if (planner.Steps[j].Status != StepStatus.Completed)
-                                            planner.SetStepStatus(j, StepStatus.Skipped);
-                                    }
-                                    break;
-                                }
+                            _tokenTracker.SyncMainCount(count);
+                        };
 
-                                PlanStep step = planner.Steps[stepIdx];
-                                if (step.Status == StepStatus.Completed || step.Status == StepStatus.Skipped)
-                                    continue;
-
-                                planner.SetStepStatus(stepIdx, StepStatus.InProgress);
-
-                                AppendText("\n\u2501\u2501\u2501 Step " + (stepIdx + 1) + "/" + planner.Steps.Count + ": " + step.Title + " \u2501\u2501\u2501\n\n");
-
-                                try
-                                {
-                                    // Fresh LLM client for this step
-                                    LLMClient stepClient = LLMClient.CreateFromConfig();
-                                    if (stepClient == null)
-                                    {
-                                        planner.SetStepStatus(stepIdx, StepStatus.Failed);
-                                        AppendText("[Step failed: could not create LLM client]\n");
-                                        continue;
-                                    }
-
-                                    // Seed with pre-plan conversation
-                                    stepClient.Conversation = new List<LLMClient.ChatMessage>(prePlanConversation);
-
-                                    // Initialize step token tracking with pre-plan context size
-                                    _stepCharacterCount = prePlanCharCount;
-                                    EditorService.InvokeOnUIThread(() => RefreshStepTokenDisplay(), Dispatcher);
-
-                                    // Build fresh editor context
-                                    string freshContext = string.Empty;
-                                    DTE2 dte = EditorService.GetDte();
-                                    if (dte != null)
-                                    {
-                                        ContextEngine contextEngine = new ContextEngine(dte);
-                                        freshContext = contextEngine.BuildUserPromptContext();
-                                    }
-
-                                    // Build step prompt with plan state + step identity
-                                    StringBuilder stepPrompt = new StringBuilder();
-                                    if (!string.IsNullOrWhiteSpace(freshContext))
-                                    {
-                                        stepPrompt.Append(freshContext);
-                                        stepPrompt.Append("\n\n");
-                                    }
-                                    stepPrompt.Append(planner.ReadPlan());
-                                    stepPrompt.Append("\n\nYou are now working on Step " + (stepIdx + 1) + ": \"" + step.Title + "\"\n");
-                                    stepPrompt.Append("Focus on completing this step only.");
-
-                                    // Add step prompt chars to step tracking
-                                    _stepCharacterCount += stepPrompt.Length;
-                                    EditorService.InvokeOnUIThread(() => RefreshStepTokenDisplay(), Dispatcher);
-
-                                    // Execute step with its own context (auto-summarize enabled)
-                                    stepClient.ProcessConversation(
-                                        stepPrompt.ToString(),
-                                        null, // no image for steps
-                                        "Assistant",
-                                        null, // toolsRequiringApproval - will use defaults
-                                        true, // showToolOutput
-                                        delegate(string text)
-                                        {
-                                            AppendText(text);
-                                        },
-                                        delegate(string toolName, string arguments)
-                                        {
-                                            return RequestToolApproval(toolName, arguments);
-                                        },
-                                        stopRequested: delegate() { return IsStopRequested(); },
-                                        onSummarized: delegate(int newCharCount)
-                                        {
-                                            _stepCharacterCount = newCharCount;
-                                            EditorService.InvokeOnUIThread(() => RefreshStepTokenDisplay(), Dispatcher);
-                                        }
-                                    );
-
-                                    // Auto-mark completed if the LLM didn't already update it
-                                    if (step.Status == StepStatus.InProgress)
-                                    {
-                                        planner.SetStepStatus(stepIdx, StepStatus.Completed);
-                                    }
-
-                                    // Extract the step's final assistant response and carry it into subsequent steps
-                                    string stepResult = null;
-                                    for (int i = stepClient.Conversation.Count - 1; i >= 0; i--)
-                                    {
-                                        LLMClient.ChatMessage msg = stepClient.Conversation[i];
-                                        if (msg.Role == "assistant" && !string.IsNullOrWhiteSpace(msg.Content))
-                                        {
-                                            stepResult = msg.Content;
-                                            break;
-                                        }
-                                    }
-
-                                    if (stepResult != null)
-                                    {
-                                        // Inject into prePlanConversation so subsequent steps see it
-                                        string stepLabel = "[Step " + (stepIdx + 1) + " completed: " + step.Title + "]";
-                                        prePlanConversation.Add(new LLMClient.ChatMessage("user", stepLabel));
-                                        prePlanConversation.Add(new LLMClient.ChatMessage("assistant", stepResult));
-                                        prePlanCharCount += stepLabel.Length + stepResult.Length;
-
-                                        // Also record in the main session conversation
-                                        llmClient.Conversation.Add(new LLMClient.ChatMessage("user", stepLabel));
-                                        llmClient.Conversation.Add(new LLMClient.ChatMessage("assistant", stepResult));
-                                    }
-                                }
-                                catch (Exception stepEx)
-                                {
-                                    planner.SetStepStatus(stepIdx, StepStatus.Failed);
-                                    AppendText("\n[Step failed: " + stepEx.Message + "]\n");
-                                }
-                            }
-
-                            AppendText("\n\u2501\u2501\u2501 All steps completed \u2501\u2501\u2501\n");
-                        }
-                        finally
+                        executor.StepTokenCountChanged += delegate(int count)
                         {
-                            planner.IsExecutingSteps = false;
-                            _isTrackingStepTokens = false;
-                            _stepCharacterCount = 0;
-                            EditorService.InvokeOnUIThread(() =>
-                            {
-                                StepTokenStatusText.Visibility = Visibility.Collapsed;
-                            }, Dispatcher);
-                        }
+                            _tokenTracker.SyncStepCount(count);
+                        };
+
+                        executor.ExecutionFinished += delegate(int finalCharCount)
+                        {
+                            _tokenTracker.EndStepTracking(finalCharCount);
+                        };
+
+                        executor.Execute();
                     }
                     AppendText(Environment.NewLine);
 

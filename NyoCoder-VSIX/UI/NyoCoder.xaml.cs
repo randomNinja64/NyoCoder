@@ -213,10 +213,19 @@ namespace NyoCoder
             DeferScrollToEnd();
         }
 
+        private bool _scrollPending;
+
         private void DeferScrollToEnd()
         {
-            Dispatcher.BeginInvoke(new Action(() => OutputTextBox.ScrollToEnd()),
-                System.Windows.Threading.DispatcherPriority.Background);
+            // Coalesce: at most one ScrollToEnd queued at a time, otherwise
+            // streaming appends flood the dispatcher and hang the UI.
+            if (_scrollPending) return;
+            _scrollPending = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _scrollPending = false;
+                OutputTextBox.ScrollToEnd();
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
         public bool StopRequested

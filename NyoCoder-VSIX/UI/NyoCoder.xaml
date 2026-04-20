@@ -75,7 +75,7 @@
                     </Style>
                 </FlowDocument.Resources>
                 <Paragraph>
-                    <Run Text="NyoCoder can be triggered via Ctrl+Alt+N or via the editor's context menu."/>
+                    <Run Text="NyoCoder is ready. Type a message below, or press Ctrl+Alt+N from anywhere in Visual Studio."/>
                 </Paragraph>
             </FlowDocument>
         </RichTextBox>
@@ -87,22 +87,39 @@
                     Height="36"
                     Margin="2"
                     Visibility="Collapsed"/>
-        
+
         <!-- Input bar -->
         <Border x:Name="InputBar"
                 Grid.Row="3"
                 Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}"
                 BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
                 BorderThickness="0,1,0,0"
-                Padding="4"
-                Visibility="Collapsed">
+                Padding="4">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0"
+                            Orientation="Vertical"
+                            Margin="0,0,4,0">
+                    <Button x:Name="NewChatButton"
+                            Content="New Chat"
+                            MinWidth="60"
+                            Padding="8,1"
+                            Margin="0,0,0,4"
+                            Click="NewChatButton_Click"/>
+                    <ComboBox x:Name="ModeSelector"
+                              MinWidth="60"
+                              SelectedIndex="0">
+                        <ComboBoxItem Content="Agent"/>
+                        <ComboBoxItem Content="Plan"/>
+                        <ComboBoxItem Content="Debug"/>
+                    </ComboBox>
+                </StackPanel>
                 <TextBox x:Name="InputBox"
-                         Grid.Column="0"
+                         Grid.Column="1"
                          Margin="0,0,4,0"
                          MinHeight="48"
                          Height="48"
@@ -115,7 +132,7 @@
                          CaretBrush="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
                          BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
                          PreviewKeyDown="InputBox_PreviewKeyDown"/>
-                <StackPanel Grid.Column="1"
+                <StackPanel Grid.Column="2"
                            Orientation="Vertical"
                            VerticalAlignment="Top">
                     <Button x:Name="InputSendButton"

@@ -197,7 +197,7 @@ namespace NyoCoder
                 {
                     try
                     {
-                        cmd.Bindings = new object[] { "Text Editor::Ctrl+Alt+N" };
+                        cmd.Bindings = new object[] { "Global::Ctrl+Alt+N" };
                     }
                     catch { }
                 }
@@ -245,13 +245,6 @@ namespace NyoCoder
         /// </summary>
         private void AskNyoCoderCallback(object sender, EventArgs e)
         {
-            // Create context engine
-            DTE2 dte = ApplicationObject;
-            ContextEngine contextEngine = new ContextEngine(dte);
-
-            // Only proceed if in a text editor
-            if (!contextEngine.IsInTextEditor()) return;
-
             // Check if an AI request is already running
             if (Interlocked.CompareExchange(ref _isAiRunning, 1, 0) != 0)
             {

@@ -255,6 +255,37 @@ namespace NyoCoder
         }
 
         /// <summary>
+        /// Handles the New Chat button click — clears the session and resets the input bar.
+        /// </summary>
+        private void NewChatButton_Click(object sender, RoutedEventArgs e)
+        {
+            NyoCoder_VSIXPackage package = NyoCoder_VSIXPackage.Instance;
+            if (package == null) return;
+
+            if (Interlocked.CompareExchange(ref package._isAiRunning, 1, 0) != 0)
+            {
+                MessageBox.Show(
+                    "An AI request is already in progress. Please wait for it to complete.",
+                    "NyoCoder",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            LLMClient newClient = LLMClient.CreateFromConfig();
+            if (newClient == null)
+            {
+                Interlocked.Exchange(ref package._isAiRunning, 0);
+                return;
+            }
+
+            package.LlmClient = newClient;
+            ClearOutput();
+            ShowInputBar();
+            Interlocked.Exchange(ref package._isAiRunning, 0);
+        }
+
+        /// <summary>
         /// Handles the Attach Image toggle button checked event.
         /// </summary>
         private void AttachImageButton_Checked(object sender, RoutedEventArgs e)
@@ -505,9 +536,8 @@ namespace NyoCoder
                     }
                     AppendText(Environment.NewLine);
 
-                    // Show input bar again when done (but not if user stopped)
-                    if (!IsStopRequested())
-                        ShowInputBar();
+                    // Show input bar again when done
+                    ShowInputBar();
                 }
                 catch (Exception ex)
                 {

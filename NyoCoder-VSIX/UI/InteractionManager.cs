@@ -7,6 +7,16 @@ using System.Windows.Input;
 namespace NyoCoder
 {
     /// <summary>
+    /// Result of a tool approval request.
+    /// </summary>
+    public enum ApprovalResult
+    {
+        Approved,
+        Rejected,
+        Stopped
+    }
+
+    /// <summary>
     /// Result of a plan review prompt.
     /// </summary>
     internal enum PlanReviewResult

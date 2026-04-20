@@ -3,7 +3,7 @@
   <Identifier Id="c1a86c2a-28ac-4f5c-b57f-331712cfa0f3">
     <Name>NyoCoder-VSIX</Name>
     <Author>NyoCoder</Author>
-    <Version>1.1.0.0</Version>
+    <Version>1.2.0.0</Version>
     <Description xml:space="preserve">AI-assisted coding for Visual Studio 2010</Description>
     <License>LICENSE.rtf</License>
     <Locale>1033</Locale>

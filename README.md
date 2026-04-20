@@ -29,6 +29,12 @@ The VSIX for the tool can be downloaded from "Releases". Download and open it to
 
 The extension can be triggered through its tool window, the right-click menu with "Ask NyoCoder", or via the keybind Ctrl+Alt+N.
 
+## Modes
+
+- **Agent** - AI reads and writes code, and executes commands. (Default)
+- **Plan** - AI creates a plan using read-only tools and promptes the user for approval/refinement.
+- **Debug** - AI focuses on resolving build errors/bugs.
+
 ## Tools
 
 - **ask_user_question** - presents the user with a question and a set of answers, as well as a text box to provide a custom answer

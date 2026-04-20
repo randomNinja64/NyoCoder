@@ -27,7 +27,7 @@ The VSIX for the tool can be downloaded from "Releases". Download and open it to
 
 ## Usage
 
-The extension can be triggered in a text editor either via the right-click menu with "Ask NyoCoder" or via the keybind Ctrl+Alt+N.
+The extension can be triggered through its tool window, the right-click menu with "Ask NyoCoder", or via the keybind Ctrl+Alt+N.
 
 ## Tools
 

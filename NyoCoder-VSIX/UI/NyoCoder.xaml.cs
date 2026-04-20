@@ -43,7 +43,7 @@ namespace NyoCoder
             InitializeComponent();
             _interactionManager = new InteractionManager(ButtonPanel, AppendText);
             _interactionManager.StopRequested += () => { _stopRequested = true; };
-            _tokenTracker = new TokenTracker(TokenStatusText, StepTokenStatusText, Dispatcher);
+            _tokenTracker = new TokenTracker(TokenStatusText, StepTokenStatusText, SubagentStatusRow, Dispatcher);
         }
 
 

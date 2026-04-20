@@ -14,6 +14,7 @@ namespace NyoCoder
     {
         private readonly TextBlock _tokenStatusText;
         private readonly TextBlock _stepTokenStatusText;
+        private readonly UIElement _subagentStatusRow;
         private readonly Dispatcher _dispatcher;
 
         private int _totalCharacterCount;
@@ -24,10 +25,11 @@ namespace NyoCoder
         public int StepCharacterCount { get { return _stepCharacterCount; } }
         public bool IsTrackingStepTokens { get { return _isTrackingStepTokens; } }
 
-        public TokenTracker(TextBlock tokenStatusText, TextBlock stepTokenStatusText, Dispatcher dispatcher)
+        public TokenTracker(TextBlock tokenStatusText, TextBlock stepTokenStatusText, UIElement subagentStatusRow, Dispatcher dispatcher)
         {
             _tokenStatusText = tokenStatusText;
             _stepTokenStatusText = stepTokenStatusText;
+            _subagentStatusRow = subagentStatusRow;
             _dispatcher = dispatcher;
         }
 
@@ -92,7 +94,7 @@ namespace NyoCoder
             _isTrackingStepTokens = false;
             _stepCharacterCount = 0;
             RefreshTokenDisplay();
-            _stepTokenStatusText.Visibility = Visibility.Collapsed;
+            _subagentStatusRow.Visibility = Visibility.Collapsed;
         }
 
         // ── Step execution lifecycle ───────────────────────────────────
@@ -108,7 +110,7 @@ namespace NyoCoder
             {
                 _totalCharacterCount = prePlanCharCount;
                 RefreshTokenDisplay();
-                _stepTokenStatusText.Visibility = Visibility.Visible;
+                _subagentStatusRow.Visibility = Visibility.Visible;
             }, _dispatcher);
         }
 
@@ -147,7 +149,7 @@ namespace NyoCoder
             {
                 _totalCharacterCount = finalMainCharCount;
                 RefreshTokenDisplay();
-                _stepTokenStatusText.Visibility = Visibility.Collapsed;
+                _subagentStatusRow.Visibility = Visibility.Collapsed;
             }, _dispatcher);
         }
 

@@ -41,6 +41,7 @@ The extension can be triggered in a text editor either via the right-click menu 
 - **read_website** - reads the contents of a webpage
 - **run_shell_command** - executes a shell command on the host system and return its output
 - **run_web_search** - runs a web search (uses SearXNG if available, DuckDuckGo and Wiby if not) (Relies on curl.exe in the extension's directory, included with the release but not with source)
+- **manage_plan** - tracks progress on multi-step tasks; supports `read` (view plan) and `write` (write/overwrite plan)
 - **search_replace** - makes targeted changes to files using SEARCH/REPLACE blocks
 - **write_file** - writes content to a local file
 

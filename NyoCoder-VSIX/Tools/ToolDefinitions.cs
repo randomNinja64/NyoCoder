@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 
 namespace NyoCoder
@@ -65,9 +66,33 @@ namespace NyoCoder
         };
 
         /// <summary>
+        /// Tools available in Plan mode (read-only + planning).
+        /// These tools cannot modify the file system.
+        /// </summary>
+        private static readonly HashSet<string> PlanModeTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "read_file",
+            "list_directory",
+            "grep_search",
+            "run_web_search",
+            "read_website",
+            "ask_user_question"
+        };
+
+        /// <summary>
         /// Builds the JSON array of tool definitions for the LLM API.
+        /// Uses Agent mode (all tools) by default.
         /// </summary>
         public static JArray BuildToolsArray()
+        {
+            return BuildToolsArray(ChatMode.Agent);
+        }
+
+        /// <summary>
+        /// Builds the JSON array of tool definitions filtered by chat mode.
+        /// In Plan mode, only read-only + planning tools are included.
+        /// </summary>
+        public static JArray BuildToolsArray(ChatMode mode)
         {
             ToolEntry[] definitions = new ToolEntry[]
             {
@@ -210,8 +235,14 @@ namespace NyoCoder
 
             foreach (ToolEntry def in definitions)
             {
-                if (!ConfigHandler.IsToolDisabled(def.Name))
-                    toolsArray.Add(CreateToolDefinition(def.Name, def.Description, def.Props, def.Required));
+                if (ConfigHandler.IsToolDisabled(def.Name))
+                    continue;
+
+                // In Plan mode, only include read-only / planning tools
+                if (mode == ChatMode.Plan && !PlanModeTools.Contains(def.Name))
+                    continue;
+
+                toolsArray.Add(CreateToolDefinition(def.Name, def.Description, def.Props, def.Required));
             }
 
             // Append any SimpleLLMChat-compatible external tools installed under

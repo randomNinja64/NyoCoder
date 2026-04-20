@@ -81,7 +81,7 @@ public class LLMClient
         }
 
         // Create and return new LLM client
-        return new LLMClient(llmServer, apiKey, model, ContextEngine.SystemPrompt);
+        return new LLMClient(llmServer, apiKey, model, ContextEngine.AgentSystemPrompt);
     }
 
     // Struct for chat messages
@@ -126,7 +126,8 @@ public class LLMClient
         Action<string> outputCallback = null,
         Func<string, string, ApprovalResult> approvalCallback = null,
         Func<bool> stopRequested = null,
-        Action<int> onSummarized = null)
+        Action<int> onSummarized = null,
+        ChatMode mode = ChatMode.Agent)
     {
         // Default tools requiring approval if none specified
         if (toolsRequiringApproval == null)
@@ -179,7 +180,7 @@ public class LLMClient
                 };
             }
 
-            LLMCompletionResponse response = sendMessages(this.Conversation, outputCallback, toolCallStreamCallback, stopRequested);
+            LLMCompletionResponse response = sendMessages(this.Conversation, outputCallback, toolCallStreamCallback, stopRequested, mode);
 
             if ((stopRequested != null && stopRequested()) || response.FinishReason == "stopped")
             {
@@ -423,7 +424,7 @@ public class LLMClient
         return msgObj;
     }
 
-    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null)
+    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null, ChatMode mode = ChatMode.Agent)
     {
         // Build payload
         JObject payload = new JObject();
@@ -432,10 +433,10 @@ public class LLMClient
         // Messages
         JArray messages = new JArray();
 
-        // System message
+        // System message — includes mode-specific instructions
         JObject systemMsg = new JObject();
         systemMsg["role"] = "system";
-        systemMsg["content"] = systemPrompt;
+        systemMsg["content"] = ContextEngine.GetSystemPrompt(mode);
         messages.Add(systemMsg);
 
         // Process all user messages in the conversation list
@@ -449,8 +450,8 @@ public class LLMClient
 
         payload["messages"] = messages;
 
-        // Always add all tools
-        JArray toolsArray = ToolDefinitions.BuildToolsArray();
+        // Add tools filtered by mode (Plan mode = read-only tools only)
+        JArray toolsArray = ToolDefinitions.BuildToolsArray(mode);
         payload["tools"] = toolsArray;
 
         payload["stream"] = true;

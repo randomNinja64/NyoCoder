@@ -81,12 +81,16 @@
         </RichTextBox>
         
         <!-- Button panel -->
-        <StackPanel x:Name="ButtonPanel"
-                    Grid.Row="2"
-                    Orientation="Horizontal"
-                    Height="36"
-                    Margin="2"
-                    Visibility="Collapsed"/>
+        <ScrollViewer Grid.Row="2"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled"
+                      Margin="2"
+                      Visibility="{Binding ElementName=ButtonPanel, Path=Visibility}">
+            <StackPanel x:Name="ButtonPanel"
+                        Orientation="Horizontal"
+                        MinHeight="36"
+                        Visibility="Collapsed"/>
+        </ScrollViewer>
 
         <!-- Input bar -->
         <Border x:Name="InputBar"
@@ -111,12 +115,7 @@
                             Margin="0,0,0,4"
                             Click="NewChatButton_Click"/>
                     <ComboBox x:Name="ModeSelector"
-                              MinWidth="60"
-                              SelectedIndex="0">
-                        <ComboBoxItem Content="Agent"/>
-                        <ComboBoxItem Content="Plan"/>
-                        <ComboBoxItem Content="Debug"/>
-                    </ComboBox>
+                              MinWidth="60"/>
                 </StackPanel>
                 <TextBox x:Name="InputBox"
                          Grid.Column="1"

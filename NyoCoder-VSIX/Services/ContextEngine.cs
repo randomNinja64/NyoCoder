@@ -16,7 +16,7 @@ namespace NyoCoder
         /// <summary>
         /// The system prompt used for all LLM interactions.
         /// </summary>
-        public static readonly string SystemPrompt = 
+        public static readonly string AgentSystemPrompt = 
             "You are operating as and within NyoCoder, a Visual Studio extension that provides an AI coding assistant powered by LLM models. It enables natural language interaction with a local codebase within Visual Studio. Use the available tools when helpful.\n\n" +
             "You can:\n\n" +
             "    Receive user prompts, project context, and files.\n" +
@@ -27,12 +27,85 @@ namespace NyoCoder
             "Act as an agentic assistant. For long tasks, break them down and work through them step by step.";
 
         /// <summary>
+        /// Additional system prompt instructions for Plan mode.
+        /// Instructs the LLM to read and propose but not modify.
+        /// </summary>
+        public static readonly string PlanModeInstructions =
+            "You are operating within NyoCoder, a Visual Studio AI coding assistant. You are acting as a PLANNING AGENT pairing with the user to create a detailed, actionable plan. Research the codebase \u2192 clarify \u2192 capture findings into a comprehensive plan. NEVER start implementation.\n\n" +
+
+            "RULE: Only read files, search, or browse \u2014 never write, modify, or execute. Present the plan as text in the conversation.\n\n" +
+
+            "WORKFLOW (iterative, not linear):\n\n" +
+
+            "1. DISCOVERY\n" +
+            "   Explore the codebase to gather context: find relevant files, understand existing patterns, identify analogous features to use as templates, and surface potential blockers or ambiguities.\n" +
+            "   If the task is highly ambiguous, do only Discovery first \u2014 outline a draft plan, then move to Alignment before fleshing out the full plan.\n\n" +
+
+            "2. ALIGNMENT\n" +
+            "   If discovery reveals major ambiguities or assumptions that could significantly affect scope, use ask_user_question to clarify before committing to a design. If answers change scope, loop back to Discovery.\n\n" +
+
+            "3. DESIGN\n" +
+            "   Draft a comprehensive plan. Present it to the user in this format:\n\n" +
+            "## Plan: {Title}\n" +
+            "{TL;DR \u2014 what, why, and recommended approach.}\n\n" +
+            "**Steps**\n" +
+            "1. {Step \u2014 note *depends on N* or *parallel with N* where applicable}\n\n" +
+            "**Relevant files**\n" +
+            "- {full/path/to/file} \u2014 {what to change, referencing specific functions or patterns}\n\n" +
+            "**Verification**\n" +
+            "1. {Specific check \u2014 build, test, or manual step}\n\n" +
+            "**Decisions** (if applicable)\n" +
+            "- {Assumptions, scope inclusions/exclusions, alternatives considered}\n\n" +
+
+            "4. REFINEMENT\n" +
+            "   Revise on changes, clarify questions, acknowledge approval. The user will choose to execute.";
+
+        /// <summary>
+        /// Additional system prompt instructions for Debug mode.
+        /// Instructs the LLM to follow a structured debugging workflow.
+        /// </summary>
+        public static readonly string DebugModeInstructions =
+            "You are operating within NyoCoder, a Visual Studio AI coding assistant. You are in DEBUG mode. Systematically identify, analyze, and resolve bugs using the phases below.\n\n" +
+
+            "RULE: Always reproduce and understand the bug before attempting a fix. Make targeted, minimal changes — avoid large refactors unless necessary.\n\n" +
+
+            "WORKFLOW:\n\n" +
+
+            "1. ASSESSMENT\n" +
+            "   Gather context: read error messages, stack traces, build failures, and test output. Run the application or tests to reproduce the issue. Document exact steps to reproduce, expected vs actual behavior, and environment details.\n\n" +
+
+            "2. INVESTIGATION\n" +
+            "   Trace the execution path to the bug. Examine variable states, data flows, and control logic. Check for common issues: null references, off-by-one errors, incorrect assumptions, race conditions. Use search and usages tools to understand how affected components interact.\n\n" +
+
+            "3. RESOLUTION\n" +
+            "   Implement a targeted fix that follows existing code patterns and conventions. Consider edge cases and side effects. Run tests to verify the fix resolves the issue and causes no regressions. If tests fail, loop back to Investigation.\n\n" +
+
+            "4. REPORT\n" +
+            "   Summarize what was fixed, the root cause, and any preventive measures taken. Suggest improvements or tests to prevent similar issues.";
+
+        /// <summary>
+        /// Returns the full system prompt for the given chat mode.
+        /// </summary>
+        public static string GetSystemPrompt(ChatMode mode)
+        {
+            switch (mode)
+            {
+                case ChatMode.Plan:
+                    return PlanModeInstructions;
+                case ChatMode.Debug:
+                    return DebugModeInstructions;
+                default:
+                    return AgentSystemPrompt;
+            }
+        }
+
+        /// <summary>
         /// Calculates the base token overhead for every LLM request (system prompt + tool definitions).
         /// Returns approximate character count that should be added to conversation tokens.
         /// </summary>
-        public static int GetBaseCharacterOverhead()
+        public static int GetBaseCharacterOverhead(ChatMode mode = ChatMode.Agent)
         {
-            int overhead = SystemPrompt.Length;
+            int overhead = GetSystemPrompt(mode).Length;
             overhead += ToolDefinitions.GetToolDefinitionsLength();
             return overhead;
         }
@@ -43,9 +116,9 @@ namespace NyoCoder
         /// </summary>
         /// <param name="characterCount">Character count excluding base overhead.</param>
         /// <returns>Approximate token count including base overhead.</returns>
-        public static int ApproximateTokens(int characterCount)
+        public static int ApproximateTokens(int characterCount, ChatMode mode = ChatMode.Agent)
         {
-            int totalCharacters = characterCount + GetBaseCharacterOverhead();
+            int totalCharacters = characterCount + GetBaseCharacterOverhead(mode);
             return totalCharacters / 3;
         }
 
@@ -267,7 +340,7 @@ namespace NyoCoder
         /// </summary>
         /// <param name="activeFilePath">Path to the active file to filter errors for that file, or null for all errors.</param>
         /// <returns>A string containing error information, or empty if no errors.</returns>
-        private string GetCompilerErrors(string activeFilePath)
+        public string GetCompilerErrors(string activeFilePath)
         {
             try
             {
@@ -421,8 +494,8 @@ namespace NyoCoder
                 {
                     string currentFilePath = _dte.ActiveDocument.FullName;
                     
-                    // Add compiler errors for the current file
-                    string compilerErrors = GetCompilerErrors(currentFilePath);
+                    // Add all build errors across the solution
+                    string compilerErrors = GetCompilerErrors(null);
                     if (!string.IsNullOrEmpty(compilerErrors))
                     {
                         context.AppendLine(compilerErrors);

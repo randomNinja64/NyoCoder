@@ -24,6 +24,7 @@ namespace NyoCoder
         public int TotalCharacterCount { get { return _totalCharacterCount; } }
         public int StepCharacterCount { get { return _stepCharacterCount; } }
         public bool IsTrackingStepTokens { get { return _isTrackingStepTokens; } }
+        public ChatMode CurrentMode { get; set; }
 
         public TokenTracker(TextBlock tokenStatusText, TextBlock stepTokenStatusText, UIElement subagentStatusRow, Dispatcher dispatcher)
         {
@@ -157,7 +158,7 @@ namespace NyoCoder
 
         private void RefreshTokenDisplay()
         {
-            int approximateTokens = ContextEngine.ApproximateTokens(_totalCharacterCount);
+            int approximateTokens = ContextEngine.ApproximateTokens(_totalCharacterCount, CurrentMode);
             int? contextWindowSize = ConfigHandler.ContextWindowSize;
 
             string statusText;
@@ -177,7 +178,7 @@ namespace NyoCoder
 
         private void RefreshStepTokenDisplay()
         {
-            int approximateTokens = ContextEngine.ApproximateTokens(_stepCharacterCount);
+            int approximateTokens = ContextEngine.ApproximateTokens(_stepCharacterCount, CurrentMode);
             int? contextWindowSize = ConfigHandler.ContextWindowSize;
 
             string statusText;

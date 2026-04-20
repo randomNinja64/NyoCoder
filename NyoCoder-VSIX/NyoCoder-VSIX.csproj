@@ -137,6 +137,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Core -->
+    <Compile Include="Core\ChatMode.cs" />
     <Compile Include="Core\Guids.cs" />
     <Compile Include="Core\PkgCmdID.cs" />
     <Compile Include="Core\GlobalSuppressions.cs" />

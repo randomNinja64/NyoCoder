@@ -41,9 +41,22 @@ namespace NyoCoder
         public NyoCoderControl()
         {
             InitializeComponent();
-            _interactionManager = new InteractionManager(ButtonPanel, AppendText);
+            _interactionManager = new InteractionManager(ButtonPanel, AppendText, ScrollToBottom);
             _interactionManager.StopRequested += () => { _stopRequested = true; };
             _tokenTracker = new TokenTracker(TokenStatusText, StepTokenStatusText, SubagentStatusRow, Dispatcher);
+
+            // Populate mode selector from the ChatMode enum so adding a new value
+            // only requires changing the enum.
+            ModeSelector.ItemsSource = Enum.GetValues(typeof(ChatMode));
+            ModeSelector.SelectedIndex = 0;
+            ModeSelector.SelectionChanged += (s, e) =>
+            {
+                if (ModeSelector.SelectedItem is ChatMode)
+                {
+                    _tokenTracker.CurrentMode = (ChatMode)ModeSelector.SelectedItem;
+                    _tokenTracker.ResetCharacterCount(_tokenTracker.TotalCharacterCount);
+                }
+            };
         }
 
 
@@ -110,8 +123,9 @@ namespace NyoCoder
                 }
             }
             
-            // Scroll to end
-            OutputTextBox.ScrollToEnd();
+            // Defer scroll so it runs after the layout pass measures the new content
+            Dispatcher.BeginInvoke(new Action(() => OutputTextBox.ScrollToEnd()),
+                System.Windows.Threading.DispatcherPriority.Background);
         }
 
         /// <summary>
@@ -184,8 +198,19 @@ namespace NyoCoder
                 _tokenTracker.ResetCharacterCount(text != null ? text.Length : 0);
                 var paragraph = new Paragraph(new Run(text)) { Margin = new Thickness(0), Padding = new Thickness(0) };
                 OutputTextBox.Document.Blocks.Add(paragraph);
-                OutputTextBox.ScrollToEnd();
+                Dispatcher.BeginInvoke(new Action(() => OutputTextBox.ScrollToEnd()),
+                    System.Windows.Threading.DispatcherPriority.Background);
             }, Dispatcher);
+        }
+
+        /// <summary>
+        /// Scrolls the output box to the bottom.
+        /// </summary>
+        public void ScrollToBottom()
+        {
+            EditorService.InvokeOnUIThread(() =>
+                Dispatcher.BeginInvoke(new Action(() => OutputTextBox.ScrollToEnd()),
+                    System.Windows.Threading.DispatcherPriority.Background), Dispatcher);
         }
 
         /// <summary>
@@ -367,6 +392,9 @@ namespace NyoCoder
             if (string.IsNullOrWhiteSpace(message))
                 return;
 
+            // Read selected mode directly from the ComboBox — driven by the ChatMode enum.
+            ChatMode chatMode = ModeSelector.SelectedItem is ChatMode ? (ChatMode)ModeSelector.SelectedItem : ChatMode.Agent;
+
             // Get package instance and LLM client
             NyoCoder_VSIXPackage package = NyoCoder_VSIXPackage.Instance;
             LLMClient llmClient = package != null ? package.LlmClient : null;
@@ -412,14 +440,10 @@ namespace NyoCoder
                 ClearOutput();
             }
 
-            // Display user message
             string userMessageDisplay = message;
             if (!string.IsNullOrEmpty(attachedImage))
-            {
                 userMessageDisplay += " [Image attached]";
-            }
-            
-            // Add spacing between messages for follow-up conversations
+
             string prefix = isNewSession ? "" : "\n";
             AppendLine(prefix + "User: " + userMessageDisplay);
             AppendLine("\nAssistant: ");
@@ -442,6 +466,7 @@ namespace NyoCoder
                 DTE2 dte = EditorService.GetDte();
                 ContextEngine contextEngine = new ContextEngine(dte);
                 string context = contextEngine.BuildUserPromptContext();
+
                 if (!string.IsNullOrWhiteSpace(context))
                 {
                     userMessage = context + "\n\n---\n\n" + message;
@@ -489,55 +514,41 @@ namespace NyoCoder
                         onSummarized: delegate(int newCharCount)
                         {
                             ResetCharacterCount(newCharCount);
-                        }
+                        },
+                        mode: chatMode
                     );
 
-                    // If a plan was created, orchestrate step-by-step execution
+                    // Handle plan review UI or hide stale step display
+                    if (chatMode == ChatMode.Plan)
+                    {
+                        // ── Plan mode: always show the review UI after the LLM responds ──
+                        HandlePlanReview(llmClient, chatMode);
+                    }
+                    else
+                    {
+                        // ── Agent / Debug mode: hide stale step display if no new plan was created ──
+                        StepPlanner currentPlanner = StepPlanner.Instance;
+                        if (currentPlanner != null && !currentPlanner.PlanRequiresExecution && !isNewSession)
+                        {
+                            // Follow-up message that didn't produce a new plan — hide any previous plan display
+                            EditorService.BeginInvokeOnUIThread(() =>
+                            {
+                                StepStatusText.Visibility = Visibility.Collapsed;
+                                StepStatusText.ToolTip = null;
+                            }, Dispatcher);
+                        }
+                    }
+
+                    // Execute step plan if the Agent created one (covers both Agent mode and Plan→Execute handoff)
                     StepPlanner planner = StepPlanner.Instance;
-                    if (planner != null && !planner.PlanRequiresExecution && !isNewSession)
-                    {
-                        // Follow-up message that didn't produce a new plan — hide any previous plan display
-                        EditorService.BeginInvokeOnUIThread(() =>
-                        {
-                            StepStatusText.Visibility = Visibility.Collapsed;
-                            StepStatusText.ToolTip = null;
-                        }, Dispatcher);
-                    }
                     if (planner != null && planner.PlanRequiresExecution)
-                    {
-                        var executor = new StepExecutor(
-                            planner,
-                            llmClient,
-                            delegate(string text) { AppendText(text); },
-                            delegate(string toolName, string arguments) { return RequestToolApproval(toolName, arguments); },
-                            delegate() { return IsStopRequested(); });
+                        ExecutePlan(planner, llmClient);
 
-                        executor.ExecutionStarted += delegate(int prePlanCharCount)
-                        {
-                            _tokenTracker.BeginStepTracking(prePlanCharCount);
-                        };
-
-                        executor.MainTokenCountChanged += delegate(int count)
-                        {
-                            _tokenTracker.SyncMainCount(count);
-                        };
-
-                        executor.StepTokenCountChanged += delegate(int count)
-                        {
-                            _tokenTracker.SyncStepCount(count);
-                        };
-
-                        executor.ExecutionFinished += delegate(int finalCharCount)
-                        {
-                            _tokenTracker.EndStepTracking(finalCharCount);
-                        };
-
-                        executor.Execute();
-                    }
                     AppendText(Environment.NewLine);
 
                     // Show input bar again when done
                     ShowInputBar();
+                    ScrollToBottom();
                 }
                 catch (Exception ex)
                 {
@@ -551,6 +562,7 @@ namespace NyoCoder
                             MessageBoxImage.Error);
                     }, Dispatcher);
                     ShowInputBar();
+                    ScrollToBottom();
                 }
                 finally
                 {
@@ -558,6 +570,113 @@ namespace NyoCoder
                     Interlocked.Exchange(ref package._isAiRunning, 0);
                 }
             });
+        }
+
+        /// <summary>
+        /// Executes a plan via StepExecutor with full Agent tools.
+        /// </summary>
+        private void ExecutePlan(StepPlanner planner, LLMClient llmClient)
+        {
+            var executor = new StepExecutor(
+                planner,
+                llmClient,
+                delegate(string text) { AppendText(text); },
+                delegate(string toolName, string arguments) { return RequestToolApproval(toolName, arguments); },
+                delegate() { return IsStopRequested(); });
+
+            executor.ExecutionStarted += delegate(int prePlanCharCount)
+            {
+                _tokenTracker.BeginStepTracking(prePlanCharCount);
+            };
+
+            executor.MainTokenCountChanged += delegate(int count)
+            {
+                _tokenTracker.SyncMainCount(count);
+            };
+
+            executor.StepTokenCountChanged += delegate(int count)
+            {
+                _tokenTracker.SyncStepCount(count);
+            };
+
+            executor.ExecutionFinished += delegate(int finalCharCount)
+            {
+                _tokenTracker.EndStepTracking(finalCharCount);
+            };
+
+            executor.Execute();
+        }
+
+        /// <summary>
+        /// Handles the plan review loop for Plan mode.
+        /// Shows the plan to the user and lets them execute, refine, or cancel.
+        /// On Execute, hands off to Agent mode to implement the plan.
+        /// </summary>
+        private void HandlePlanReview(LLMClient llmClient, ChatMode planMode)
+        {
+            while (true)
+            {
+                if (IsStopRequested())
+                    break;
+
+                string refineText;
+                PlanReviewResult reviewResult = _interactionManager.RequestPlanReview(out refineText);
+
+                if (reviewResult == PlanReviewResult.Execute)
+                {
+                    // Switch to Agent mode — plan is approved, implementation begins
+                    EditorService.InvokeOnUIThread(() =>
+                    {
+                        ModeSelector.SelectedItem = ChatMode.Agent;
+                    }, Dispatcher);
+
+                    // Hand off to Agent mode — it implements the plan using the full tool set
+                    AppendLine("\n[Handing off to Agent for implementation...]\n");
+                    AppendLine("\nAssistant: ");
+
+                    llmClient.ProcessConversation(
+                        "The plan above has been approved. Please implement it now. Use manage_plan to track your progress through the steps if the tool is available.",
+                        null,
+                        "Assistant",
+                        null,
+                        true,
+                        delegate(string text) { AppendText(text); },
+                        delegate(string toolName, string arguments) { return RequestToolApproval(toolName, arguments); },
+                        stopRequested: delegate() { return IsStopRequested(); },
+                        onSummarized: delegate(int newCharCount) { ResetCharacterCount(newCharCount); },
+                        mode: ChatMode.Agent
+                    );
+
+                    break;
+                }
+                else if (reviewResult == PlanReviewResult.Refine)
+                {
+                    // Send feedback back to the LLM in Plan mode for revision
+                    AppendLine("\nAssistant: ");
+
+                    llmClient.ProcessConversation(
+                        refineText,
+                        null,
+                        "Assistant",
+                        null,
+                        true,
+                        delegate(string text) { AppendText(text); },
+                        delegate(string toolName, string arguments) { return RequestToolApproval(toolName, arguments); },
+                        stopRequested: delegate() { return IsStopRequested(); },
+                        onSummarized: delegate(int newCharCount) { ResetCharacterCount(newCharCount); },
+                        mode: planMode
+                    );
+
+                    // Loop back to show the review UI again with the revised plan
+                    continue;
+                }
+                else // Cancel
+                {
+                    AppendLine("\n[Plan cancelled]\n");
+                    HideStepDisplay();
+                    break;
+                }
+            }
         }
     }
 }

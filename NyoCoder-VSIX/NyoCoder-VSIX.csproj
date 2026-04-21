@@ -180,6 +180,9 @@
     <Compile Include="UI\OptionsPage.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="UI\OptionsPageHostBase.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\OptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>

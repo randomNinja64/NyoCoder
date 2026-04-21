@@ -5,11 +5,9 @@ using System.Windows.Forms;
 
 namespace NyoCoder
 {
-    public class ToolsOptionsPageHost : UserControl
+    public class ToolsOptionsPageHost : OptionsPageHostBase
     {
         private ToolsOptionsPage optionsPage;
-        private TableLayoutPanel layout;
-        private readonly List<Control> wrappingControls = new List<Control>();
 
         private CheckedListBox _toolList;
         private Dictionary<string, Control> _optionControls = new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
@@ -23,42 +21,10 @@ namespace NyoCoder
         private void InitializeComponent()
         {
             this.SuspendLayout();
-
-            this.AutoScaleMode = AutoScaleMode.Font;
-            this.AutoScroll = true;
-            this.BackColor = SystemColors.Control;
-            this.layout = new TableLayoutPanel();
-            this.layout.AutoSize = true;
-            this.layout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            this.layout.ColumnCount = 1;
-            this.layout.Dock = DockStyle.Top;
-            this.layout.GrowStyle = TableLayoutPanelGrowStyle.AddRows;
-            this.layout.Padding = new Padding(20, 10, 20, 10);
-            this.layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-
-            this.Controls.Add(this.layout);
-            this.MinimumSize = new Size(420, 0);
-            this.Size = new Size(420, 520);
-
+            InitLayout(520);
             BuildContent();
-
             this.ResumeLayout(false);
             this.PerformLayout();
-        }
-
-        protected override void OnSizeChanged(EventArgs e)
-        {
-            base.OnSizeChanged(e);
-            UpdateWrappingWidths();
-        }
-
-        private Label MakeSectionTitle(string text)
-        {
-            Label lbl = new Label();
-            lbl.AutoSize = true;
-            lbl.Font = new Font(this.Font, FontStyle.Bold);
-            lbl.Text = text;
-            return lbl;
         }
 
         private Label MakeFieldLabel(string text)
@@ -91,7 +57,6 @@ namespace NyoCoder
             this.layout.RowStyles.Clear();
             this.layout.RowCount = 0;
             _optionControls.Clear();
-            wrappingControls.Clear();
 
             ExternalToolRegistry.EnsureLoaded();
             List<ExternalToolRegistry.PackageInfo> packages = ExternalToolRegistry.GetPackages();
@@ -153,24 +118,6 @@ namespace NyoCoder
 
             this.layout.ResumeLayout(true);
             UpdateWrappingWidths();
-        }
-
-        private void AddRow(Control control, Padding margin, bool wrapControl)
-        {
-            control.Margin = margin;
-            this.layout.RowStyles.Add(new RowStyle());
-            this.layout.Controls.Add(control, 0, this.layout.RowCount);
-            this.layout.RowCount++;
-
-            if (wrapControl)
-                wrappingControls.Add(control);
-        }
-
-        private void UpdateWrappingWidths()
-        {
-            int availableWidth = Math.Max(120, this.ClientSize.Width - this.layout.Padding.Left - this.layout.Padding.Right - 8);
-            foreach (Control control in wrappingControls)
-                control.MaximumSize = new Size(availableWidth, 0);
         }
 
         public List<string> GetDisabledTools()

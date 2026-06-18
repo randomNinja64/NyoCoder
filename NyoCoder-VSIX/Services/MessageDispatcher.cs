@@ -24,6 +24,7 @@ namespace NyoCoder
         private readonly Action _scrollToBottom;
         private readonly TokenTracker _tokenTracker;
         private readonly InteractionManager _interactionManager;
+        private readonly ConversationSteerer _steerer = new ConversationSteerer();
         private readonly Dispatcher _dispatcher;
 
         internal MessageDispatcher(
@@ -56,6 +57,20 @@ namespace NyoCoder
             _tokenTracker = tokenTracker;
             _interactionManager = interactionManager;
             _dispatcher = dispatcher;
+        }
+
+        /// <summary>
+        /// Queues a steering message for injection at the next safe point in the active conversation.
+        /// </summary>
+        internal void QueueSteer(string message)
+        {
+            _steerer.Queue(message);
+            _appendLine("\n[steering queued] " + message);
+        }
+
+        internal void ClearSteerQueue()
+        {
+            _steerer.Clear();
         }
 
         /// <summary>
@@ -114,7 +129,8 @@ namespace NyoCoder
                         _requestApproval,
                         stopRequested: _stopRequested,
                         onSummarized: _resetCharacterCount,
-                        mode: chatMode
+                        mode: chatMode,
+                        dequeueSteerMessage: _steerer.TryDequeue
                     );
 
                     if (chatMode == ChatMode.Plan)
@@ -164,7 +180,8 @@ namespace NyoCoder
                 llmClient,
                 _appendText,
                 _requestApproval,
-                _stopRequested);
+                _stopRequested,
+                _steerer.TryDequeue);
 
             executor.ExecutionStarted += _tokenTracker.BeginStepTracking;
             executor.MainTokenCountChanged += _tokenTracker.SyncMainCount;
@@ -204,7 +221,8 @@ namespace NyoCoder
                         _requestApproval,
                         stopRequested: onStop,
                         onSummarized: onSummarized,
-                        mode: ChatMode.Agent
+                        mode: ChatMode.Agent,
+                        dequeueSteerMessage: _steerer.TryDequeue
                     );
 
                     break;
@@ -223,7 +241,8 @@ namespace NyoCoder
                         _requestApproval,
                         stopRequested: onStop,
                         onSummarized: onSummarized,
-                        mode: planMode
+                        mode: planMode,
+                        dequeueSteerMessage: _steerer.TryDequeue
                     );
 
                     continue;

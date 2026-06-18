@@ -15,6 +15,7 @@ namespace NyoCoder
         private readonly Action<string> _appendText;
         private readonly Func<string, string, ApprovalResult> _approvalCallback;
         private readonly Func<bool> _stopRequested;
+        private readonly Func<string> _dequeueSteerMessage;
 
         /// <summary>
         /// Fired when the main conversation token count should be synced.
@@ -45,13 +46,15 @@ namespace NyoCoder
             LLMClient mainClient,
             Action<string> appendText,
             Func<string, string, ApprovalResult> approvalCallback,
-            Func<bool> stopRequested)
+            Func<bool> stopRequested,
+            Func<string> dequeueSteerMessage = null)
         {
             _planner = planner;
             _mainClient = mainClient;
             _appendText = appendText;
             _approvalCallback = approvalCallback;
             _stopRequested = stopRequested;
+            _dequeueSteerMessage = dequeueSteerMessage;
         }
 
         /// <summary>
@@ -157,7 +160,8 @@ namespace NyoCoder
                             {
                                 localStepCharCount = newCharCount;
                                 RaiseStepTokenCountChanged(newCharCount);
-                            }
+                            },
+                            dequeueSteerMessage: _dequeueSteerMessage
                         );
 
                         stepCharacterCount = localStepCharCount;

@@ -36,6 +36,8 @@ namespace NyoCoder
         private readonly Panel _buttonPanel;
         private readonly Action<string> _appendText;
         private readonly Action _scrollToBottom;
+        private readonly Action _hideInputBar;
+        private readonly Action _showInputBar;
 
         // Shared synchronization — only one interaction pending at a time.
         private ManualResetEvent _pendingWaitHandle;
@@ -55,11 +57,18 @@ namespace NyoCoder
         /// </summary>
         public event Action StopRequested;
 
-        public InteractionManager(Panel buttonPanel, Action<string> appendText, Action scrollToBottom = null)
+        public InteractionManager(
+            Panel buttonPanel,
+            Action<string> appendText,
+            Action scrollToBottom = null,
+            Action hideInputBar = null,
+            Action showInputBar = null)
         {
             _buttonPanel = buttonPanel;
             _appendText = appendText;
             _scrollToBottom = scrollToBottom;
+            _hideInputBar = hideInputBar;
+            _showInputBar = showInputBar;
         }
 
         // ── Tool approval ──────────────────────────────────────────────
@@ -96,6 +105,7 @@ namespace NyoCoder
             _buttonPanel.Children.Add(CreateStandardButton("Stop", OnStopButton));
 
             _buttonPanel.Visibility = Visibility.Visible;
+            if (_hideInputBar != null) _hideInputBar();
             if (_scrollToBottom != null) _scrollToBottom();
         }
 
@@ -159,6 +169,7 @@ namespace NyoCoder
             _buttonPanel.Children.Add(CreateStandardButton("Stop", OnStopButton));
 
             _buttonPanel.Visibility = Visibility.Visible;
+            if (_hideInputBar != null) _hideInputBar();
             if (_scrollToBottom != null) _scrollToBottom();
         }
 
@@ -237,6 +248,7 @@ namespace NyoCoder
             _buttonPanel.Children.Add(CreateStandardButton("Cancel", OnPlanCancel));
 
             _buttonPanel.Visibility = Visibility.Visible;
+            if (_hideInputBar != null) _hideInputBar();
             if (_scrollToBottom != null) _scrollToBottom();
         }
 
@@ -296,6 +308,7 @@ namespace NyoCoder
         {
             _buttonPanel.Children.Clear();
             _buttonPanel.Visibility = Visibility.Collapsed;
+            if (_showInputBar != null) _showInputBar();
         }
 
         private static Button CreateStandardButton(string content, RoutedEventHandler clickHandler = null)

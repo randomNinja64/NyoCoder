@@ -27,10 +27,23 @@ namespace NyoCoder
         // Owns background conversation loop, plan execution, and plan review
         private MessageDispatcher _dispatcher;
 
+        private const string SteerInputTooltip =
+            "Queue a message to steer the conversation after the current tool call or response";
+
         public NyoCoderControl()
         {
             InitializeComponent();
-            _interactionManager = new InteractionManager(ButtonPanel, AppendText, ScrollToBottom);
+
+            OutputTextBox.AddHandler(
+                ScrollViewer.ScrollChangedEvent,
+                new ScrollChangedEventHandler(OutputTextBox_ScrollChanged));
+
+            _interactionManager = new InteractionManager(
+                ButtonPanel,
+                AppendText,
+                ScrollToBottom,
+                hideInputBar: () => InputBar.Visibility = Visibility.Collapsed,
+                showInputBar: () => InputBar.Visibility = Visibility.Visible);
             _interactionManager.StopRequested += () => { StopRequested = true; };
             _tokenTracker = new TokenTracker(TokenStatusText, StepTokenStatusText, SubagentStatusRow, Dispatcher);
             _dispatcher = new MessageDispatcher(
@@ -40,7 +53,7 @@ namespace NyoCoder
                 () => StopRequested,
                 ResetCharacterCount,
                 AddToCharacterCount,
-                ShowInputBar,
+                () => SetInputBarGenerationMode(false),
                 HideStepDisplay,
                 mode => EditorService.InvokeOnUIThread(() => ModeSelector.SelectedItem = mode, Dispatcher),
                 () => EditorService.BeginInvokeOnUIThread(RefreshStepDisplay, Dispatcher),
@@ -126,9 +139,6 @@ namespace NyoCoder
                     lastParagraph.Inlines.Add(new Run(parts[i]));
                 }
             }
-            
-            // Defer scroll so it runs after the layout pass measures the new content
-            DeferScrollToEnd();
         }
 
         /// <summary>
@@ -201,8 +211,18 @@ namespace NyoCoder
                 _tokenTracker.ResetCharacterCount(text != null ? text.Length : 0);
                 var paragraph = new Paragraph(new Run(text)) { Margin = new Thickness(0), Padding = new Thickness(0) };
                 OutputTextBox.Document.Blocks.Add(paragraph);
-                DeferScrollToEnd();
             }, Dispatcher);
+        }
+
+        private ScrollViewer _outputScrollViewer;
+
+        private void OutputTextBox_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (_outputScrollViewer == null)
+                _outputScrollViewer = e.OriginalSource as ScrollViewer;
+
+            if (e.ExtentHeightChange > 0 && _outputScrollViewer != null)
+                _outputScrollViewer.ScrollToBottom();
         }
 
         /// <summary>
@@ -210,22 +230,13 @@ namespace NyoCoder
         /// </summary>
         public void ScrollToBottom()
         {
-            DeferScrollToEnd();
-        }
-
-        private bool _scrollPending;
-
-        private void DeferScrollToEnd()
-        {
-            // Coalesce: at most one ScrollToEnd queued at a time, otherwise
-            // streaming appends flood the dispatcher and hang the UI.
-            if (_scrollPending) return;
-            _scrollPending = true;
-            Dispatcher.BeginInvoke(new Action(() =>
+            EditorService.BeginInvokeOnUIThread(() =>
             {
-                _scrollPending = false;
-                OutputTextBox.ScrollToEnd();
-            }), System.Windows.Threading.DispatcherPriority.Background);
+                if (_outputScrollViewer != null)
+                    _outputScrollViewer.ScrollToBottom();
+                else
+                    OutputTextBox.ScrollToEnd();
+            }, Dispatcher);
         }
 
         public bool StopRequested
@@ -253,35 +264,44 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Shows the input bar.
+        /// Shows the input bar in idle mode (Send) after generation completes.
         /// </summary>
         public void ShowInputBar()
+        {
+            SetInputBarGenerationMode(false);
+        }
+
+        /// <summary>
+        /// Switches the input bar between idle (Send) and generation (Steer) modes.
+        /// </summary>
+        private void SetInputBarGenerationMode(bool generating)
         {
             EditorService.InvokeOnUIThread(() =>
             {
                 InputBar.Visibility = Visibility.Visible;
+                InputSendButton.Content = generating ? "Steer" : "Send";
+                InputSendButton.ToolTip = generating ? SteerInputTooltip : null;
+                InputBox.ToolTip = generating ? SteerInputTooltip : null;
+                NewChatButton.IsEnabled = !generating;
+                ModeSelector.IsEnabled = !generating;
+                AttachImageButton.IsEnabled = !generating;
+
+                if (!generating)
+                {
+                    InputBox.Clear();
+                    _dispatcher.ClearSteerQueue();
+                }
+
                 InputBox.Focus();
             }, Dispatcher);
         }
 
         /// <summary>
-        /// Hides the input bar.
-        /// </summary>
-        public void HideInputBar()
-        {
-            EditorService.InvokeOnUIThread(() =>
-            {
-                InputBar.Visibility = Visibility.Collapsed;
-                InputBox.Clear();
-            }, Dispatcher);
-        }
-
-        /// <summary>
-        /// Handles the Send button click.
+        /// Handles the Send / Steer button click.
         /// </summary>
         private void InputSendButton_Click(object sender, RoutedEventArgs e)
         {
-            SendInputMessage();
+            SubmitInputMessage();
         }
 
         /// <summary>
@@ -311,6 +331,7 @@ namespace NyoCoder
 
             package.LlmClient = newClient;
             ClearOutput();
+            _dispatcher.ClearSteerQueue();
             ShowInputBar();
             Interlocked.Exchange(ref package._isAiRunning, 0);
         }
@@ -375,28 +396,38 @@ namespace NyoCoder
             if (e.Key == Key.Enter)
             {
                 if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
-                {
-                    // Shift+Enter: Allow default behavior (new line)
                     return;
-                }
-                else
-                {
-                    // Enter: Send message
-                    e.Handled = true;
-                    SendInputMessage();
-                }
+
+                e.Handled = true;
+                SubmitInputMessage();
             }
         }
 
         /// <summary>
-        /// Sends an input message.
+        /// Submits the input box — starts a conversation when idle, queues steer when generating.
         /// </summary>
-        private void SendInputMessage()
+        private void SubmitInputMessage()
         {
             string message = InputBox.Text.Trim();
             if (string.IsNullOrWhiteSpace(message))
                 return;
 
+            NyoCoder_VSIXPackage package = NyoCoder_VSIXPackage.Instance;
+            if (package != null && Interlocked.CompareExchange(ref package._isAiRunning, 0, 0) != 0)
+            {
+                _dispatcher.QueueSteer(message);
+                InputBox.Clear();
+                return;
+            }
+
+            StartConversation(message);
+        }
+
+        /// <summary>
+        /// Starts a new conversation turn.
+        /// </summary>
+        private void StartConversation(string message)
+        {
             // Read selected mode directly from the ComboBox — driven by the ChatMode enum.
             ChatMode chatMode = ModeSelector.SelectedItem is ChatMode ? (ChatMode)ModeSelector.SelectedItem : ChatMode.Agent;
 
@@ -409,21 +440,15 @@ namespace NyoCoder
 
             // Check if an AI request is already running
             if (Interlocked.CompareExchange(ref package._isAiRunning, 1, 0) != 0)
-            {
-                MessageBox.Show(
-                    "An AI request is already in progress. Please wait for it to complete.",
-                    "NyoCoder",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
                 return;
-            }
 
             // Get attached image before clearing
             string attachedImage = _attachedImageBase64;
 
             // Clear attached image and reset button (setting IsChecked=false fires AttachImageButton_Unchecked)
             AttachImageButton.IsChecked = false;
-            HideInputBar();
+            InputBox.Clear();
+            SetInputBarGenerationMode(true);
 
             // For new sessions, validate config, create LLM client, and clear output
             if (isNewSession)

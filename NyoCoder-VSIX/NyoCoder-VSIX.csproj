@@ -148,6 +148,7 @@
     <!-- Services -->
     <Compile Include="Services\ConfigHandler.cs" />
     <Compile Include="Services\ContextEngine.cs" />
+    <Compile Include="Services\ConversationSteerer.cs" />
     <Compile Include="Services\CurlClient.cs" />
     <Compile Include="Services\EditorService.cs" />
     <Compile Include="Services\FileHandler.cs" />

@@ -127,7 +127,8 @@ public class LLMClient
         Func<string, string, ApprovalResult> approvalCallback = null,
         Func<bool> stopRequested = null,
         Action<int> onSummarized = null,
-        ChatMode mode = ChatMode.Agent)
+        ChatMode mode = ChatMode.Agent,
+        Func<string> dequeueSteerMessage = null)
     {
         // Default tools requiring approval if none specified
         if (toolsRequiringApproval == null)
@@ -298,6 +299,13 @@ public class LLMClient
 
                 }
 
+                if (InjectPendingSteerMessages(dequeueSteerMessage, outputCallback))
+                {
+                    if (outputCallback != null)
+                        outputCallback("\n\nAssistant: ");
+                    continue;
+                }
+
                 // Check if we need to summarize before the next LLM call
                 if (ShouldSummarize(GetConversationCharacterCount(this.Conversation)))
                 {
@@ -350,9 +358,39 @@ public class LLMClient
                 Content = response.Content
             };
             this.Conversation.Add(assistantMsg);
-            
+
+            if (InjectPendingSteerMessages(dequeueSteerMessage, outputCallback))
+            {
+                if (outputCallback != null)
+                    outputCallback("\n\nAssistant: ");
+                continue;
+            }
+
             break;
         }
+    }
+
+    /// <summary>
+    /// Injects queued steering messages as user turns. Returns true if any were injected.
+    /// Must only be called when the conversation is in a valid state (after a full tool
+    /// batch or after an assistant text message — never between tool_call and tool results).
+    /// </summary>
+    private bool InjectPendingSteerMessages(Func<string> dequeueSteer, Action<string> outputCallback)
+    {
+        if (dequeueSteer == null)
+            return false;
+
+        bool injected = false;
+        string msg;
+        while (!string.IsNullOrEmpty(msg = dequeueSteer()))
+        {
+            injected = true;
+            this.Conversation.Add(new ChatMessage("user", msg));
+            if (outputCallback != null)
+                outputCallback("\n[steer] User: " + msg + "\n");
+        }
+
+        return injected;
     }
 
     private JObject BuildMessageObject(ChatMessage msg)

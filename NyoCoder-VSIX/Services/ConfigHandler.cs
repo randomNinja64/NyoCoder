@@ -165,14 +165,88 @@ namespace NyoCoder
 			SetConfigValue("contextWindowSize", _contextWindowSize.HasValue ? _contextWindowSize.Value.ToString() : null);
 		}
 
-		// -------------------------------------------------------------------------
-		// Tool enable/disable
-		// -------------------------------------------------------------------------
+	// -------------------------------------------------------------------------
+	// Tool enable/disable
+	// -------------------------------------------------------------------------
 
-		public static List<string> GetDisabledTools()
+	public static List<string> GetDisabledTools()
+	{
+		return GetConfigList("disabledTools");
+	}
+
+	// -------------------------------------------------------------------------
+	// Tool approval
+	// -------------------------------------------------------------------------
+
+	private static readonly List<string> _defaultToolsRequiringApproval = new List<string>
+	{
+		"run_shell_command",
+		"move_file",
+		"delete_file",
+		"copy_file",
+		"write_file",
+		"search_replace"
+	};
+
+	/// <summary>
+	/// Tools that show a diff preview and handle approval inside the tool implementation
+	/// rather than via the generic pre-execution prompt in LLMClient.
+	/// </summary>
+	private static readonly HashSet<string> _internalApprovalTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+	{
+		"write_file",
+		"search_replace"
+	};
+
+	/// <summary>
+	/// Returns true when the named tool should prompt for approval according to config.
+	/// </summary>
+	public static bool ToolRequiresApproval(string toolName)
+	{
+		if (string.IsNullOrEmpty(toolName)) return false;
+		foreach (string t in GetToolsRequiringApproval())
 		{
-			return GetConfigList("disabledTools");
+			if (string.Equals(t, toolName, StringComparison.OrdinalIgnoreCase))
+				return true;
 		}
+		return false;
+	}
+
+	/// <summary>
+	/// Returns true when the tool handles approval internally (e.g. diff preview for file edits).
+	/// </summary>
+	public static bool UsesInternalApprovalFlow(string toolName)
+	{
+		return !string.IsNullOrEmpty(toolName) && _internalApprovalTools.Contains(toolName);
+	}
+
+	/// <summary>
+	/// Returns the list of tool names that require explicit user approval before execution.
+	/// Falls back to the built-in defaults (run_shell_command, move_file, delete_file, copy_file,
+	/// write_file, search_replace) when the key is absent from config.
+	/// Returns an empty list when the key is explicitly set to "null" (user turned off all approvals).
+	/// </summary>
+	public static List<string> GetToolsRequiringApproval()
+	{
+		string raw = GetConfigValue("toolsRequiringApproval");
+		if (string.IsNullOrEmpty(raw))
+			return new List<string>(_defaultToolsRequiringApproval);
+		if (string.Equals(raw, "null", StringComparison.OrdinalIgnoreCase))
+			return new List<string>();
+		return GetConfigList("toolsRequiringApproval");
+	}
+
+	/// <summary>
+	/// Persists the approval list to the INI file.
+	/// Writes "null" when the list is empty so the key is preserved and defaults are not restored on reload.
+	/// </summary>
+	public static void SetToolsRequiringApproval(List<string> tools)
+	{
+		string value = (tools != null && tools.Count > 0)
+			? string.Join(",", tools.ToArray())
+			: "null";
+		configMap["toolsRequiringApproval"] = value;
+	}
 
 		public static bool IsToolDisabled(string toolName)
 		{

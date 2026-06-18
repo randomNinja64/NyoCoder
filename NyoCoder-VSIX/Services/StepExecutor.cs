@@ -148,7 +148,7 @@ namespace NyoCoder
                             stepPrompt.ToString(),
                             null, // no image for steps
                             "Assistant",
-                            null, // toolsRequiringApproval - will use defaults
+                            ConfigHandler.GetToolsRequiringApproval(),
                             true, // showToolOutput
                             delegate(string text)
                             {

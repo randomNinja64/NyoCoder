@@ -220,8 +220,8 @@ public class LLMClient
                         return;
                     }
 
-                    // Check if tool requires approval
-                    if (toolsRequiringApproval.Contains(call.Name))
+                    // Check if tool requires approval (file-edit tools handle approval inside the tool)
+                    if (toolsRequiringApproval.Contains(call.Name) && !ConfigHandler.UsesInternalApprovalFlow(call.Name))
                     {
                         // Parse escape sequences for better display formatting
                         string formattedArguments = call.Arguments

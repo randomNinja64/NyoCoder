@@ -33,6 +33,21 @@ namespace NyoCoder
                     return sb.ToString();
                 }
 
+                if (!ConfigHandler.ToolRequiresApproval("search_replace"))
+                {
+                    if (!SearchReplaceTool.ApplyPreview(preview))
+                    {
+                        exitCode = 1;
+                        addSpacer();
+                        sb.AppendLine("Error: Failed to apply changes.");
+                        return sb.ToString();
+                    }
+
+                    exitCode = 0;
+                    sb.AppendLine("Applied " + preview.Changes.Count + " block(s).");
+                    return sb.ToString();
+                }
+
                 // 1b) Build an inline preview buffer (old + new right next to each other)
                 SearchReplaceTool.InlinePreview inline = SearchReplaceTool.BuildInlinePreview(preview);
 

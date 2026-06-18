@@ -86,6 +86,13 @@ namespace NyoCoder
                 });
                 res.PreviewDiff = SearchReplaceTool.BuildUnifiedDiff(normalizedOriginal, normalizedNew, 200);
 
+                if (!ConfigHandler.ToolRequiresApproval("write_file"))
+                {
+                    if (!EditorService.TrySetOpenDocumentContent(expandedPath, newContent, true))
+                        File.WriteAllText(expandedPath, newContent, Encoding.UTF8);
+                    return "File written successfully: " + expandedPath;
+                }
+
                 EditorService.TryOpenFileInVisualStudio(expandedPath);
 
                 const int InlinePreviewMaxChars = 100000;

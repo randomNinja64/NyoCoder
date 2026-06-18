@@ -10,6 +10,7 @@ namespace NyoCoder
         private ToolsOptionsPage optionsPage;
 
         private CheckedListBox _toolList;
+        private CheckedListBox _approvalList;
         private Dictionary<string, Control> _optionControls = new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
 
         public ToolsOptionsPageHost(ToolsOptionsPage page)
@@ -61,25 +62,15 @@ namespace NyoCoder
             ExternalToolRegistry.EnsureLoaded();
             List<ExternalToolRegistry.PackageInfo> packages = ExternalToolRegistry.GetPackages();
 
-            // Tools section
+            List<string> allTools = BuildAllToolNames(packages);
+
             AddRow(MakeSectionTitle("Tools:"), new Padding(0, 0, 0, 8), false);
-
-            var allTools = new List<string>();
-            foreach (string toolName in ToolDefinitions.BuiltInToolNames)
-                allTools.Add(toolName);
-            foreach (ExternalToolRegistry.PackageInfo pkg in packages)
-                foreach (string toolName in pkg.ToolNames)
-                    allTools.Add(toolName);
-
-            _toolList = new CheckedListBox();
-            _toolList.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-            _toolList.CheckOnClick = true;
-            _toolList.BorderStyle = BorderStyle.FixedSingle;
-            _toolList.IntegralHeight = false;
-            foreach (string toolName in allTools)
-                _toolList.Items.Add(toolName, true);
-            _toolList.Height = Math.Max(104, (_toolList.ItemHeight * Math.Max(1, Math.Min(allTools.Count, 8))) + 8);
+            _toolList = MakeToolCheckList(allTools, defaultChecked: true);
             AddRow(_toolList, new Padding(0, 0, 0, 12), false);
+
+            AddRow(MakeSectionTitle("Tools Requiring Approval:"), new Padding(0, 0, 0, 8), false);
+            _approvalList = MakeToolCheckList(allTools, defaultChecked: false);
+            AddRow(_approvalList, new Padding(0, 0, 0, 12), false);
 
             // Per-package config sections
             foreach (ExternalToolRegistry.PackageInfo pkg in packages)
@@ -120,38 +111,56 @@ namespace NyoCoder
             UpdateWrappingWidths();
         }
 
-        public List<string> GetDisabledTools()
+        private static List<string> BuildAllToolNames(List<ExternalToolRegistry.PackageInfo> packages)
+        {
+            var allTools = new List<string>();
+            foreach (string toolName in ToolDefinitions.BuiltInToolNames)
+                allTools.Add(toolName);
+            foreach (ExternalToolRegistry.PackageInfo pkg in packages)
+                foreach (string toolName in pkg.ToolNames)
+                    allTools.Add(toolName);
+            return allTools;
+        }
+
+        private CheckedListBox MakeToolCheckList(List<string> allTools, bool defaultChecked)
+        {
+            var list = new CheckedListBox();
+            list.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            list.CheckOnClick = true;
+            list.BorderStyle = BorderStyle.FixedSingle;
+            list.IntegralHeight = false;
+            foreach (string toolName in allTools)
+                list.Items.Add(toolName, defaultChecked);
+            list.Height = Math.Max(104, (list.ItemHeight * Math.Max(1, Math.Min(allTools.Count, 8))) + 8);
+            return list;
+        }
+
+        public void ApplyFromConfig(List<string> disabled, List<string> approval)
+        {
+            ApplyToolList(_toolList,    disabled, checkedWhenListed: false);
+            ApplyToolList(_approvalList, approval, checkedWhenListed: true);
+        }
+
+        public void ReadToConfig(out List<string> disabled, out List<string> approval)
+        {
+            disabled = ReadToolList(_toolList,    wantChecked: false);
+            approval = ReadToolList(_approvalList, wantChecked: true);
+        }
+
+        private static List<string> ReadToolList(CheckedListBox list, bool wantChecked)
         {
             var result = new List<string>();
-            if (_toolList == null) return result;
-            for (int i = 0; i < _toolList.Items.Count; i++)
-            {
-                if (!_toolList.GetItemChecked(i))
-                    result.Add((string)_toolList.Items[i]);
-            }
+            for (int i = 0; i < list.Items.Count; i++)
+                if (list.GetItemChecked(i) == wantChecked)
+                    result.Add((string)list.Items[i]);
             return result;
         }
 
-        public void SetDisabledTools(List<string> disabled)
+        private static void ApplyToolList(CheckedListBox list, List<string> selected, bool checkedWhenListed)
         {
-            if (_toolList == null) return;
-            for (int i = 0; i < _toolList.Items.Count; i++)
-            {
-                bool isDisabled = false;
-                if (disabled != null)
-                {
-                    string name = (string)_toolList.Items[i];
-                    foreach (string t in disabled)
-                    {
-                        if (string.Compare(t, name, true) == 0)
-                        {
-                            isDisabled = true;
-                            break;
-                        }
-                    }
-                }
-                _toolList.SetItemChecked(i, !isDisabled);
-            }
+            var set = new HashSet<string>(selected ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < list.Items.Count; i++)
+                list.SetItemChecked(i, set.Contains((string)list.Items[i]) == checkedWhenListed);
         }
 
         public Dictionary<string, string> GetToolOptions()

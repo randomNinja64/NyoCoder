@@ -65,6 +65,21 @@ namespace NyoCoder
             "manage_plan"
         };
 
+        private static readonly HashSet<string> AfterPreviewApprovalTools =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "write_file",
+            "search_replace"
+        };
+
+        /// <summary>
+        /// Built-in tools that approve after showing a diff preview rather than before execution.
+        /// </summary>
+        public static bool UsesAfterPreviewApproval(string toolName)
+        {
+            return !string.IsNullOrEmpty(toolName) && AfterPreviewApprovalTools.Contains(toolName);
+        }
+
         /// <summary>
         /// Tools available in Plan mode (read-only + planning).
         /// These tools cannot modify the file system.

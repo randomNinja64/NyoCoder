@@ -26,17 +26,17 @@ namespace NyoCoder
                     File.WriteAllText(expandedPath, newContent, Encoding.UTF8);
                     EditorService.TryOpenFileInVisualStudio(expandedPath);
 
-                    NyoCoderControl twc = null;
-                    try { twc = NyoCoder_VSIXPackage.Instance != null ? NyoCoder_VSIXPackage.Instance.ToolWindowControl : null; } catch { }
+                    if (!ConfigHandler.RequiresApprovalAfterPreview("write_file"))
+                        return "File written successfully: " + expandedPath;
 
                     ApprovalResult newFileApproval = ApprovalResult.Rejected;
                     string newFileRejectedMsg = "Rejected by user. File deleted.";
-                    if (twc != null)
+                    if (ToolApprovalService.IsAvailable)
                     {
                         StringBuilder newFileArgs = new StringBuilder();
                         newFileArgs.AppendLine("Create this new file?");
                         newFileArgs.AppendLine("File: " + expandedPath);
-                        newFileApproval = twc.RequestToolApproval("write_file", newFileArgs.ToString());
+                        newFileApproval = ToolApprovalService.Request("write_file", newFileArgs.ToString());
                         if (newFileApproval == ApprovalResult.Stopped)
                             newFileRejectedMsg = "Session stopped by user. File deleted.";
                     }
@@ -86,7 +86,7 @@ namespace NyoCoder
                 });
                 res.PreviewDiff = SearchReplaceTool.BuildUnifiedDiff(normalizedOriginal, normalizedNew, 200);
 
-                if (!ConfigHandler.ToolRequiresApproval("write_file"))
+                if (!ConfigHandler.RequiresApprovalAfterPreview("write_file"))
                 {
                     if (!EditorService.TrySetOpenDocumentContent(expandedPath, newContent, true))
                         File.WriteAllText(expandedPath, newContent, Encoding.UTF8);
@@ -105,12 +105,9 @@ namespace NyoCoder
                         ToolHandler.RaiseDiffChangesPreview(expandedPath, inline.Spans);
                 }
 
-                NyoCoderControl toolWindowControl = null;
-                try { toolWindowControl = NyoCoder_VSIXPackage.Instance != null ? NyoCoder_VSIXPackage.Instance.ToolWindowControl : null; } catch { }
-
                 ApprovalResult approvalResult = ApprovalResult.Rejected;
                 string notApprovedMessage = "Rejected by user. No changes applied.";
-                if (toolWindowControl != null)
+                if (ToolApprovalService.IsAvailable)
                 {
                     StringBuilder approvalArgs = new StringBuilder();
                     approvalArgs.AppendLine("Apply these changes?");
@@ -118,7 +115,7 @@ namespace NyoCoder
                     approvalArgs.AppendLine();
                     if (!string.IsNullOrEmpty(res.PreviewDiff))
                         approvalArgs.Append(res.PreviewDiff);
-                    approvalResult = toolWindowControl.RequestToolApproval("write_file", approvalArgs.ToString());
+                    approvalResult = ToolApprovalService.Request("write_file", approvalArgs.ToString());
                     if (approvalResult == ApprovalResult.Stopped)
                         notApprovedMessage = "Session stopped by user. No changes applied.";
                 }

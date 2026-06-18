@@ -13,7 +13,6 @@ namespace NyoCoder
     {
         private readonly Action<string> _appendText;
         private readonly Action<string> _appendLine;
-        private readonly Func<string, string, ApprovalResult> _requestApproval;
         private readonly Func<bool> _stopRequested;
         private readonly Action<int> _resetCharacterCount;
         private readonly Action<int> _addToCharacterCount;
@@ -30,7 +29,6 @@ namespace NyoCoder
         internal MessageDispatcher(
             Action<string> appendText,
             Action<string> appendLine,
-            Func<string, string, ApprovalResult> requestApproval,
             Func<bool> stopRequested,
             Action<int> resetCharacterCount,
             Action<int> addToCharacterCount,
@@ -45,7 +43,6 @@ namespace NyoCoder
         {
             _appendText = appendText;
             _appendLine = appendLine;
-            _requestApproval = requestApproval;
             _stopRequested = stopRequested;
             _resetCharacterCount = resetCharacterCount;
             _addToCharacterCount = addToCharacterCount;
@@ -111,6 +108,7 @@ namespace NyoCoder
         {
             ThreadPool.QueueUserWorkItem(delegate
             {
+                ToolApprovalService.Bind(_interactionManager.RequestToolApproval);
                 try
                 {
                     if (isNewSession)
@@ -123,10 +121,9 @@ namespace NyoCoder
                         userMessage,
                         attachedImage,
                         "Assistant",
-                        ConfigHandler.GetToolsRequiringApproval(),
                         true,
                         _appendText,
-                        _requestApproval,
+                        ToolApprovalService.Request,
                         stopRequested: _stopRequested,
                         onSummarized: _resetCharacterCount,
                         mode: chatMode,
@@ -168,6 +165,7 @@ namespace NyoCoder
                 }
                 finally
                 {
+                    ToolApprovalService.Clear();
                     Interlocked.Exchange(ref package._isAiRunning, 0);
                 }
             });
@@ -179,7 +177,6 @@ namespace NyoCoder
                 planner,
                 llmClient,
                 _appendText,
-                _requestApproval,
                 _stopRequested,
                 _steerer.TryDequeue);
 
@@ -215,10 +212,9 @@ namespace NyoCoder
                         "The plan above has been approved. Please implement it now. Use manage_plan to track your progress through the steps if the tool is available.",
                         null,
                         "Assistant",
-                        ConfigHandler.GetToolsRequiringApproval(),
                         true,
                         _appendText,
-                        _requestApproval,
+                        ToolApprovalService.Request,
                         stopRequested: onStop,
                         onSummarized: onSummarized,
                         mode: ChatMode.Agent,
@@ -235,10 +231,9 @@ namespace NyoCoder
                         refineText,
                         null,
                         "Assistant",
-                        ConfigHandler.GetToolsRequiringApproval(),
                         true,
                         _appendText,
-                        _requestApproval,
+                        ToolApprovalService.Request,
                         stopRequested: onStop,
                         onSummarized: onSummarized,
                         mode: planMode,

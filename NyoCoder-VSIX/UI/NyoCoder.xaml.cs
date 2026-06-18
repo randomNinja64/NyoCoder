@@ -49,7 +49,6 @@ namespace NyoCoder
             _dispatcher = new MessageDispatcher(
                 AppendText,
                 AppendLine,
-                RequestToolApproval,
                 () => StopRequested,
                 ResetCharacterCount,
                 AddToCharacterCount,
@@ -251,7 +250,7 @@ namespace NyoCoder
         /// </summary>
         public ApprovalResult RequestToolApproval(string toolName, string arguments)
         {
-            return _interactionManager.RequestToolApproval(toolName, arguments);
+            return ToolApprovalService.Request(toolName, arguments);
         }
 
         /// <summary>

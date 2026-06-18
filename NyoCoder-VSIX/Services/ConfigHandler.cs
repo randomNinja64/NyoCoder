@@ -189,16 +189,6 @@ namespace NyoCoder
 	};
 
 	/// <summary>
-	/// Tools that show a diff preview and handle approval inside the tool implementation
-	/// rather than via the generic pre-execution prompt in LLMClient.
-	/// </summary>
-	private static readonly HashSet<string> _internalApprovalTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-	{
-		"write_file",
-		"search_replace"
-	};
-
-	/// <summary>
 	/// Returns true when the named tool should prompt for approval according to config.
 	/// </summary>
 	public static bool ToolRequiresApproval(string toolName)
@@ -213,17 +203,28 @@ namespace NyoCoder
 	}
 
 	/// <summary>
-	/// Returns true when the tool handles approval internally (e.g. diff preview for file edits).
+	/// Returns true when the tool should show the generic pre-execution approval prompt.
 	/// </summary>
-	public static bool UsesInternalApprovalFlow(string toolName)
+	public static bool RequiresApprovalBeforeExecute(string toolName)
 	{
-		return !string.IsNullOrEmpty(toolName) && _internalApprovalTools.Contains(toolName);
+		if (!ToolRequiresApproval(toolName))
+			return false;
+		return !ToolDefinitions.UsesAfterPreviewApproval(toolName);
 	}
 
 	/// <summary>
-	/// Returns the list of tool names that require explicit user approval before execution.
-	/// Falls back to the built-in defaults (run_shell_command, move_file, delete_file, copy_file,
-	/// write_file, search_replace) when the key is absent from config.
+	/// Returns true when the tool should prompt after building a diff preview.
+	/// </summary>
+	public static bool RequiresApprovalAfterPreview(string toolName)
+	{
+		return ToolRequiresApproval(toolName)
+			&& ToolDefinitions.UsesAfterPreviewApproval(toolName);
+	}
+
+	/// <summary>
+	/// Returns the list of tool names that require user approval.
+	/// Falls back to the built-in defaults when the key is absent from config.
+	/// Approval timing (before execute vs after preview) is defined for built-in tools in <see cref="ToolDefinitions"/>.
 	/// Returns an empty list when the key is explicitly set to "null" (user turned off all approvals).
 	/// </summary>
 	public static List<string> GetToolsRequiringApproval()

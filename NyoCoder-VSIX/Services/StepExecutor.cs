@@ -13,7 +13,6 @@ namespace NyoCoder
         private readonly StepPlanner _planner;
         private readonly LLMClient _mainClient;
         private readonly Action<string> _appendText;
-        private readonly Func<string, string, ApprovalResult> _approvalCallback;
         private readonly Func<bool> _stopRequested;
         private readonly Func<string> _dequeueSteerMessage;
 
@@ -45,14 +44,12 @@ namespace NyoCoder
             StepPlanner planner,
             LLMClient mainClient,
             Action<string> appendText,
-            Func<string, string, ApprovalResult> approvalCallback,
             Func<bool> stopRequested,
             Func<string> dequeueSteerMessage = null)
         {
             _planner = planner;
             _mainClient = mainClient;
             _appendText = appendText;
-            _approvalCallback = approvalCallback;
             _stopRequested = stopRequested;
             _dequeueSteerMessage = dequeueSteerMessage;
         }
@@ -148,13 +145,12 @@ namespace NyoCoder
                             stepPrompt.ToString(),
                             null, // no image for steps
                             "Assistant",
-                            ConfigHandler.GetToolsRequiringApproval(),
                             true, // showToolOutput
                             delegate(string text)
                             {
                                 _appendText(text);
                             },
-                            _approvalCallback,
+                            ToolApprovalService.Request,
                             stopRequested: _stopRequested,
                             onSummarized: delegate(int newCharCount)
                             {

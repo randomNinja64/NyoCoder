@@ -33,7 +33,7 @@ namespace NyoCoder
                     return sb.ToString();
                 }
 
-                if (!ConfigHandler.ToolRequiresApproval("search_replace"))
+                if (!ConfigHandler.RequiresApprovalAfterPreview("search_replace"))
                 {
                     if (!SearchReplaceTool.ApplyPreview(preview))
                     {
@@ -66,13 +66,9 @@ namespace NyoCoder
                 }
 
                 // 2) Ask user to approve/reject using the bottom bar in the NyoCoder panel
-                NyoCoderControl toolWindowControl = null;
-                try { toolWindowControl = NyoCoder_VSIXPackage.Instance != null ? NyoCoder_VSIXPackage.Instance.ToolWindowControl : null; } catch { }
-
-                // Fail-closed: do not apply changes unless explicitly approved via UI.
                 ApprovalResult approvalResult = ApprovalResult.Rejected;
                 string notApprovedMessage = "Rejected by user. No changes applied.";
-                if (toolWindowControl != null)
+                if (ToolApprovalService.IsAvailable)
                 {
                     StringBuilder approvalArgs = new StringBuilder();
                     approvalArgs.AppendLine("Apply these changes?");
@@ -80,7 +76,7 @@ namespace NyoCoder
                     approvalArgs.AppendLine();
                     if (!string.IsNullOrEmpty(preview.PreviewDiff))
                         approvalArgs.Append(preview.PreviewDiff);
-                    approvalResult = toolWindowControl.RequestToolApproval("search_replace", approvalArgs.ToString());
+                    approvalResult = ToolApprovalService.Request("search_replace", approvalArgs.ToString());
                     if (approvalResult == ApprovalResult.Stopped)
                         notApprovedMessage = "Session stopped by user. No changes applied.";
                 }

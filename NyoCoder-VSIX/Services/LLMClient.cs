@@ -121,7 +121,6 @@ public class LLMClient
         string userMessage,
         string image,
         string assistantName,
-        List<string> toolsRequiringApproval,
         bool showToolOutput,
         Action<string> outputCallback = null,
         Func<string, string, ApprovalResult> approvalCallback = null,
@@ -130,18 +129,6 @@ public class LLMClient
         ChatMode mode = ChatMode.Agent,
         Func<string> dequeueSteerMessage = null)
     {
-        // Default tools requiring approval if none specified
-        if (toolsRequiringApproval == null)
-        {
-            toolsRequiringApproval = new List<string>
-            {
-                "run_shell_command",
-                "move_file",
-                "delete_file",
-                "copy_file"
-            };
-        }
-
         // Add user message
         ChatMessage userMsg = new ChatMessage
         {
@@ -220,8 +207,8 @@ public class LLMClient
                         return;
                     }
 
-                    // Check if tool requires approval (file-edit tools handle approval inside the tool)
-                    if (toolsRequiringApproval.Contains(call.Name) && !ConfigHandler.UsesInternalApprovalFlow(call.Name))
+                    // Pre-execution approval (file-edit tools approve after diff preview instead)
+                    if (ConfigHandler.RequiresApprovalBeforeExecute(call.Name))
                     {
                         // Parse escape sequences for better display formatting
                         string formattedArguments = call.Arguments

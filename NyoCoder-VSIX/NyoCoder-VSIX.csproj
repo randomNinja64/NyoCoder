@@ -155,6 +155,7 @@
     <Compile Include="Services\LLMClient.cs" />
     <Compile Include="Services\SseStreamParser.cs" />
     <Compile Include="Services\MessageDispatcher.cs" />
+    <Compile Include="Services\ToolApprovalService.cs" />
     <Compile Include="Services\StepExecutor.cs" />
     <Compile Include="Services\StepPlanner.cs" />
     <!-- Tools -->

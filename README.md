@@ -14,6 +14,7 @@ An extension for Visual Studio 2010-2015 that enables AI-assisted coding with Op
   - **Context Window Size** - If known, can be set here to enable automatic context summarization when context fills.
 - **Tools**
   - **Tools** - List of available tools and their enabled/disabled state
+  - **Tools Requiring Approval** - List of tools and whether or not they require approval to run
   - **External Tool Settings** - If SimpleLLMChat tools are installed, their configuration options will be available here.
 - **Web Search**
   - **SearXNG Instance**: SearXNG instance to use for running web searches (must support JSON API) (default: none)

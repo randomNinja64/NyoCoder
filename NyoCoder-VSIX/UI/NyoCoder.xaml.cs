@@ -245,15 +245,6 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Requests user approval for a tool execution.
-        /// Delegates to the InteractionManager.
-        /// </summary>
-        public ApprovalResult RequestToolApproval(string toolName, string arguments)
-        {
-            return ToolApprovalService.Request(toolName, arguments);
-        }
-
-        /// <summary>
         /// Prompts the user with a question and preset options.
         /// Delegates to the InteractionManager.
         /// </summary>

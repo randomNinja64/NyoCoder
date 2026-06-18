@@ -97,43 +97,6 @@ public static class FileHandler
         }
     }
 
-    public static string WriteFile(string filename, string content, out int exitCode)
-    {
-        exitCode = 0;
-
-        try
-        {
-            // Expand environment variables in filename
-            filename = Environment.ExpandEnvironmentVariables(filename);
-
-            // Check if file is new (didn't exist before)
-            bool isNewFile = !File.Exists(filename);
-
-            // Ensure the directory exists
-            string directory = Path.GetDirectoryName(filename);
-            string errorMessage;
-            if (!EnsureDirectoryExists(directory, out exitCode, out errorMessage))
-            {
-                return errorMessage;
-            }
-
-            File.WriteAllText(filename, content, Encoding.UTF8);
-
-            // If it's a new file, try to open it in Visual Studio
-            if (isNewFile)
-            {
-                EditorService.TryOpenFileInVisualStudio(filename);
-            }
-
-            return "File written successfully: " + filename;
-        }
-        catch (Exception ex)
-        {
-            exitCode = -1;
-            return "Error writing file: " + ex.Message;
-        }
-    }
-
     public static string MoveFile(string sourcePath, string destinationPath, out int exitCode)
     {
         exitCode = 0;

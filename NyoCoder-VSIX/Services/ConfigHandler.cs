@@ -85,13 +85,6 @@ namespace NyoCoder
 			return (!string.IsNullOrEmpty(raw) && int.TryParse(raw, out result)) ? result : defaultValue;
 		}
 
-		public static bool GetConfigBool(string key, bool defaultValue = false)
-		{
-			string raw = GetConfigValue(key);
-			int result;
-			return (!string.IsNullOrEmpty(raw) && int.TryParse(raw, out result)) ? result == 1 : defaultValue;
-		}
-
 		public static List<string> GetConfigList(string key)
 		{
 			var list = new List<string>();

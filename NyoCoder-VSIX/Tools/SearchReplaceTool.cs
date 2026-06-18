@@ -357,17 +357,6 @@ namespace NyoCoder
             return ops;
         }
 
-        private static string TrimLeadingWhitespaceFirstLine(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return text;
-
-            int i = 0;
-            while (i < text.Length && (text[i] == ' ' || text[i] == '\t'))
-                i++;
-
-            return i > 0 ? text.Substring(i) : text;
-        }
-
         internal static bool ApplyPreview(ApplyResult res)
         {
             if (res == null) return false;
@@ -382,17 +371,6 @@ namespace NyoCoder
                 File.WriteAllText(res.NormalizedFilePath, res.NewContent, Encoding.UTF8);
             }
             return true;
-        }
-
-        // Backwards-compatible helper: preview + apply (no approval)
-        internal static ApplyResult Run(string filePath, string content)
-        {
-            ApplyResult res = Preview(filePath, content);
-            if (res.Errors.Count == 0 && !string.Equals(res.NewContent, res.OriginalContent, StringComparison.Ordinal))
-            {
-                ApplyPreview(res);
-            }
-            return res;
         }
 
         private static void ApplyBlocksInMemory(ApplyResult res)

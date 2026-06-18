@@ -9,7 +9,7 @@ namespace NyoCoder
     {
         protected override WebSearchOptionsPageHost CreateHost()
         {
-            return new WebSearchOptionsPageHost(this);
+            return new WebSearchOptionsPageHost();
         }
 
         protected override void UpdateHostFromConfig()

@@ -4,8 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using System.Net.Security;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Windows.Forms;
 
@@ -16,19 +14,17 @@ public class LLMClient
     private readonly string llmEndpoint;
     private readonly string apiKey;
     private readonly string model;
-    private readonly string systemPrompt;
 
     /// <summary>
     /// The conversation history for this LLM client instance.
     /// </summary>
     public List<ChatMessage> Conversation { get; set; }
 
-    public LLMClient(string llmEndpoint, string key, string mdl, string sysprompt)
+    public LLMClient(string llmEndpoint, string key, string mdl)
     {
         this.llmEndpoint = llmEndpoint;
         this.apiKey = key;
         this.model = mdl;
-        this.systemPrompt = sysprompt;
         this.Conversation = new List<ChatMessage>();
 
         // Enable modern TLS protocols for HTTPS support
@@ -81,7 +77,7 @@ public class LLMClient
         }
 
         // Create and return new LLM client
-        return new LLMClient(llmServer, apiKey, model, ContextEngine.AgentSystemPrompt);
+        return new LLMClient(llmServer, apiKey, model);
     }
 
     // Struct for chat messages
@@ -120,7 +116,6 @@ public class LLMClient
     public void ProcessConversation(
         string userMessage,
         string image,
-        string assistantName,
         bool showToolOutput,
         Action<string> outputCallback = null,
         Func<string, string, ApprovalResult> approvalCallback = null,
@@ -531,21 +526,6 @@ public class LLMClient
             }
         }
         return count;
-    }
-
-    /// <summary>
-    /// Sends a simple prompt to the LLM and streams the response to the output callback.
-    /// </summary>
-    public void SendPrompt(string userPrompt, Action<string> outputCallback)
-    {
-        if (outputCallback == null)
-            throw new ArgumentNullException("outputCallback");
-
-        List<ChatMessage> conversation = new List<ChatMessage>();
-        ChatMessage userMsg = new ChatMessage("user", userPrompt);
-        conversation.Add(userMsg);
-
-        sendMessages(conversation, outputCallback);
     }
 
     /// <summary>

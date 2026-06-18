@@ -2,12 +2,8 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Diagnostics;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.IO;
-using System.Windows.Forms;
-using System.Reflection;
-using EnvDTE;
 
 namespace NyoCoder
 {

@@ -9,7 +9,7 @@ namespace NyoCoder
     {
         protected override OptionsPageHost CreateHost()
         {
-            return new OptionsPageHost(this);
+            return new OptionsPageHost();
         }
 
         protected override void UpdateHostFromConfig()

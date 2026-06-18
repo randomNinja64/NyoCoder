@@ -7,15 +7,12 @@ namespace NyoCoder
 {
     public class ToolsOptionsPageHost : OptionsPageHostBase
     {
-        private ToolsOptionsPage optionsPage;
-
         private CheckedListBox _toolList;
         private CheckedListBox _approvalList;
         private Dictionary<string, Control> _optionControls = new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
 
-        public ToolsOptionsPageHost(ToolsOptionsPage page)
+        public ToolsOptionsPageHost()
         {
-            this.optionsPage = page;
             InitializeComponent();
         }
 

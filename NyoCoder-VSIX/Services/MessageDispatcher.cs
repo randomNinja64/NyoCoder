@@ -120,7 +120,6 @@ namespace NyoCoder
                     llmClient.ProcessConversation(
                         userMessage,
                         attachedImage,
-                        "Assistant",
                         true,
                         _appendText,
                         ToolApprovalService.Request,
@@ -211,7 +210,6 @@ namespace NyoCoder
                     llmClient.ProcessConversation(
                         "The plan above has been approved. Please implement it now. Use manage_plan to track your progress through the steps if the tool is available.",
                         null,
-                        "Assistant",
                         true,
                         _appendText,
                         ToolApprovalService.Request,
@@ -230,7 +228,6 @@ namespace NyoCoder
                     llmClient.ProcessConversation(
                         refineText,
                         null,
-                        "Assistant",
                         true,
                         _appendText,
                         ToolApprovalService.Request,

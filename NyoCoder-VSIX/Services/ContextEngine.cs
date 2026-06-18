@@ -132,25 +132,6 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Checks if the current active window is a text editor.
-        /// </summary>
-        public bool IsInTextEditor()
-        {
-            try
-            {
-                if (_dte == null) return false;
-
-                Window activeWindow = _dte.ActiveWindow;
-                return _dte.ActiveDocument != null &&
-                       activeWindow != null &&
-                       activeWindow.Type == vsWindowType.vsWindowTypeDocument &&
-                       !activeWindow.Caption.Contains("[Design]") &&
-                       activeWindow.Object is TextWindow;
-            }
-            catch { return false; }
-        }
-
-        /// <summary>
         /// Gets the current symbol context (namespace, class, method/property) where the cursor is positioned.
         /// </summary>
         /// <param name="selection">The current text selection.</param>

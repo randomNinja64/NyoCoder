@@ -5,8 +5,6 @@ namespace NyoCoder
 {
     public class WebSearchOptionsPageHost : OptionsPageHostBase
     {
-        private WebSearchOptionsPage optionsPage;
-
         private Label lblSearXNG;
         private TextBox txtSearXNG;
         private Label lblSearXNGHint;
@@ -17,9 +15,8 @@ namespace NyoCoder
         private Label lblMaxWebContentLength;
         private TextBox txtMaxWebContentLength;
 
-        public WebSearchOptionsPageHost(WebSearchOptionsPage page)
+        public WebSearchOptionsPageHost()
         {
-            this.optionsPage = page;
             InitializeComponent();
         }
 

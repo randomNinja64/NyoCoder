@@ -144,7 +144,6 @@ namespace NyoCoder
                         stepClient.ProcessConversation(
                             stepPrompt.ToString(),
                             null, // no image for steps
-                            "Assistant",
                             true, // showToolOutput
                             delegate(string text)
                             {

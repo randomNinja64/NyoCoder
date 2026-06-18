@@ -11,7 +11,7 @@ namespace NyoCoder
     {
         protected override ToolsOptionsPageHost CreateHost()
         {
-            return new ToolsOptionsPageHost(this);
+            return new ToolsOptionsPageHost();
         }
 
         protected override void UpdateHostFromConfig()

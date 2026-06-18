@@ -5,8 +5,6 @@ namespace NyoCoder
 {
     public class OptionsPageHost : OptionsPageHostBase
     {
-        private OptionsPage optionsPage;
-
         private Label lblApiKey;
         private TextBox txtApiKey;
         private Label lblLlmServer;
@@ -18,9 +16,8 @@ namespace NyoCoder
         private Label lblContextWindowSize;
         private TextBox txtContextWindowSize;
 
-        public OptionsPageHost(OptionsPage page)
+        public OptionsPageHost()
         {
-            this.optionsPage = page;
             InitializeComponent();
         }
 

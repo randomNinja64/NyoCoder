@@ -191,7 +191,7 @@ namespace NyoCoder
                 ),
                 new ToolEntry(
                     "grep_search",
-                    "Recursively search for a regular expression pattern in files. Very fast and automatically ignores files you should not read like .pyc files, .venv directories, node_modules, .git, bin/obj folders, etc. Use this to find an exact string or regex match, such as a specific error message; prefer codebase_search for general exploration of how something works.",
+                    "Recursively search for a regular expression pattern in files. Very fast and automatically ignores files you should not read like .pyc files, .venv directories, node_modules, .git, bin/obj folders, etc. Use this only for an exact string or regex match, such as a specific error message; codebase_search is preferred if available for all other code exploration, including finding definitions and usages.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "pattern", new PropertyInfo("string", "The regular expression pattern to search for.") },

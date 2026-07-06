@@ -144,7 +144,7 @@ namespace NyoCoder
                         stepClient.ProcessConversation(
                             stepPrompt.ToString(),
                             null, // no image for steps
-                            true, // showToolOutput
+                            ConfigHandler.GetShowToolOutput(),
                             delegate(string text)
                             {
                                 _appendText(text);

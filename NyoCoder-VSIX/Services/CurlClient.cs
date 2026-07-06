@@ -152,7 +152,8 @@ namespace NyoCoder
                         pipeThread.Start();
 
                         LLMClient.LLMCompletionResponse result = SseStreamParser.Parse(
-                            process.StandardOutput, outputCallback, toolCallCallback, stopRequested);
+                            process.StandardOutput, outputCallback, toolCallCallback, stopRequested,
+                            onReasoningChunk: ConfigHandler.GetShowReasoningOutput() ? outputCallback : null);
 
                         pipeThread.Join(5000);
                         process.WaitForExit();

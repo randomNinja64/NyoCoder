@@ -13,6 +13,7 @@ namespace NyoCoder
     {
         private readonly Action<string> _appendText;
         private readonly Action<string> _appendLine;
+        private readonly Action _applyMarkdown;
         private readonly Func<bool> _stopRequested;
         private readonly Action<int> _resetCharacterCount;
         private readonly Action<int> _addToCharacterCount;
@@ -29,6 +30,7 @@ namespace NyoCoder
         internal MessageDispatcher(
             Action<string> appendText,
             Action<string> appendLine,
+            Action applyMarkdown,
             Func<bool> stopRequested,
             Action<int> resetCharacterCount,
             Action<int> addToCharacterCount,
@@ -43,6 +45,7 @@ namespace NyoCoder
         {
             _appendText = appendText;
             _appendLine = appendLine;
+            _applyMarkdown = applyMarkdown;
             _stopRequested = stopRequested;
             _resetCharacterCount = resetCharacterCount;
             _addToCharacterCount = addToCharacterCount;
@@ -120,7 +123,7 @@ namespace NyoCoder
                     llmClient.ProcessConversation(
                         userMessage,
                         attachedImage,
-                        true,
+                        ConfigHandler.GetShowToolOutput(),
                         _appendText,
                         ToolApprovalService.Request,
                         stopRequested: _stopRequested,
@@ -128,6 +131,8 @@ namespace NyoCoder
                         mode: chatMode,
                         dequeueSteerMessage: _steerer.TryDequeue
                     );
+
+                    ApplyMarkdownIfEnabled();
 
                     if (chatMode == ChatMode.Plan)
                     {
@@ -185,6 +190,13 @@ namespace NyoCoder
             executor.ExecutionFinished += _tokenTracker.EndStepTracking;
 
             executor.Execute();
+            ApplyMarkdownIfEnabled();
+        }
+
+        private void ApplyMarkdownIfEnabled()
+        {
+            if (_applyMarkdown != null)
+                _applyMarkdown();
         }
 
         private void HandlePlanReview(LLMClient llmClient, ChatMode planMode)
@@ -210,7 +222,7 @@ namespace NyoCoder
                     llmClient.ProcessConversation(
                         "The plan above has been approved. Please implement it now. Use manage_plan to track your progress through the steps if the tool is available.",
                         null,
-                        true,
+                        ConfigHandler.GetShowToolOutput(),
                         _appendText,
                         ToolApprovalService.Request,
                         stopRequested: onStop,
@@ -218,6 +230,8 @@ namespace NyoCoder
                         mode: ChatMode.Agent,
                         dequeueSteerMessage: _steerer.TryDequeue
                     );
+
+                    ApplyMarkdownIfEnabled();
 
                     break;
                 }
@@ -228,7 +242,7 @@ namespace NyoCoder
                     llmClient.ProcessConversation(
                         refineText,
                         null,
-                        true,
+                        ConfigHandler.GetShowToolOutput(),
                         _appendText,
                         ToolApprovalService.Request,
                         stopRequested: onStop,
@@ -236,6 +250,8 @@ namespace NyoCoder
                         mode: planMode,
                         dequeueSteerMessage: _steerer.TryDequeue
                     );
+
+                    ApplyMarkdownIfEnabled();
 
                     continue;
                 }

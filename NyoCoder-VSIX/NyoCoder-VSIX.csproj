@@ -210,6 +210,13 @@
     <Compile Include="UI\WebSearchOptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\MarkdownHandler.cs" />
+    <Compile Include="UI\AppearanceOptionsPage.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\AppearanceOptionsPageHost.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\IndexingOptionsPage.cs">
       <SubType>Component</SubType>
     </Compile>

@@ -40,6 +40,7 @@ namespace NyoCoder
     [ProvideOptionPage(typeof(ToolsOptionsPage), "NyoCoder", "Tools", 0, 0, true)]
     [ProvideOptionPage(typeof(WebSearchOptionsPage), "NyoCoder", "Web Search", 0, 0, true)]
     [ProvideOptionPage(typeof(IndexingOptionsPage), "NyoCoder", "Indexing", 0, 0, true)]
+    [ProvideOptionPage(typeof(AppearanceOptionsPage), "NyoCoder", "Appearance", 0, 0, true)]
     [Guid(GuidList.guidNyoCoder_VSIXPkgString)]
     public sealed class NyoCoder_VSIXPackage : Package
     {

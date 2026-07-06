@@ -596,7 +596,7 @@ public class LLMClient
                 completionResponse = SseStreamParser.Parse(
                     reader, outputCallback, toolCallCallback, stopRequested,
                     () => { try { request.Abort(); } catch { } },
-                    onReasoningChunk: outputCallback);
+                    onReasoningChunk: ConfigHandler.GetShowReasoningOutput() ? outputCallback : null);
             }
         }
         catch (Exception ex)

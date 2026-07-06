@@ -49,6 +49,7 @@ namespace NyoCoder
             _dispatcher = new MessageDispatcher(
                 AppendText,
                 AppendLine,
+                ApplyMarkdown,
                 () => StopRequested,
                 ResetCharacterCount,
                 AddToCharacterCount,
@@ -188,6 +189,21 @@ namespace NyoCoder
         public void AppendLine(string text)
         {
             AppendText(text + Environment.NewLine);
+        }
+
+        /// <summary>
+        /// Post-processes the output pane to render Markdown formatting.
+        /// Called after each assistant generation turn completes.
+        /// </summary>
+        public void ApplyMarkdown()
+        {
+            if (!ConfigHandler.GetMarkdownParsing())
+                return;
+
+            EditorService.InvokeOnUIThread(() =>
+            {
+                MarkdownHandler.ProcessMarkdown(OutputTextBox);
+            }, Dispatcher);
         }
 
         /// <summary>

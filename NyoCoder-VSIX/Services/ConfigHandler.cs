@@ -347,6 +347,40 @@ namespace NyoCoder
 		}
 
 		// -------------------------------------------------------------------------
+		// Chat appearance
+		// -------------------------------------------------------------------------
+
+		public static bool GetMarkdownParsing()
+		{
+			return GetConfigValue("markdownparsing", "1") == "1";
+		}
+
+		public static void SetMarkdownParsing(bool value)
+		{
+			SetConfigValue("markdownparsing", value ? "1" : "0");
+		}
+
+		public static bool GetShowReasoningOutput()
+		{
+			return GetConfigValue("showreasoningoutput", "1") == "1";
+		}
+
+		public static void SetShowReasoningOutput(bool value)
+		{
+			SetConfigValue("showreasoningoutput", value ? "1" : "0");
+		}
+
+		public static bool GetShowToolOutput()
+		{
+			return GetConfigValue("showtooloutput", "1") == "1";
+		}
+
+		public static void SetShowToolOutput(bool value)
+		{
+			SetConfigValue("showtooloutput", value ? "1" : "0");
+		}
+
+		// -------------------------------------------------------------------------
 		// INI read/write
 		// -------------------------------------------------------------------------
 

@@ -23,6 +23,82 @@ namespace NyoCoder
         }
 
         /// <summary>
+        /// Sends a non-streaming JSON POST using curl.exe via a Windows named pipe and returns
+        /// the full response body. Used as an HTTPS/TLS fallback for endpoints (e.g. embeddings)
+        /// where .NET's HttpWebRequest fails on legacy .NET 4.0. Returns the raw body on success;
+        /// on failure sets <paramref name="exitCode"/> non-zero and returns diagnostic text.
+        /// </summary>
+        public static string PostJson(string fullUrl, string apiKey, JObject payload, out int exitCode)
+        {
+            exitCode = -1;
+            string pipeName = "nyocoder_" + Guid.NewGuid().ToString("N");
+            byte[] jsonBytes = Encoding.UTF8.GetBytes(payload.ToString(Formatting.None));
+
+            try
+            {
+                using (NamedPipeServerStream pipeServer = new NamedPipeServerStream(
+                    pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte))
+                {
+                    ProcessStartInfo psi = new ProcessStartInfo
+                    {
+                        FileName = GetCurlPath(),
+                        Arguments = "-s -X POST"
+                            + " -H \"Content-Type: application/json\""
+                            + " -H \"Authorization: Bearer " + apiKey + "\""
+                            + " --data-binary \"@\\\\.\\pipe\\" + pipeName + "\""
+                            + " \"" + fullUrl + "\"",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        StandardOutputEncoding = Encoding.UTF8,
+                        StandardErrorEncoding = Encoding.UTF8
+                    };
+
+                    using (Process process = Process.Start(psi))
+                    {
+                        Thread pipeThread = new Thread(() =>
+                        {
+                            try
+                            {
+                                pipeServer.WaitForConnection();
+                                pipeServer.Write(jsonBytes, 0, jsonBytes.Length);
+                                pipeServer.Flush();
+                                pipeServer.Close();
+                            }
+                            catch { }
+                        });
+                        pipeThread.IsBackground = true;
+                        pipeThread.Start();
+
+                        // Read stdout and stderr concurrently to avoid pipe-buffer deadlocks.
+                        string output = "";
+                        string error = "";
+                        Thread errThread = new Thread(() => { try { error = process.StandardError.ReadToEnd(); } catch { } });
+                        errThread.IsBackground = true;
+                        errThread.Start();
+
+                        output = process.StandardOutput.ReadToEnd();
+
+                        pipeThread.Join(5000);
+                        errThread.Join(5000);
+                        process.WaitForExit();
+                        exitCode = process.ExitCode;
+
+                        if (exitCode != 0 && string.IsNullOrEmpty(output))
+                            return "cURL failed (exit " + exitCode + "): " + error;
+                        return output;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                exitCode = -1;
+                return "cURL fallback failed: " + ex.Message;
+            }
+        }
+
+        /// <summary>
         /// Sends the LLM request using curl.exe via a Windows named pipe to avoid writing
         /// the JSON body to disk. Used as a fallback when .NET's HttpWebRequest fails on HTTPS.
         /// </summary>

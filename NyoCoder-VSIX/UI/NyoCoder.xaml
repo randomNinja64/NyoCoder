@@ -14,6 +14,7 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
         <!-- Status bar showing token usage and step progress -->
@@ -142,6 +143,20 @@
                             Unchecked="AttachImageButton_Unchecked"/>
                 </StackPanel>
             </Grid>
+        </Border>
+
+        <!-- Persistent indexing status bar (visible only when indexing mode != Off) -->
+        <Border x:Name="IndexingStatusBar"
+                Grid.Row="4"
+                Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}"
+                BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
+                BorderThickness="0,1,0,0"
+                Padding="6,3"
+                Visibility="Collapsed">
+            <TextBlock x:Name="IndexingStatusText"
+                       Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
+                       TextTrimming="CharacterEllipsis"
+                       Text="Index: idle"/>
         </Border>
     </Grid>
 </UserControl>

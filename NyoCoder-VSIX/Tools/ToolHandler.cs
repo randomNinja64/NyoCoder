@@ -111,6 +111,14 @@ public static class ToolHandler
                         return true;
                     }
 
+                case "codebase_search":
+                    {
+                        string query = GetRequiredArg(args, "query");
+                        string output = CodebaseSearchTool.Search(query, out exitCode);
+                        toolContent = FormatCommandResult("codebase_search: " + query, output, exitCode);
+                        return true;
+                    }
+
                 case "search_replace":
                     {
                         string filePath = GetRequiredArg(args, "file_path");

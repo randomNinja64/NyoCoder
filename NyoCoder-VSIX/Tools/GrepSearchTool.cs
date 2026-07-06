@@ -50,24 +50,12 @@ namespace NyoCoder
                     args.Append("\"" + filePattern.Trim() + "\" ");
                 }
 
-                args.Append("--exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg ");
-                args.Append("--exclude-dir=.venv --exclude-dir=venv --exclude-dir=__pycache__ ");
-                args.Append("--exclude-dir=node_modules --exclude-dir=bin --exclude-dir=obj ");
-                args.Append("--exclude-dir=.vs --exclude-dir=packages --exclude-dir=dist ");
-                args.Append("--exclude-dir=build --exclude-dir=.idea --exclude-dir=.vscode ");
-                args.Append("--exclude-dir=target --exclude-dir=vendor --exclude-dir=bower_components ");
-                args.Append("--exclude-dir=.nuget --exclude-dir=TestResults ");
-                args.Append("--exclude=*.pyc --exclude=*.pyo --exclude=*.exe --exclude=*.dll ");
-                args.Append("--exclude=*.so --exclude=*.dylib --exclude=*.obj --exclude=*.o ");
-                args.Append("--exclude=*.a --exclude=*.lib --exclude=*.pdb --exclude=*.ilk ");
-                args.Append("--exclude=*.class --exclude=*.jar --exclude=*.war --exclude=*.ear ");
-                args.Append("--exclude=*.zip --exclude=*.tar --exclude=*.gz --exclude=*.rar ");
-                args.Append("--exclude=*.png --exclude=*.jpg --exclude=*.jpeg --exclude=*.gif ");
-                args.Append("--exclude=*.bmp --exclude=*.ico --exclude=*.svg --exclude=*.pdf ");
-                args.Append("--exclude=*.mp3 --exclude=*.mp4 --exclude=*.avi --exclude=*.mov ");
-                args.Append("--exclude=*.ttf --exclude=*.woff --exclude=*.woff2 --exclude=*.eot ");
-                args.Append("--exclude=*.min.js --exclude=*.min.css --exclude=*.map ");
-                args.Append("--exclude=*.lock --exclude=*.cache ");
+                // Directory and file exclusions come from the shared FileScanFilter so grep and
+                // the codebase indexer stay consistent about what to ignore.
+                foreach (string excludeDir in FileScanFilter.ExcludedDirectoryNames)
+                    args.Append("--exclude-dir=").Append(excludeDir).Append(" ");
+                foreach (string excludeGlob in FileScanFilter.ExcludedFileGlobs)
+                    args.Append("--exclude=").Append(excludeGlob).Append(" ");
 
                 string escapedPattern = pattern.Replace("\"", "\\\"");
                 args.Append("\"" + escapedPattern + "\" ");
@@ -78,6 +66,11 @@ namespace NyoCoder
 
                 if (exitCode == 0 && string.IsNullOrWhiteSpace(output))
                     return "No matches found for pattern: " + pattern;
+
+                string[] lines = output.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
+                int maxLines = ConfigHandler.MaxReadLines;
+                if (lines.Length > maxLines)
+                    return string.Join(Environment.NewLine, lines, 0, maxLines) + Environment.NewLine + "truncated..";
 
                 return output;
             }

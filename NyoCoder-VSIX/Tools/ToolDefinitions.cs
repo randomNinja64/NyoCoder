@@ -57,6 +57,7 @@ namespace NyoCoder
             "copy_file",
             "delete_file",
             "list_directory",
+            "codebase_search",
             "grep_search",
             "search_replace",
             "run_web_search",
@@ -88,6 +89,7 @@ namespace NyoCoder
         {
             "read_file",
             "list_directory",
+            "codebase_search",
             "grep_search",
             "run_web_search",
             "read_website",
@@ -179,8 +181,17 @@ namespace NyoCoder
                     new[] { "directory_path" }
                 ),
                 new ToolEntry(
+                    "codebase_search",
+                    "Find snippets of code from the codebase most relevant to the search query. This is a semantic search tool, so the query should ask for something semantically matching what is needed rather than exact text. Unless there is a clear reason to use your own wording, just reuse the user's exact query, since their phrasing is often helpful for semantic search. This is your primary search tool for exploring the codebase; only use grep_search when you need an exact string or regex match.",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "query", new PropertyInfo("string", "The search query to find relevant code. Reuse the user's exact query with their wording unless there is a clear reason not to.") }
+                    },
+                    new[] { "query" }
+                ),
+                new ToolEntry(
                     "grep_search",
-                    "Recursively search for a regular expression pattern in files. Very fast and automatically ignores files you should not read like .pyc files, .venv directories, node_modules, .git, bin/obj folders, etc. Use this to find where functions are defined, how variables are used, or to locate specific error messages.",
+                    "Recursively search for a regular expression pattern in files. Very fast and automatically ignores files you should not read like .pyc files, .venv directories, node_modules, .git, bin/obj folders, etc. Use this to find an exact string or regex match, such as a specific error message; prefer codebase_search for general exploration of how something works.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "pattern", new PropertyInfo("string", "The regular expression pattern to search for.") },

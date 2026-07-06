@@ -259,6 +259,94 @@ namespace NyoCoder
 		}
 
 		// -------------------------------------------------------------------------
+		// Codebase indexing
+		// -------------------------------------------------------------------------
+
+		/// <summary>
+		/// Returns the configured indexing backend. Defaults to <see cref="IndexingMode.Symbol"/>
+		/// (offline, dependency-free) so useful retrieval is available out of the box.
+		/// </summary>
+		public static IndexingMode GetIndexingMode()
+		{
+			return ParseIndexingMode(GetConfigValue("indexingMode"));
+		}
+
+		/// <summary>
+		/// Parses an indexing-mode string. Unknown/empty values fall back to Symbol.
+		/// </summary>
+		public static IndexingMode ParseIndexingMode(string raw)
+		{
+			if (!string.IsNullOrEmpty(raw))
+			{
+				switch (raw.Trim().ToLowerInvariant())
+				{
+					case "off": return IndexingMode.Off;
+					case "semantic": return IndexingMode.Semantic;
+					case "symbol": return IndexingMode.Symbol;
+				}
+			}
+			return IndexingMode.Symbol;
+		}
+
+		public static void SetIndexingMode(IndexingMode mode)
+		{
+			SetConfigValue("indexingMode", mode.ToString().ToLowerInvariant());
+		}
+
+		/// <summary>Raw configured embeddings endpoint (may be empty). Used by the options UI.</summary>
+		public static string GetEmbeddingsEndpointRaw()
+		{
+			return GetConfigValue("embeddingsEndpoint");
+		}
+
+		/// <summary>Effective embeddings endpoint: configured value, or the main LLM server if blank.</summary>
+		public static string GetEmbeddingsEndpoint()
+		{
+			string endpoint = GetConfigValue("embeddingsEndpoint");
+			return string.IsNullOrWhiteSpace(endpoint) ? GetLlmServer() : endpoint.Trim();
+		}
+
+		public static string GetEmbeddingsModel()
+		{
+			return GetConfigValue("embeddingsModel");
+		}
+
+		/// <summary>Effective embeddings API key: dedicated key, or the main API key if blank.</summary>
+		public static string GetEmbeddingsApiKey()
+		{
+			string key = GetConfigValue("embeddingsApiKey");
+			return string.IsNullOrWhiteSpace(key) ? GetApiKey() : key.Trim();
+		}
+
+		/// <summary>Raw configured embeddings API key (may be empty). Used by the options UI.</summary>
+		public static string GetEmbeddingsApiKeyRaw()
+		{
+			return GetConfigValue("embeddingsApiKey");
+		}
+
+		public static bool GetIndexOnSolutionOpen()
+		{
+			return GetConfigValue("indexOnSolutionOpen", "1") == "1";
+		}
+
+		public static bool GetIndexOnSave()
+		{
+			return GetConfigValue("indexOnSave", "1") == "1";
+		}
+
+		public static int GetIndexChunkLines()
+		{
+			int value = GetConfigInt("indexChunkLines", 60);
+			return value > 0 ? value : 60;
+		}
+
+		public static int GetIndexChunkOverlap()
+		{
+			int value = GetConfigInt("indexChunkOverlap", 10);
+			return value >= 0 ? value : 10;
+		}
+
+		// -------------------------------------------------------------------------
 		// INI read/write
 		// -------------------------------------------------------------------------
 

@@ -1,0 +1,271 @@
+using System;
+using System.Drawing;
+using System.Windows.Forms;
+
+namespace NyoCoder
+{
+    /// <summary>
+    /// WinForms host for the Indexing options page: a 3-way mode selector (Semantic / Symbol /
+    /// Off) with Semantic gated on embeddings model (and an effective endpoint via this
+    /// field or the main LLM server), embeddings fields, live index status, manual Index Now /
+    /// Clear buttons, and indexing triggers.
+    /// </summary>
+    public class IndexingOptionsPageHost : OptionsPageHostBase
+    {
+        private RadioButton rbSemantic;
+        private RadioButton rbSymbol;
+        private RadioButton rbOff;
+
+        private TextBox txtEndpoint;
+        private TextBox txtModel;
+        private TextBox txtApiKey;
+
+        private Label lblStatusBrief;
+        private Label lblStatusDetail;
+
+        private Button btnIndexNow;
+        private Button btnClear;
+
+        private CheckBox chkOnSolutionOpen;
+        private CheckBox chkOnSave;
+
+        private bool _suppressEvents;
+
+        /// <summary>Raised when the user clicks "Index Now".</summary>
+        public event Action IndexNowClicked;
+        /// <summary>Raised when the user clicks "Clear Index".</summary>
+        public event Action ClearClicked;
+
+        public IndexingOptionsPageHost()
+        {
+            InitializeComponent();
+            IndexingStatusReporter.StatusChanged += OnStatusChanged;
+        }
+
+        private void InitializeComponent()
+        {
+            this.SuspendLayout();
+            InitLayout(420);
+
+            rbSemantic = new RadioButton { AutoSize = true, Text = "Semantic (embeddings-based search, API required)" };
+            rbSymbol = new RadioButton { AutoSize = true, Text = "Symbol (offline symbol map search, no embeddings)" };
+            rbOff = new RadioButton { AutoSize = true, Text = "Off (codebase_search falls back to grep)" };
+
+            rbSemantic.CheckedChanged += ModeChanged;
+            rbSymbol.CheckedChanged += ModeChanged;
+            rbOff.CheckedChanged += ModeChanged;
+
+            FlowLayoutPanel modePanel = new FlowLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                Margin = new Padding(0)
+            };
+            modePanel.Controls.Add(rbSemantic);
+            modePanel.Controls.Add(rbSymbol);
+            modePanel.Controls.Add(rbOff);
+
+            Label lblEndpoint = new Label { AutoSize = true, Text = "Embeddings endpoint (OpenAI-compatible; blank = use default LLM server):" };
+            txtEndpoint = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
+            txtEndpoint.TextChanged += EmbeddingsFieldChanged;
+
+            Label lblModel = new Label { AutoSize = true, Text = "Embeddings model:" };
+            txtModel = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
+            txtModel.TextChanged += EmbeddingsFieldChanged;
+
+            Label lblApiKey = new Label { AutoSize = true, Text = "Embeddings API key (optional; blank = use default API key):" };
+            txtApiKey = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, UseSystemPasswordChar = true };
+
+            lblStatusBrief = new Label { AutoSize = true, Font = new Font(this.Font, FontStyle.Bold), Text = "Index: (loading...)" };
+            lblStatusDetail = new Label { AutoSize = true, ForeColor = SystemColors.GrayText, Text = "" };
+
+            btnIndexNow = new Button { AutoSize = true, Text = "Index Now" };
+            btnIndexNow.Click += (s, e) => { RaiseIndexNow(); };
+            btnClear = new Button { AutoSize = true, Text = "Clear Index" };
+            btnClear.Click += (s, e) => { RaiseClear(); };
+
+            FlowLayoutPanel buttonPanel = new FlowLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = new Padding(0)
+            };
+            buttonPanel.Controls.Add(btnIndexNow);
+            buttonPanel.Controls.Add(btnClear);
+
+            chkOnSolutionOpen = new CheckBox { AutoSize = true, Text = "Index on solution open" };
+            chkOnSave = new CheckBox { AutoSize = true, Text = "Re-index changed files on save" };
+
+            AddRow(MakeSectionTitle("Indexing Options"), new Padding(0, 0, 0, 12), false);
+
+            AddRow(MakeSectionTitle("Mode:"), new Padding(0, 0, 0, 4), false);
+            AddRow(modePanel, new Padding(0, 0, 0, 12), false);
+
+            AddRow(MakeSectionTitle("Embeddings:"), new Padding(0, 0, 0, 4), false);
+            AddRow(lblEndpoint, new Padding(0, 0, 0, 4), true);
+            AddRow(txtEndpoint, new Padding(0, 0, 0, 8), false);
+            AddRow(lblModel, new Padding(0, 0, 0, 4), true);
+            AddRow(txtModel, new Padding(0, 0, 0, 8), false);
+            AddRow(lblApiKey, new Padding(0, 0, 0, 4), true);
+            AddRow(txtApiKey, new Padding(0, 0, 0, 12), false);
+
+            AddRow(MakeSectionTitle("Status:"), new Padding(0, 0, 0, 4), false);
+            AddRow(lblStatusBrief, new Padding(0, 0, 0, 4), true);
+            AddRow(lblStatusDetail, new Padding(0, 0, 0, 8), true);
+            AddRow(buttonPanel, new Padding(0, 0, 0, 12), false);
+
+            AddRow(MakeSectionTitle("When to index:"), new Padding(0, 0, 0, 4), false);
+            AddRow(chkOnSolutionOpen, new Padding(0, 0, 0, 4), true);
+            AddRow(chkOnSave, new Padding(0, 0, 0, 0), true);
+
+            this.ResumeLayout(false);
+            this.PerformLayout();
+            UpdateWrappingWidths();
+        }
+
+        // ── Public properties bound by the page ────────────────────────
+
+        public IndexingMode Mode
+        {
+            get
+            {
+                if (rbSemantic.Checked) return IndexingMode.Semantic;
+                if (rbOff.Checked) return IndexingMode.Off;
+                return IndexingMode.Symbol;
+            }
+            set
+            {
+                _suppressEvents = true;
+                try
+                {
+                    if (value == IndexingMode.Semantic && CanUseSemantic())
+                        rbSemantic.Checked = true;
+                    else if (value == IndexingMode.Off)
+                        rbOff.Checked = true;
+                    else
+                        rbSymbol.Checked = true;
+                }
+                finally { _suppressEvents = false; }
+                UpdateSemanticEnabled();
+            }
+        }
+
+        public string Endpoint
+        {
+            get { return txtEndpoint.Text != null ? txtEndpoint.Text.Trim() : string.Empty; }
+            set { txtEndpoint.Text = value ?? string.Empty; }
+        }
+
+        public string Model
+        {
+            get { return txtModel.Text != null ? txtModel.Text.Trim() : string.Empty; }
+            set { txtModel.Text = value ?? string.Empty; }
+        }
+
+        public string ApiKey
+        {
+            get { return txtApiKey.Text != null ? txtApiKey.Text.Trim() : string.Empty; }
+            set { txtApiKey.Text = value ?? string.Empty; }
+        }
+
+        public bool IndexOnSolutionOpen
+        {
+            get { return chkOnSolutionOpen.Checked; }
+            set { chkOnSolutionOpen.Checked = value; }
+        }
+
+        public bool IndexOnSave
+        {
+            get { return chkOnSave.Checked; }
+            set { chkOnSave.Checked = value; }
+        }
+
+        // ── Behavior ───────────────────────────────────────────────────
+
+        private bool CanUseSemantic()
+        {
+            if (string.IsNullOrWhiteSpace(Model))
+                return false;
+            if (!string.IsNullOrWhiteSpace(Endpoint))
+                return true;
+            return !string.IsNullOrWhiteSpace(ConfigHandler.GetLlmServer());
+        }
+
+        private void EmbeddingsFieldChanged(object sender, EventArgs e)
+        {
+            UpdateSemanticEnabled();
+        }
+
+        private void ModeChanged(object sender, EventArgs e)
+        {
+            if (_suppressEvents) return;
+            // Prevent selecting Semantic when it is not available.
+            if (rbSemantic.Checked && !CanUseSemantic())
+            {
+                _suppressEvents = true;
+                try { rbSymbol.Checked = true; }
+                finally { _suppressEvents = false; }
+            }
+        }
+
+        private void UpdateSemanticEnabled()
+        {
+            bool canSemantic = CanUseSemantic();
+            rbSemantic.Enabled = canSemantic;
+            if (!canSemantic && rbSemantic.Checked)
+            {
+                _suppressEvents = true;
+                try { rbSymbol.Checked = true; }
+                finally { _suppressEvents = false; }
+            }
+        }
+
+        private void RaiseIndexNow()
+        {
+            Action handler = IndexNowClicked;
+            if (handler != null) handler();
+        }
+
+        private void RaiseClear()
+        {
+            Action handler = ClearClicked;
+            if (handler != null) handler();
+        }
+
+        // ── Status display ─────────────────────────────────────────────
+
+        public void RefreshStatus()
+        {
+            IndexingStatusSnapshot snapshot = IndexingStatusReporter.Current;
+            lblStatusBrief.Text = string.IsNullOrEmpty(snapshot.BriefText) ? "Index: (unknown)" : snapshot.BriefText;
+            lblStatusDetail.Text = snapshot.DetailText ?? string.Empty;
+            UpdateWrappingWidths();
+        }
+
+        private void OnStatusChanged()
+        {
+            try
+            {
+                if (InvokeRequired)
+                    BeginInvoke(new Action(RefreshStatus));
+                else
+                    RefreshStatus();
+            }
+            catch { }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                try { IndexingStatusReporter.StatusChanged -= OnStatusChanged; }
+                catch { }
+            }
+            base.Dispose(disposing);
+        }
+    }
+}

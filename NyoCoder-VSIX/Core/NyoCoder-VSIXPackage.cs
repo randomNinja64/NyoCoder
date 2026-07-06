@@ -39,12 +39,20 @@ namespace NyoCoder
     [ProvideOptionPage(typeof(OptionsPage), "NyoCoder", "General", 0, 0, true)]
     [ProvideOptionPage(typeof(ToolsOptionsPage), "NyoCoder", "Tools", 0, 0, true)]
     [ProvideOptionPage(typeof(WebSearchOptionsPage), "NyoCoder", "Web Search", 0, 0, true)]
+    [ProvideOptionPage(typeof(IndexingOptionsPage), "NyoCoder", "Indexing", 0, 0, true)]
     [Guid(GuidList.guidNyoCoder_VSIXPkgString)]
     public sealed class NyoCoder_VSIXPackage : Package
     {
         private static NyoCoder_VSIXPackage _instance;
         internal int _isAiRunning = 0; // 0 = not running, 1 = running
         public LLMClient LlmClient;
+
+        // DTE event objects for indexing triggers. Held in fields so they are not
+        // garbage-collected (which would silently stop the events from firing).
+        private SolutionEvents _solutionEvents;
+        private DocumentEvents _documentEvents;
+        private ProjectItemsEvents _projectItemsEvents;
+        private ProjectItemsEvents _solutionItemsEvents;
 
         /// <summary>
         /// Gets the singleton instance of the package.
@@ -147,6 +155,168 @@ namespace NyoCoder
 
             // Set up keyboard binding for Ask NyoCoder command (VS2010 compatible)
             SetupKeyboardBinding();
+
+            // Hook DTE events that drive codebase indexing.
+            SetupIndexingTriggers();
+        }
+
+        /// <summary>
+        /// Subscribes to the DTE events used to keep the codebase index fresh. The events are
+        /// always subscribed; each handler consults the current config so toggling triggers in
+        /// options takes effect without a restart.
+        /// </summary>
+        private void SetupIndexingTriggers()
+        {
+            try
+            {
+                DTE2 dte = ApplicationObject;
+                if (dte == null || dte.Events == null)
+                    return;
+
+                _solutionEvents = dte.Events.SolutionEvents;
+                if (_solutionEvents != null)
+                    _solutionEvents.Opened += OnSolutionOpened;
+
+                _documentEvents = dte.Events.get_DocumentEvents(null);
+                if (_documentEvents != null)
+                    _documentEvents.DocumentSaved += OnDocumentSaved;
+
+                Events2 events2 = dte.Events as Events2;
+                if (events2 != null)
+                {
+                    _projectItemsEvents = events2.ProjectItemsEvents;
+                    if (_projectItemsEvents != null)
+                    {
+                        _projectItemsEvents.ItemRemoved += OnProjectItemRemoved;
+                        _projectItemsEvents.ItemRenamed += OnProjectItemRenamed;
+                    }
+
+                    // SolutionItemsEvents is a property name; the type is ProjectItemsEvents.
+                    _solutionItemsEvents = events2.SolutionItemsEvents;
+                    if (_solutionItemsEvents != null)
+                    {
+                        _solutionItemsEvents.ItemRemoved += OnSolutionItemRemoved;
+                        _solutionItemsEvents.ItemRenamed += OnSolutionItemRenamed;
+                    }
+                }
+
+                // If a solution is already open at load, reconcile/publish once.
+                try
+                {
+                    if (dte.Solution != null && dte.Solution.IsOpen)
+                        OnSolutionOpened();
+                }
+                catch { }
+            }
+            catch
+            {
+                // Indexing triggers are best-effort; never block package init.
+            }
+        }
+
+        private void OnSolutionOpened()
+        {
+            try
+            {
+                // Keep the process's working directory in sync with the solution so that
+                // any code relying on Environment.CurrentDirectory (e.g. tools resolving
+                // relative paths) uses the solution's directory rather than devenv's own
+                // startup directory, which is otherwise left stale when no document is open.
+                try
+                {
+                    DTE2 dte = ApplicationObject;
+                    string solutionPath = dte != null && dte.Solution != null ? dte.Solution.FullName : null;
+                    if (!string.IsNullOrEmpty(solutionPath))
+                    {
+                        string solutionDir = System.IO.Path.GetDirectoryName(solutionPath);
+                        if (!string.IsNullOrEmpty(solutionDir) && System.IO.Directory.Exists(solutionDir))
+                            Environment.CurrentDirectory = solutionDir;
+                    }
+                }
+                catch { }
+
+                // A different solution's index applies now.
+                CodebaseIndex.Invalidate();
+                // Always publish immediately so the status bar reflects the new workspace
+                // (on-disk state) before any background reconcile starts.
+                CodebaseIndex.PublishStatus();
+                if (ConfigHandler.GetIndexOnSolutionOpen())
+                    CodebaseIndexer.RequestReconcile();
+            }
+            catch { }
+        }
+
+        private void OnDocumentSaved(Document document)
+        {
+            try
+            {
+                if (document == null || !ConfigHandler.GetIndexOnSave())
+                    return;
+                string path = document.FullName;
+                if (!string.IsNullOrEmpty(path))
+                    CodebaseIndexer.RequestIndexFile(path);
+            }
+            catch { }
+        }
+
+        private void OnProjectItemRemoved(ProjectItem item)
+        {
+            RemoveProjectItem(item);
+        }
+
+        private void OnSolutionItemRemoved(ProjectItem item)
+        {
+            RemoveProjectItem(item);
+        }
+
+        private void RemoveProjectItem(ProjectItem item)
+        {
+            try
+            {
+                string path = GetProjectItemPath(item);
+                if (!string.IsNullOrEmpty(path))
+                    CodebaseIndexer.RequestRemoveFile(path);
+            }
+            catch { }
+        }
+
+        private void OnProjectItemRenamed(ProjectItem item, string oldName)
+        {
+            RenameProjectItem(item, oldName);
+        }
+
+        private void OnSolutionItemRenamed(ProjectItem item, string oldName)
+        {
+            RenameProjectItem(item, oldName);
+        }
+
+        private void RenameProjectItem(ProjectItem item, string oldName)
+        {
+            try
+            {
+                string newPath = GetProjectItemPath(item);
+                if (string.IsNullOrEmpty(newPath))
+                    return;
+                string oldPath = null;
+                if (!string.IsNullOrEmpty(oldName))
+                {
+                    try { oldPath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(newPath), oldName); }
+                    catch { oldPath = null; }
+                }
+                CodebaseIndexer.RequestRenameFile(oldPath, newPath);
+            }
+            catch { }
+        }
+
+        private static string GetProjectItemPath(ProjectItem item)
+        {
+            try
+            {
+                if (item != null && item.FileCount >= 1)
+                    return item.get_FileNames(1);
+            }
+            catch { }
+            return null;
         }
 
         /// <summary>

@@ -73,6 +73,48 @@ namespace NyoCoder
                     _tokenTracker.ResetCharacterCount(_tokenTracker.TotalCharacterCount);
                 }
             };
+
+            // Keep the persistent indexing status bar in sync with the shared reporter.
+            IndexingStatusReporter.StatusChanged += OnIndexingStatusChanged;
+            this.Loaded += NyoCoderControl_Loaded;
+            this.Unloaded += NyoCoderControl_Unloaded;
+            RefreshIndexingStatus();
+        }
+
+        private void NyoCoderControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Populate the bar with the current on-disk index status without blocking the UI.
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try { CodebaseIndex.PublishStatus(); }
+                catch { }
+            });
+        }
+
+        private void NyoCoderControl_Unloaded(object sender, RoutedEventArgs e)
+        {
+            IndexingStatusReporter.StatusChanged -= OnIndexingStatusChanged;
+        }
+
+        private void OnIndexingStatusChanged()
+        {
+            EditorService.BeginInvokeOnUIThread(RefreshIndexingStatus, Dispatcher);
+        }
+
+        /// <summary>
+        /// Updates the persistent indexing status bar from the shared reporter. The bar is only
+        /// shown when indexing is enabled (mode != Off).
+        /// </summary>
+        private void RefreshIndexingStatus()
+        {
+            IndexingStatusSnapshot snapshot = IndexingStatusReporter.Current;
+            bool visible = ConfigHandler.GetIndexingMode() != IndexingMode.Off;
+            IndexingStatusBar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            if (!visible)
+                return;
+
+            IndexingStatusText.Text = string.IsNullOrEmpty(snapshot.BriefText) ? "Index: idle" : snapshot.BriefText;
+            IndexingStatusText.ToolTip = string.IsNullOrEmpty(snapshot.DetailText) ? null : snapshot.DetailText;
         }
 
 
@@ -278,7 +320,6 @@ namespace NyoCoder
 
                 if (!generating)
                 {
-                    InputBox.Clear();
                     _dispatcher.ClearSteerQueue();
                 }
 
@@ -321,6 +362,7 @@ namespace NyoCoder
 
             package.LlmClient = newClient;
             ClearOutput();
+            InputBox.Clear();
             _dispatcher.ClearSteerQueue();
             ShowInputBar();
             Interlocked.Exchange(ref package._isAiRunning, 0);

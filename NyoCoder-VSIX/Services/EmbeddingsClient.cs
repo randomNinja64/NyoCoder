@@ -1,0 +1,205 @@
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Text;
+
+namespace NyoCoder
+{
+    /// <summary>
+    /// Thrown when an embeddings request fails. Callers (the indexer / search tool)
+    /// catch this to fall back gracefully.
+    /// </summary>
+    public class EmbeddingsException : Exception
+    {
+        public EmbeddingsException(string message) : base(message) { }
+    }
+
+    /// <summary>
+    /// Minimal client for an OpenAI-compatible <c>/v1/embeddings</c> endpoint. Mirrors the
+    /// TLS enablement and curl HTTPS fallback used by <see cref="LLMClient"/> so it works on
+    /// legacy .NET 4.0 against llama.cpp / LM Studio / etc.
+    /// </summary>
+    public class EmbeddingsClient
+    {
+        /// <summary>Number of inputs sent per request when embedding many chunks.</summary>
+        public const int BatchSize = 32;
+
+        private readonly string _endpoint;
+        private readonly string _apiKey;
+        private readonly string _model;
+
+        public EmbeddingsClient(string endpoint, string apiKey, string model)
+        {
+            _endpoint = (endpoint ?? string.Empty).Trim();
+            _apiKey = apiKey ?? string.Empty;
+            _model = (model ?? string.Empty).Trim();
+
+            try
+            {
+                ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls
+                    | (SecurityProtocolType)768 | (SecurityProtocolType)3072 | (SecurityProtocolType)12288;
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Builds a client from config, or returns null if the embeddings endpoint/model
+        /// are not configured (semantic search cannot run without them).
+        /// </summary>
+        public static EmbeddingsClient CreateFromConfig()
+        {
+            string endpoint = ConfigHandler.GetEmbeddingsEndpoint();
+            string model = ConfigHandler.GetEmbeddingsModel();
+            if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(model))
+                return null;
+            return new EmbeddingsClient(endpoint, ConfigHandler.GetEmbeddingsApiKey(), model);
+        }
+
+        public bool IsConfigured
+        {
+            get { return !string.IsNullOrWhiteSpace(_endpoint) && !string.IsNullOrWhiteSpace(_model); }
+        }
+
+        /// <summary>Embeds a single text, returning its vector (or null on failure).</summary>
+        public float[] Embed(string text)
+        {
+            List<float[]> result = EmbedBatch(new List<string> { text ?? string.Empty });
+            return (result != null && result.Count > 0) ? result[0] : null;
+        }
+
+        /// <summary>
+        /// Embeds a list of texts, preserving input order. Sends requests in batches of
+        /// <see cref="BatchSize"/>. Throws <see cref="EmbeddingsException"/> on failure.
+        /// </summary>
+        public List<float[]> EmbedBatch(IList<string> texts)
+        {
+            List<float[]> results = new List<float[]>();
+            if (texts == null || texts.Count == 0)
+                return results;
+
+            for (int start = 0; start < texts.Count; start += BatchSize)
+            {
+                int count = Math.Min(BatchSize, texts.Count - start);
+
+                JArray input = new JArray();
+                for (int i = 0; i < count; i++)
+                    input.Add(texts[start + i] ?? string.Empty);
+
+                JObject payload = new JObject();
+                payload["model"] = _model;
+                payload["input"] = input;
+
+                string error;
+                string json = PostEmbeddings(payload, out error);
+                if (json == null)
+                    throw new EmbeddingsException(error ?? "Unknown embeddings error.");
+
+                float[][] batch = ParseBatch(json, count);
+                for (int i = 0; i < count; i++)
+                    results.Add(batch[i]);
+            }
+
+            return results;
+        }
+
+        private static float[][] ParseBatch(string json, int expectedCount)
+        {
+            JObject root;
+            try { root = JObject.Parse(json); }
+            catch (Exception ex) { throw new EmbeddingsException("Invalid embeddings response: " + ex.Message); }
+
+            JToken errToken = root["error"];
+            if (errToken != null && errToken.Type != JTokenType.Null)
+                throw new EmbeddingsException("Embeddings API error: " + errToken.ToString());
+
+            JArray data = root["data"] as JArray;
+            if (data == null)
+                throw new EmbeddingsException("Embeddings response missing 'data' array.");
+
+            float[][] batch = new float[expectedCount][];
+            int sequential = 0;
+
+            foreach (JToken token in data)
+            {
+                JObject item = token as JObject;
+                if (item == null)
+                    continue;
+
+                JArray embedding = item["embedding"] as JArray;
+                if (embedding == null)
+                    continue;
+
+                float[] vector = new float[embedding.Count];
+                for (int i = 0; i < embedding.Count; i++)
+                    vector[i] = (float)embedding[i];
+
+                int index;
+                JToken indexToken = item["index"];
+                if (indexToken != null && indexToken.Type == JTokenType.Integer)
+                    index = (int)indexToken;
+                else
+                    index = sequential;
+
+                if (index >= 0 && index < expectedCount)
+                    batch[index] = vector;
+
+                sequential++;
+            }
+
+            for (int i = 0; i < expectedCount; i++)
+            {
+                if (batch[i] == null)
+                    throw new EmbeddingsException("Embeddings response returned fewer vectors than requested.");
+            }
+
+            return batch;
+        }
+
+        private string PostEmbeddings(JObject payload, out string error)
+        {
+            error = null;
+            string url = _endpoint.TrimEnd('/') + "/v1/embeddings";
+
+            try
+            {
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+                request.Method = "POST";
+                request.ContentType = "application/json";
+                if (!string.IsNullOrEmpty(_apiKey))
+                    request.Headers.Add("Authorization", "Bearer " + _apiKey);
+                request.Timeout = 120000;
+                request.ReadWriteTimeout = 120000;
+
+                byte[] bytes = Encoding.UTF8.GetBytes(payload.ToString(Formatting.None));
+                request.ContentLength = bytes.Length;
+                using (Stream stream = request.GetRequestStream())
+                    stream.Write(bytes, 0, bytes.Length);
+
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (Stream responseStream = response.GetResponseStream())
+                using (StreamReader reader = new StreamReader(responseStream, Encoding.UTF8))
+                    return reader.ReadToEnd();
+            }
+            catch (Exception ex)
+            {
+                // curl fallback for HTTPS/TLS failures on legacy .NET 4.0
+                string curlPath = CurlClient.GetCurlPath();
+                if (url.StartsWith("https:", StringComparison.OrdinalIgnoreCase) && File.Exists(curlPath))
+                {
+                    int exitCode;
+                    string body = CurlClient.PostJson(url, _apiKey, payload, out exitCode);
+                    if (exitCode == 0 && !string.IsNullOrEmpty(body))
+                        return body;
+                    error = "Embeddings request failed (curl): " + (body ?? ex.Message);
+                    return null;
+                }
+
+                error = "Embeddings request failed: " + ex.Message;
+                return null;
+            }
+        }
+    }
+}

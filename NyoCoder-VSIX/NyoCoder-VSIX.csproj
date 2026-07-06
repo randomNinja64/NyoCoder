@@ -138,6 +138,7 @@
   <ItemGroup>
     <!-- Core -->
     <Compile Include="Core\ChatMode.cs" />
+    <Compile Include="Core\IndexingMode.cs" />
     <Compile Include="Core\Guids.cs" />
     <Compile Include="Core\PkgCmdID.cs" />
     <Compile Include="Core\GlobalSuppressions.cs" />
@@ -146,19 +147,28 @@
     <Compile Include="Editor\DiffHighlightAdornment.cs" />
     <Compile Include="Editor\DiffHighlightAdornmentFactory.cs" />
     <!-- Services -->
+    <Compile Include="Services\CodebaseIndex.cs" />
+    <Compile Include="Services\CodebaseIndexer.cs" />
     <Compile Include="Services\ConfigHandler.cs" />
     <Compile Include="Services\ContextEngine.cs" />
     <Compile Include="Services\ConversationSteerer.cs" />
     <Compile Include="Services\CurlClient.cs" />
     <Compile Include="Services\EditorService.cs" />
+    <Compile Include="Services\EmbeddingsClient.cs" />
     <Compile Include="Services\FileHandler.cs" />
+    <Compile Include="Services\FileScanFilter.cs" />
+    <Compile Include="Services\IndexingStatusReporter.cs" />
     <Compile Include="Services\LLMClient.cs" />
     <Compile Include="Services\SseStreamParser.cs" />
     <Compile Include="Services\MessageDispatcher.cs" />
+    <Compile Include="Services\SymbolExtractor.cs" />
+    <Compile Include="Services\SymbolReferenceExtractor.cs" />
     <Compile Include="Services\ToolApprovalService.cs" />
     <Compile Include="Services\StepExecutor.cs" />
     <Compile Include="Services\StepPlanner.cs" />
+    <Compile Include="Services\VectorStore.cs" />
     <!-- Tools -->
+    <Compile Include="Tools\CodebaseSearchTool.cs" />
     <Compile Include="Tools\ExternalToolRegistry.cs" />
     <Compile Include="Tools\GrepSearchTool.cs" />
     <Compile Include="Tools\SearchReplaceHandler.cs" />
@@ -198,6 +208,12 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="UI\WebSearchOptionsPageHost.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\IndexingOptionsPage.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\IndexingOptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <!-- Properties -->

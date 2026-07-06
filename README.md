@@ -12,6 +12,22 @@ An extension for Visual Studio 2010-2015 that enables AI-assisted coding with Op
   - **Model** - Model to use
   - **Max Read Lines** - Max number of lines that the AI can read from a file at a time
   - **Context Window Size** - If known, can be set here to enable automatic context summarization when context fills.
+- **Appearance**
+  - **Render Markdown in Chat Output** - Renders Markdown formatting in chat (default: enabled)
+  - **Show Model Reasoning Output** - Displays model reasoning in chat (default: enabled)
+  - **Show Full Tool Execution Output** - Shows full tool output in chat (default: enabled)
+- **Indexing**
+  - **Mode** - Indexing backend (default: Symbol)
+    - **Semantic** - embeddings-based, API required
+    - **Symbol** - offline symbol map
+    - **Off** - grep only
+  - **Embeddings**
+    - **Embeddings Endpoint** - OpenAI-compatible embeddings API URL (blank = use **LLM Server**)
+    - **Embeddings Model** - Embeddings model name (required for Semantic mode)
+    - **Embeddings API Key** - API key for the embeddings endpoint (blank = use **API Key**)
+  - **When to Index**
+    - **Index on Solution Open** - Automatically index the solution when it is opened (default: enabled)
+    - **Re-index Changed Files on Save** - Update the index when files are saved (default: enabled)
 - **Tools**
   - **Tools** - List of available tools and their enabled/disabled state
   - **Tools Requiring Approval** - List of tools and whether or not they require approval to run
@@ -41,6 +57,7 @@ The extension can be triggered through its tool window, the right-click menu wit
 - **ask_user_question** - presents the user with a question and a set of answers, as well as a text box to provide a custom answer
 - **copy_file** - copies a file from one location to another
 - **delete_file** - deletes a file from the file system
+- **codebase_search** - finds code snippets relevant to a natural-language query (uses the configured indexing backend; falls back to grep_search when indexing is off or unavailable)
 - **grep_search** - recursively searches for a regex pattern in files (Relies on grep.exe in the extension's directory, included with the release but not with source)
 - **list_directory** - lists all files and subdirectories in a directory
 - **move_file** - moves or renames a file

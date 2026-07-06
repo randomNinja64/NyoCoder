@@ -239,7 +239,7 @@ namespace NyoCoder
 		string value = (tools != null && tools.Count > 0)
 			? string.Join(",", tools.ToArray())
 			: "null";
-		configMap["toolsRequiringApproval"] = value;
+		SetConfigValue("toolsRequiringApproval", value);
 	}
 
 		public static bool IsToolDisabled(string toolName)
@@ -408,12 +408,19 @@ namespace NyoCoder
 					string line;
 					while ((line = reader.ReadLine()) != null)
 					{
-						line = line.Trim();
-						if (string.IsNullOrEmpty(line) || line[0] == ';' || line[0] == '#')
+						string trimmed = line.Trim();
+						if (trimmed.Length == 0 || trimmed[0] == ';' || trimmed[0] == '#')
 							continue;
-						int eq = line.IndexOf('=');
-						if (eq > 0)
-							result[line.Substring(0, eq).Trim()] = line.Substring(eq + 1).Trim();
+						if (trimmed[0] == '[' && trimmed[trimmed.Length - 1] == ']')
+							continue;
+
+						int eq = trimmed.IndexOf('=');
+						if (eq <= 0)
+							continue;
+
+						string key = trimmed.Substring(0, eq).Trim();
+						if (!string.IsNullOrEmpty(key))
+							result[key] = trimmed.Substring(eq + 1).Trim();
 					}
 				}
 			}
@@ -422,15 +429,58 @@ namespace NyoCoder
 			return result;
 		}
 
+		private static void AppendSection(List<string> lines, ref bool firstSection, string name,
+			Dictionary<string, string> config, HashSet<string> written, params string[] keys)
+		{
+			var sectionLines = new List<string>();
+			foreach (string key in keys)
+			{
+				string value;
+				if (config.TryGetValue(key, out value))
+				{
+					sectionLines.Add(key + "=" + value);
+					written.Add(key);
+				}
+			}
+			if (sectionLines.Count == 0)
+				return;
+
+			sectionLines.Sort(StringComparer.OrdinalIgnoreCase);
+			if (!firstSection)
+				lines.Add(string.Empty);
+			firstSection = false;
+			lines.Add("[" + name + "]");
+			lines.AddRange(sectionLines);
+		}
+
 		private static void SaveIni(string filename, Dictionary<string, string> config)
 		{
 			try
 			{
-				using (StreamWriter writer = new StreamWriter(filename, false, Encoding.UTF8))
+				var lines = new List<string>();
+				var written = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				bool firstSection = true;
+
+				AppendSection(lines, ref firstSection, "General", config, written,
+					"apiKey", "llmserver", "model", "maxReadLines", "contextWindowSize");
+				AppendSection(lines, ref firstSection, "Appearance", config, written,
+					"markdownparsing", "showreasoningoutput", "showtooloutput");
+				AppendSection(lines, ref firstSection, "Indexing", config, written,
+					"indexingMode", "embeddingsEndpoint", "embeddingsModel", "embeddingsApiKey",
+					"indexOnSolutionOpen", "indexOnSave", "indexChunkLines", "indexChunkOverlap");
+				AppendSection(lines, ref firstSection, "Web Search", config, written,
+					"searxngInstance", "webUserAgent", "maxSearchResults", "maxWebContentLength");
+
+				var toolKeys = new List<string> { "disabledTools", "toolsRequiringApproval" };
+				written.UnionWith(toolKeys);
+				foreach (string key in config.Keys)
 				{
-					foreach (var kvp in config)
-						writer.WriteLine("{0}={1}", kvp.Key, kvp.Value);
+					if (!written.Contains(key))
+						toolKeys.Add(key);
 				}
+				AppendSection(lines, ref firstSection, "Tools", config, written, toolKeys.ToArray());
+
+				File.WriteAllLines(filename, lines.ToArray(), Encoding.UTF8);
 			}
 			catch { }
 		}

@@ -97,6 +97,34 @@ namespace NyoCoder
         };
 
         /// <summary>
+        /// Returns the names of all tools that would be sent to the LLM for the given mode.
+        /// </summary>
+        public static List<string> GetEnabledToolNames(ChatMode mode = ChatMode.Agent)
+        {
+            var enabled = new List<string>();
+
+            foreach (string name in BuiltInToolNames)
+            {
+                if (ConfigHandler.IsToolDisabled(name))
+                    continue;
+                if (mode == ChatMode.Plan && !PlanModeTools.Contains(name))
+                    continue;
+                enabled.Add(name);
+            }
+
+            foreach (ExternalToolRegistry.PackageInfo pkg in ExternalToolRegistry.GetPackages())
+            {
+                foreach (string name in pkg.ToolNames)
+                {
+                    if (!ConfigHandler.IsToolDisabled(name))
+                        enabled.Add(name);
+                }
+            }
+
+            return enabled;
+        }
+
+        /// <summary>
         /// Builds the JSON array of tool definitions for the LLM API.
         /// Uses Agent mode (all tools) by default.
         /// </summary>

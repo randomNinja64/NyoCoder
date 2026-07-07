@@ -453,10 +453,14 @@ public class LLMClient
         // Messages
         JArray messages = new JArray();
 
-        // System message — includes mode-specific instructions
+        // System message — includes mode-specific instructions and injected tool context
+        string systemPrompt = ContextEngine.GetSystemPrompt(mode);
+        foreach (string injection in ExternalToolRegistry.GetContextInjections(ToolDefinitions.GetEnabledToolNames(mode)))
+            systemPrompt += "\n\n" + injection;
+
         JObject systemMsg = new JObject();
         systemMsg["role"] = "system";
-        systemMsg["content"] = ContextEngine.GetSystemPrompt(mode);
+        systemMsg["content"] = systemPrompt;
         messages.Add(systemMsg);
 
         // Process all user messages in the conversation list

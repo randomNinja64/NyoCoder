@@ -16,6 +16,11 @@ namespace NyoCoder
     ///   1. Spawn: <executable> <tool_name>
     ///   2. Write UTF-8 JSON to stdin: { "config": {...}, "arguments": {...} }
     ///   3. Read stdout as the tool result; stderr is appended if non-empty.
+    ///
+    /// Context injectors (optional manifest field "context_injector"):
+    ///   1. Spawn: <executable> <context_injector>
+    ///   2. Write UTF-8 JSON to stdin: { "config": {...}, "arguments": {} }
+    ///   3. Append stdout to the system prompt when at least one tool from the package is enabled.
     /// </summary>
     internal static class ExternalToolRegistry
     {
@@ -52,6 +57,10 @@ namespace NyoCoder
 
         private static readonly Dictionary<string, ExternalToolDefinition> _tools =
             new Dictionary<string, ExternalToolDefinition>(StringComparer.OrdinalIgnoreCase);
+
+        // Context injectors declared by manifests via the "context_injector" field (executablePath -> commandName).
+        private static readonly Dictionary<string, string> _contextInjectorsByExecutable =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         private static readonly List<PackageInfo> _packages = new List<PackageInfo>();
 
@@ -96,6 +105,7 @@ namespace NyoCoder
                 _tools.Clear();
                 _packages.Clear();
                 _optionDefaults.Clear();
+                _contextInjectorsByExecutable.Clear();
                 LoadToolsFromDirectory(ToolsDirectory);
                 _loaded = true;
             }
@@ -130,6 +140,10 @@ namespace NyoCoder
             string executable = (string)manifest["executable"] ?? "";
             string manifestDir = Path.GetDirectoryName(jsonFilePath);
             string executablePath = Path.Combine(manifestDir, executable);
+
+            string contextInjectorCommand = (string)manifest["context_injector"];
+            if (!string.IsNullOrEmpty(contextInjectorCommand))
+                _contextInjectorsByExecutable[executablePath] = contextInjectorCommand;
 
             // Collect option definitions for the UI and store defaults for process invocation
             var optionDefs = new List<OptionDefinition>();
@@ -230,6 +244,71 @@ namespace NyoCoder
         {
             EnsureLoaded();
             return new Dictionary<string, string>(_optionDefaults, StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Calls each package's context injector for packages that have at least
+        /// one enabled tool, and returns all non-empty results for injection into the system prompt.
+        /// </summary>
+        public static List<string> GetContextInjections(IEnumerable<string> enabledTools)
+        {
+            var results = new List<string>();
+
+            if (enabledTools == null || _contextInjectorsByExecutable.Count == 0)
+                return results;
+
+            EnsureLoaded();
+
+            var activeExecutables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string toolName in enabledTools)
+            {
+                ExternalToolDefinition def;
+                if (_tools.TryGetValue(toolName, out def) && !string.IsNullOrEmpty(def.ExecutablePath))
+                    activeExecutables.Add(def.ExecutablePath);
+            }
+
+            foreach (var kvp in _contextInjectorsByExecutable)
+            {
+                if (!activeExecutables.Contains(kvp.Key))
+                    continue;
+
+                string output = InvokeContextProvider(kvp.Key, kvp.Value);
+                if (!string.IsNullOrWhiteSpace(output))
+                    results.Add(output.Trim());
+            }
+
+            return results;
+        }
+
+        private static string InvokeContextProvider(string executablePath, string commandName)
+        {
+            try
+            {
+                JObject configObj = new JObject();
+                foreach (var kvp in _optionDefaults)
+                    configObj[kvp.Key] = kvp.Value;
+                foreach (var kvp in ConfigHandler.GetAllValues())
+                    configObj[kvp.Key] = kvp.Value;
+
+                JObject stdinPayload = new JObject();
+                stdinPayload["config"] = configObj;
+                stdinPayload["arguments"] = new JObject();
+
+                string stdinData = stdinPayload.ToString(Formatting.None);
+
+                int exitCode;
+                return ToolHandler.ExecuteProcess(
+                    executablePath,
+                    commandName,
+                    out exitCode,
+                    combineErrorOutput: false,
+                    stdinData: stdinData,
+                    workingDirectory: Path.GetDirectoryName(executablePath));
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>

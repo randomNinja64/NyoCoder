@@ -18,6 +18,7 @@ namespace NyoCoder
             Host.ApiKey = ConfigHandler.GetApiKey();
             Host.LlmServer = ConfigHandler.GetLlmServer();
             Host.Model = ConfigHandler.GetModel();
+            Host.ReasoningEffort = ConfigHandler.GetReasoningEffort();
             Host.MaxReadLines = ConfigHandler.MaxReadLines;
             Host.ContextWindowSize = ConfigHandler.ContextWindowSize;
         }
@@ -27,6 +28,7 @@ namespace NyoCoder
             ConfigHandler.SetApiKey(Host.ApiKey);
             ConfigHandler.SetLlmServer(Host.LlmServer);
             ConfigHandler.SetModel(Host.Model);
+            ConfigHandler.SetReasoningEffort(Host.ReasoningEffort);
             ConfigHandler.SetMaxReadLines(Host.MaxReadLines);
             ConfigHandler.SetContextWindowSize(Host.ContextWindowSize);
         }

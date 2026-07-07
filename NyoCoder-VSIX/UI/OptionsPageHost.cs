@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -5,12 +6,19 @@ namespace NyoCoder
 {
     public class OptionsPageHost : OptionsPageHostBase
     {
+        private static readonly string[] ReasoningEffortOptions =
+        {
+            "", "none", "minimal", "low", "medium", "high", "xhigh"
+        };
+
         private Label lblApiKey;
         private TextBox txtApiKey;
         private Label lblLlmServer;
         private TextBox txtLlmServer;
         private Label lblModel;
         private TextBox txtModel;
+        private Label lblReasoningEffort;
+        private ComboBox cboReasoningEffort;
         private Label lblMaxReadLines;
         private TextBox txtMaxReadLines;
         private Label lblContextWindowSize;
@@ -48,6 +56,16 @@ namespace NyoCoder
             this.txtModel = new TextBox();
             this.txtModel.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
+            this.lblReasoningEffort = new Label();
+            this.lblReasoningEffort.AutoSize = true;
+            this.lblReasoningEffort.Text = "Reasoning Effort:";
+
+            this.cboReasoningEffort = new ComboBox();
+            this.cboReasoningEffort.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            this.cboReasoningEffort.DropDownStyle = ComboBoxStyle.DropDownList;
+            foreach (string option in ReasoningEffortOptions)
+                this.cboReasoningEffort.Items.Add(option);
+
             this.lblMaxReadLines = new Label();
             this.lblMaxReadLines.AutoSize = true;
             this.lblMaxReadLines.Text = "Max Read Lines:";
@@ -69,6 +87,8 @@ namespace NyoCoder
             AddRow(this.txtLlmServer, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblModel, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtModel, new Padding(0, 0, 0, 12), false);
+            AddRow(this.lblReasoningEffort, new Padding(0, 0, 0, 4), true);
+            AddRow(this.cboReasoningEffort, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblMaxReadLines, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtMaxReadLines, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblContextWindowSize, new Padding(0, 0, 0, 4), true);
@@ -95,6 +115,12 @@ namespace NyoCoder
         {
             get { return txtModel.Text; }
             set { txtModel.Text = value ?? string.Empty; }
+        }
+
+        public string ReasoningEffort
+        {
+            get { return cboReasoningEffort.Text; }
+            set { cboReasoningEffort.Text = value ?? string.Empty; }
         }
 
         public int MaxReadLines

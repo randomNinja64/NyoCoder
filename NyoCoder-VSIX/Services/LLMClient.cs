@@ -480,6 +480,10 @@ public class LLMClient
 
         payload["stream"] = true;
 
+        string reasoningEffort = ConfigHandler.GetReasoningEffort();
+        if (!string.IsNullOrEmpty(reasoningEffort))
+            payload["reasoning_effort"] = reasoningEffort;
+
         if (stopRequested != null && stopRequested())
         {
             return new LLMCompletionResponse("", new List<ToolHandler.ToolCall>(), "stopped");

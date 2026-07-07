@@ -158,6 +158,19 @@ namespace NyoCoder
 			SetConfigValue("contextWindowSize", _contextWindowSize.HasValue ? _contextWindowSize.Value.ToString() : null);
 		}
 
+		/// <summary>
+		/// Returns the configured reasoning effort for supported models, or empty for API default.
+		/// </summary>
+		public static string GetReasoningEffort()
+		{
+			return GetConfigValue("reasoningeffort");
+		}
+
+		public static void SetReasoningEffort(string value)
+		{
+			SetConfigValue("reasoningeffort", string.IsNullOrWhiteSpace(value) ? null : value.Trim());
+		}
+
 	// -------------------------------------------------------------------------
 	// Tool enable/disable
 	// -------------------------------------------------------------------------
@@ -462,7 +475,7 @@ namespace NyoCoder
 				bool firstSection = true;
 
 				AppendSection(lines, ref firstSection, "General", config, written,
-					"apiKey", "llmserver", "model", "maxReadLines", "contextWindowSize");
+					"apiKey", "llmserver", "model", "maxReadLines", "contextWindowSize", "reasoningeffort");
 				AppendSection(lines, ref firstSection, "Appearance", config, written,
 					"markdownparsing", "showreasoningoutput", "showtooloutput");
 				AppendSection(lines, ref firstSection, "Indexing", config, written,

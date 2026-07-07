@@ -6,10 +6,7 @@ namespace NyoCoder
 {
     /// <summary>
     /// WinForms host for the Indexing options page: a 3-way mode selector (Semantic / Symbol /
-    /// Off) with Semantic gated on embeddings model (and an effective endpoint via this
-    /// field or the main LLM server), embeddings fields, live index status, manual Index Now /
-    /// Clear buttons, and indexing triggers.
-    /// </summary>
+    /// Off)
     public class IndexingOptionsPageHost : OptionsPageHostBase
     {
         private RadioButton rbSemantic;
@@ -28,8 +25,6 @@ namespace NyoCoder
 
         private CheckBox chkOnSolutionOpen;
         private CheckBox chkOnSave;
-
-        private bool _suppressEvents;
 
         /// <summary>Raised when the user clicks "Index Now".</summary>
         public event Action IndexNowClicked;
@@ -51,10 +46,6 @@ namespace NyoCoder
             rbSymbol = new RadioButton { AutoSize = true, Text = "Symbol (offline symbol map search, no embeddings)" };
             rbOff = new RadioButton { AutoSize = true, Text = "Off (codebase_search falls back to grep)" };
 
-            rbSemantic.CheckedChanged += ModeChanged;
-            rbSymbol.CheckedChanged += ModeChanged;
-            rbOff.CheckedChanged += ModeChanged;
-
             FlowLayoutPanel modePanel = new FlowLayoutPanel
             {
                 AutoSize = true,
@@ -69,11 +60,9 @@ namespace NyoCoder
 
             Label lblEndpoint = new Label { AutoSize = true, Text = "Embeddings endpoint (OpenAI-compatible; blank = use default LLM server):" };
             txtEndpoint = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
-            txtEndpoint.TextChanged += EmbeddingsFieldChanged;
 
             Label lblModel = new Label { AutoSize = true, Text = "Embeddings model:" };
             txtModel = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
-            txtModel.TextChanged += EmbeddingsFieldChanged;
 
             Label lblApiKey = new Label { AutoSize = true, Text = "Embeddings API key (optional; blank = use default API key):" };
             txtApiKey = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, UseSystemPasswordChar = true };
@@ -139,18 +128,12 @@ namespace NyoCoder
             }
             set
             {
-                _suppressEvents = true;
-                try
-                {
-                    if (value == IndexingMode.Semantic && CanUseSemantic())
-                        rbSemantic.Checked = true;
-                    else if (value == IndexingMode.Off)
-                        rbOff.Checked = true;
-                    else
-                        rbSymbol.Checked = true;
-                }
-                finally { _suppressEvents = false; }
-                UpdateSemanticEnabled();
+                if (value == IndexingMode.Semantic)
+                    rbSemantic.Checked = true;
+                else if (value == IndexingMode.Off)
+                    rbOff.Checked = true;
+                else
+                    rbSymbol.Checked = true;
             }
         }
 
@@ -185,44 +168,6 @@ namespace NyoCoder
         }
 
         // ── Behavior ───────────────────────────────────────────────────
-
-        private bool CanUseSemantic()
-        {
-            if (string.IsNullOrWhiteSpace(Model))
-                return false;
-            if (!string.IsNullOrWhiteSpace(Endpoint))
-                return true;
-            return !string.IsNullOrWhiteSpace(ConfigHandler.GetLlmServer());
-        }
-
-        private void EmbeddingsFieldChanged(object sender, EventArgs e)
-        {
-            UpdateSemanticEnabled();
-        }
-
-        private void ModeChanged(object sender, EventArgs e)
-        {
-            if (_suppressEvents) return;
-            // Prevent selecting Semantic when it is not available.
-            if (rbSemantic.Checked && !CanUseSemantic())
-            {
-                _suppressEvents = true;
-                try { rbSymbol.Checked = true; }
-                finally { _suppressEvents = false; }
-            }
-        }
-
-        private void UpdateSemanticEnabled()
-        {
-            bool canSemantic = CanUseSemantic();
-            rbSemantic.Enabled = canSemantic;
-            if (!canSemantic && rbSemantic.Checked)
-            {
-                _suppressEvents = true;
-                try { rbSymbol.Checked = true; }
-                finally { _suppressEvents = false; }
-            }
-        }
 
         private void RaiseIndexNow()
         {

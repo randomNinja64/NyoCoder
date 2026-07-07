@@ -19,7 +19,6 @@ namespace NyoCoder
         {
             if (Host == null) return;
 
-            // Set endpoint/model before mode so the Semantic gating evaluates correctly.
             Host.Endpoint = ConfigHandler.GetEmbeddingsEndpointRaw();
             Host.Model = ConfigHandler.GetEmbeddingsModel();
             Host.ApiKey = ConfigHandler.GetEmbeddingsApiKeyRaw();

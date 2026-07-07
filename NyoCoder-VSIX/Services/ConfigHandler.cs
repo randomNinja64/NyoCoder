@@ -394,6 +394,71 @@ namespace NyoCoder
 		}
 
 		// -------------------------------------------------------------------------
+		// Build error handling
+		// -------------------------------------------------------------------------
+
+		/// <summary>
+		/// Returns how build errors are detected after agent file edits.
+		/// Unknown/empty values fall back to <see cref="BuildErrorCheckMode.IntelliSense"/>.
+		/// </summary>
+		public static BuildErrorCheckMode GetBuildErrorCheckMode()
+		{
+			string raw = GetConfigValue("buildErrorCheckMode");
+			if (!string.IsNullOrEmpty(raw))
+			{
+				switch (raw.Trim().ToLowerInvariant())
+				{
+					case "off": return BuildErrorCheckMode.Off;
+					case "buildsolution": return BuildErrorCheckMode.BuildSolution;
+					case "intellisense": return BuildErrorCheckMode.IntelliSense;
+				}
+			}
+			return BuildErrorCheckMode.IntelliSense;
+		}
+
+		public static void SetBuildErrorCheckMode(BuildErrorCheckMode mode)
+		{
+			string value;
+			switch (mode)
+			{
+				case BuildErrorCheckMode.Off:
+					value = "off";
+					break;
+				case BuildErrorCheckMode.BuildSolution:
+					value = "buildsolution";
+					break;
+				default:
+					value = "intellisense";
+					break;
+			}
+			SetConfigValue("buildErrorCheckMode", value);
+		}
+
+		public static int GetBuildErrorCheckWaitSeconds()
+		{
+			int value = GetConfigInt("buildErrorCheckWaitSeconds", 5);
+			return value > 0 ? value : 5;
+		}
+
+		public static void SetBuildErrorCheckWaitSeconds(int value)
+		{
+			if (value <= 0) value = 5;
+			SetConfigValue("buildErrorCheckWaitSeconds", value.ToString());
+		}
+
+		public static int GetBuildErrorFixMaxAttempts()
+		{
+			int value = GetConfigInt("buildErrorFixMaxAttempts", 3);
+			return value > 0 ? value : 3;
+		}
+
+		public static void SetBuildErrorFixMaxAttempts(int value)
+		{
+			if (value <= 0) value = 3;
+			SetConfigValue("buildErrorFixMaxAttempts", value.ToString());
+		}
+
+		// -------------------------------------------------------------------------
 		// INI read/write
 		// -------------------------------------------------------------------------
 
@@ -483,6 +548,8 @@ namespace NyoCoder
 					"indexOnSolutionOpen", "indexOnSave", "indexChunkLines", "indexChunkOverlap");
 				AppendSection(lines, ref firstSection, "Web Search", config, written,
 					"searxngInstance", "webUserAgent", "maxSearchResults", "maxWebContentLength");
+				AppendSection(lines, ref firstSection, "Build Error Handling", config, written,
+					"buildErrorCheckMode", "buildErrorCheckWaitSeconds", "buildErrorFixMaxAttempts");
 
 				var toolKeys = new List<string> { "disabledTools", "toolsRequiringApproval" };
 				written.UnionWith(toolKeys);

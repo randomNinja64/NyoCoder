@@ -20,6 +20,9 @@ public class LLMClient
     /// </summary>
     public List<ChatMessage> Conversation { get; set; }
 
+    // Boolean flag that gets set when a file-modifying tool is executed
+    public bool FilesModifiedThisTurn { get; private set; }
+
     public LLMClient(string llmEndpoint, string key, string mdl)
     {
         this.llmEndpoint = llmEndpoint;
@@ -124,6 +127,8 @@ public class LLMClient
         ChatMode mode = ChatMode.Agent,
         Func<string> dequeueSteerMessage = null)
     {
+        FilesModifiedThisTurn = false;
+
         // Add user message
         ChatMessage userMsg = new ChatMessage
         {
@@ -272,6 +277,9 @@ public class LLMClient
                         ToolCallId = call.Id
                     };
                     this.Conversation.Add(toolMsg);
+
+                    if (exitCode == 0 && ToolDefinitions.IsFileModifyingTool(call.Name))
+                        FilesModifiedThisTurn = true;
 
                     // Output tool result
                     if (outputCallback != null && showToolOutput)

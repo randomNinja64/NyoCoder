@@ -134,20 +134,35 @@ namespace NyoCoder
 
                     ApplyMarkdownIfEnabled();
 
+                    StepPlanner planner = StepPlanner.Instance;
+
                     if (chatMode == ChatMode.Plan)
                     {
                         HandlePlanReview(llmClient, chatMode);
                     }
-                    else
+                    else if (planner != null && !planner.PlanRequiresExecution && !isNewSession)
                     {
-                        StepPlanner currentPlanner = StepPlanner.Instance;
-                        if (currentPlanner != null && !currentPlanner.PlanRequiresExecution && !isNewSession)
-                            _hideStepDisplay();
+                        _hideStepDisplay();
                     }
 
-                    StepPlanner planner = StepPlanner.Instance;
-                    if (planner != null && planner.PlanRequiresExecution)
+                    bool planExecuted = planner != null && planner.PlanRequiresExecution;
+                    if (planExecuted)
                         ExecutePlan(planner, llmClient);
+
+                    // planExecuted is captured before ExecutePlan runs, since Execute() resets
+                    // PlanRequiresExecution to false; plan steps use separate clients, so it isn't
+                    // reflected in llmClient.FilesModifiedThisTurn.
+                    bool filesModified = llmClient.FilesModifiedThisTurn || planExecuted;
+                    if (filesModified)
+                    {
+                        BuildErrorFixLoop.RunIfNeeded(
+                            llmClient,
+                            _stopRequested,
+                            _appendText,
+                            _steerer.TryDequeue,
+                            _resetCharacterCount);
+                        ApplyMarkdownIfEnabled();
+                    }
 
                     _appendText(Environment.NewLine);
                     _showInputBar();
@@ -201,9 +216,6 @@ namespace NyoCoder
 
         private void HandlePlanReview(LLMClient llmClient, ChatMode planMode)
         {
-            Func<bool> onStop = _stopRequested;
-            Action<int> onSummarized = _resetCharacterCount;
-
             while (true)
             {
                 if (_stopRequested())
@@ -225,8 +237,8 @@ namespace NyoCoder
                         ConfigHandler.GetShowToolOutput(),
                         _appendText,
                         ToolApprovalService.Request,
-                        stopRequested: onStop,
-                        onSummarized: onSummarized,
+                        stopRequested: _stopRequested,
+                        onSummarized: _resetCharacterCount,
                         mode: ChatMode.Agent,
                         dequeueSteerMessage: _steerer.TryDequeue
                     );
@@ -245,8 +257,8 @@ namespace NyoCoder
                         ConfigHandler.GetShowToolOutput(),
                         _appendText,
                         ToolApprovalService.Request,
-                        stopRequested: onStop,
-                        onSummarized: onSummarized,
+                        stopRequested: _stopRequested,
+                        onSummarized: _resetCharacterCount,
                         mode: planMode,
                         dequeueSteerMessage: _steerer.TryDequeue
                     );

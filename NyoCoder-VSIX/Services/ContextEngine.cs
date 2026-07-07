@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using EnvDTE;
 using EnvDTE80;
@@ -317,79 +318,87 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Gets active compiler errors from the error list.
+        /// Snapshot of build errors from the Error List (errors only, not warnings).
         /// </summary>
-        /// <param name="activeFilePath">Path to the active file to filter errors for that file, or null for all errors.</param>
-        /// <returns>A string containing error information, or empty if no errors.</returns>
-        public string GetCompilerErrors(string activeFilePath)
+        public struct CompilerErrorSnapshot
         {
+            public int Count;
+            public string FormattedText;
+            /// <summary>Normalized signature for comparing error sets between detection passes.</summary>
+            public string Signature;
+        }
+
+        /// <summary>
+        /// Collects build errors from the error list.
+        /// </summary>
+        public bool TryCollectCompilerErrors(string activeFilePath, out CompilerErrorSnapshot snapshot)
+        {
+            snapshot = new CompilerErrorSnapshot();
             try
             {
-                if (_dte == null) return string.Empty;
+                if (_dte == null) return false;
 
-                // Get the error list items
                 ErrorList errorList = _dte.ToolWindows.ErrorList;
-                if (errorList == null) return string.Empty;
+                if (errorList == null) return false;
 
                 ErrorItems errorItems = errorList.ErrorItems;
-                if (errorItems == null || errorItems.Count == 0) return string.Empty;
+                if (errorItems == null || errorItems.Count == 0) return false;
 
                 StringBuilder errors = new StringBuilder();
+                var signatureLines = new List<string>();
                 int errorCount = 0;
 
-                // Iterate through error items (only errors, not warnings)
                 for (int i = 1; i <= errorItems.Count; i++)
                 {
                     try
                     {
                         ErrorItem item = errorItems.Item(i);
-                        
-                        // Only include errors (not warnings or messages)
+
                         if (item == null || item.ErrorLevel != vsBuildErrorLevel.vsBuildErrorLevelHigh)
                             continue;
 
-                        // If activeFilePath is provided, only include errors from that file
-                        if (!string.IsNullOrEmpty(activeFilePath) && 
+                        if (!string.IsNullOrEmpty(activeFilePath) &&
                             !string.IsNullOrEmpty(item.FileName) &&
                             !string.Equals(item.FileName, activeFilePath, StringComparison.OrdinalIgnoreCase))
                             continue;
 
                         errorCount++;
-                        
-                        // Format: Line 45: CS0246: The type or namespace name 'Foo' could not be found
-                        string fileName = !string.IsNullOrEmpty(item.FileName) 
-                            ? System.IO.Path.GetFileName(item.FileName) 
+
+                        string fileName = !string.IsNullOrEmpty(item.FileName)
+                            ? System.IO.Path.GetFileName(item.FileName)
                             : "Unknown";
-                        
+
                         string errorMsg = "  - ";
                         if (item.Line > 0)
-                        {
                             errorMsg += "Line " + item.Line + ": ";
-                        }
                         errorMsg += item.Description;
-                        
-                        // Add file name if showing errors from multiple files
+
                         if (string.IsNullOrEmpty(activeFilePath) && !string.IsNullOrEmpty(item.FileName))
-                        {
                             errorMsg += " (" + fileName + ")";
-                        }
-                        
+
                         errors.AppendLine(errorMsg);
+
+                        string sigFile = item.FileName ?? string.Empty;
+                        signatureLines.Add(sigFile + "|" + item.Line + "|" + (item.Description ?? string.Empty));
                     }
                     catch { }
                 }
 
-                if (errorCount == 0) return string.Empty;
+                if (errorCount == 0) return false;
 
+                signatureLines.Sort(StringComparer.OrdinalIgnoreCase);
                 StringBuilder result = new StringBuilder();
                 result.AppendLine("Build errors: " + errorCount);
                 result.Append(errors.ToString().TrimEnd());
-                
-                return result.ToString();
+
+                snapshot.Count = errorCount;
+                snapshot.FormattedText = result.ToString();
+                snapshot.Signature = string.Join("\n", signatureLines.ToArray());
+                return true;
             }
             catch
             {
-                return string.Empty;
+                return false;
             }
         }
 
@@ -476,10 +485,10 @@ namespace NyoCoder
                     string currentFilePath = _dte.ActiveDocument.FullName;
                     
                     // Add all build errors across the solution
-                    string compilerErrors = GetCompilerErrors(null);
-                    if (!string.IsNullOrEmpty(compilerErrors))
+                    CompilerErrorSnapshot errorSnapshot;
+                    if (TryCollectCompilerErrors(null, out errorSnapshot))
                     {
-                        context.AppendLine(compilerErrors);
+                        context.AppendLine(errorSnapshot.FormattedText);
                         context.AppendLine();
                         hasContext = true;
                     }

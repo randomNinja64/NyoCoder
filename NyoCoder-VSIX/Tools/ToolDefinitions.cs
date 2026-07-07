@@ -73,6 +73,24 @@ namespace NyoCoder
             "search_replace"
         };
 
+        private static readonly HashSet<string> FileModifyingTools =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "write_file",
+            "search_replace",
+            "delete_file",
+            "move_file",
+            "copy_file"
+        };
+
+        /// <summary>
+        /// Returns true when the tool can modify files on disk.
+        /// </summary>
+        public static bool IsFileModifyingTool(string toolName)
+        {
+            return !string.IsNullOrEmpty(toolName) && FileModifyingTools.Contains(toolName);
+        }
+
         /// <summary>
         /// Built-in tools that approve after showing a diff preview rather than before execution.
         /// </summary>

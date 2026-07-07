@@ -123,6 +123,7 @@
                          Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
                          CaretBrush="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
                          BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
+                         BorderThickness="1"
                          PreviewKeyDown="InputBox_PreviewKeyDown"/>
                 <StackPanel Grid.Column="2"
                            Orientation="Vertical"

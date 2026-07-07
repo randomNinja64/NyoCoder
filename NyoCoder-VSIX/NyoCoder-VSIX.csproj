@@ -137,6 +137,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Core -->
+    <Compile Include="Core\BuildErrorCheckMode.cs" />
     <Compile Include="Core\ChatMode.cs" />
     <Compile Include="Core\IndexingMode.cs" />
     <Compile Include="Core\Guids.cs" />
@@ -147,6 +148,7 @@
     <Compile Include="Editor\DiffHighlightAdornment.cs" />
     <Compile Include="Editor\DiffHighlightAdornmentFactory.cs" />
     <!-- Services -->
+    <Compile Include="Services\BuildErrorFixLoop.cs" />
     <Compile Include="Services\CodebaseIndex.cs" />
     <Compile Include="Services\CodebaseIndexer.cs" />
     <Compile Include="Services\ConfigHandler.cs" />
@@ -211,6 +213,12 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\MarkdownHandler.cs" />
+    <Compile Include="UI\BuildErrorHandlingOptionsPage.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\BuildErrorHandlingOptionsPageHost.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\AppearanceOptionsPage.cs">
       <SubType>Component</SubType>
     </Compile>

@@ -17,6 +17,13 @@ An extension for Visual Studio 2010-2015 that enables AI-assisted coding with Op
   - **Render Markdown in Chat Output** - Renders Markdown formatting in chat (default: enabled)
   - **Show Model Reasoning Output** - Displays model reasoning in chat (default: enabled)
   - **Show Full Tool Execution Output** - Shows full tool output in chat (default: enabled)
+- **Build Error Handling**
+  - **Detection mode** - Detection method for build errors (default: IntelliSense)
+    - **IntelliSense** - After a short wait, provide the IntelliSense errors to the LLM
+    - **Build solution** - Provide build errors to the LLM after a build attempt
+    - **Off** - Disable build error handling entirely
+  - **IntelliSense wait (seconds)** - Delay before reading the Error List in IntelliSense mode (default: `5`)
+  - **Max repair attempts** - Maximum number of automatic repair attempts before giving up (default: `3`)
 - **Indexing**
   - **Mode** - Indexing backend (default: Symbol)
     - **Semantic** - embeddings-based, API required
@@ -34,10 +41,10 @@ An extension for Visual Studio 2010-2015 that enables AI-assisted coding with Op
   - **Tools Requiring Approval** - List of tools and whether or not they require approval to run
   - **External Tool Settings** - If SimpleLLMChat tools are installed, their configuration options will be available here.
 - **Web Search**
-  - **SearXNG Instance**: SearXNG instance to use for running web searches (must support JSON API) (default: none)
-  - **User Agent**: User agent to use when making web requests (default: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36`)
-  - **Maximum Search Results**: Maximum number of search results to retrieve (default: `20`)
-  - **Maximum Web Content Length**: Maximum number of characters to return when reading a webpage (in characters) (default: `8000`)
+  - **SearXNG Instance** - SearXNG instance to use for running web searches (must support JSON API) (default: none)
+  - **User Agent** - User agent to use when making web requests (default: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36`)
+  - **Maximum Search Results** - Maximum number of search results to retrieve (default: `20`)
+  - **Maximum Web Content Length** - Maximum number of characters to return when reading a webpage (in characters) (default: `8000`)
 
 ## Installation
 

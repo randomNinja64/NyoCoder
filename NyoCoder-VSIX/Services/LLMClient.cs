@@ -292,7 +292,7 @@ public class LLMClient
                 if (InjectPendingSteerMessages(dequeueSteerMessage, outputCallback))
                 {
                     if (outputCallback != null)
-                        outputCallback("\n\nAssistant: ");
+                        outputCallback("\nAssistant: \n");
                     continue;
                 }
 
@@ -352,7 +352,7 @@ public class LLMClient
             if (InjectPendingSteerMessages(dequeueSteerMessage, outputCallback))
             {
                 if (outputCallback != null)
-                    outputCallback("\n\nAssistant: ");
+                    outputCallback("\nAssistant: \n");
                 continue;
             }
 
@@ -633,7 +633,7 @@ public class LLMClient
 
             string errorMsg = "Error sending request: " + ex.Message;
             if (outputCallback != null)
-                outputCallback(errorMsg);
+                outputCallback("\n" + errorMsg);
             else
                 Console.Error.WriteLine(errorMsg);
 

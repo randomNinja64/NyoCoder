@@ -58,7 +58,7 @@ namespace NyoCoder
             this.txtMaxWebContentLength = new TextBox();
             this.txtMaxWebContentLength.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
-            AddRow(MakeSectionTitle("Web Search Options:"), new Padding(0, 0, 0, 12), false);
+            AddRow(MakeSectionTitle("Web Search:"), new Padding(0, 0, 0, 12), false);
             AddRow(this.lblSearXNG, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtSearXNG, new Padding(0, 0, 0, 4), false);
             AddRow(this.lblSearXNGHint, new Padding(0, 0, 0, 12), true);

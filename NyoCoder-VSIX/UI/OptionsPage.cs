@@ -19,8 +19,6 @@ namespace NyoCoder
             Host.LlmServer = ConfigHandler.GetLlmServer();
             Host.Model = ConfigHandler.GetModel();
             Host.ReasoningEffort = ConfigHandler.GetReasoningEffort();
-            Host.MaxReadLines = ConfigHandler.MaxReadLines;
-            Host.ContextWindowSize = ConfigHandler.ContextWindowSize;
         }
 
         protected override void SaveHostToConfig()
@@ -29,8 +27,6 @@ namespace NyoCoder
             ConfigHandler.SetLlmServer(Host.LlmServer);
             ConfigHandler.SetModel(Host.Model);
             ConfigHandler.SetReasoningEffort(Host.ReasoningEffort);
-            ConfigHandler.SetMaxReadLines(Host.MaxReadLines);
-            ConfigHandler.SetContextWindowSize(Host.ContextWindowSize);
         }
     }
 }

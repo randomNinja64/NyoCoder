@@ -80,7 +80,7 @@ namespace NyoCoder
                     unchangedStreak++;
                     if (unchangedStreak >= 2)
                     {
-                        AppendLine(appendText, "\n[Unable to resolve build errors: no progress after 2 attempts]\n");
+                        AppendLine(appendText, "\n[Unable to resolve build errors: no progress after 2 attempts]");
                         return;
                     }
                 }
@@ -91,7 +91,7 @@ namespace NyoCoder
                 }
             }
 
-            AppendLine(appendText, "\n[Unable to resolve build errors: max attempts reached]\n");
+            AppendLine(appendText, "\n[Unable to resolve build errors: max attempts reached]");
         }
 
         private static bool TryDetectErrors(

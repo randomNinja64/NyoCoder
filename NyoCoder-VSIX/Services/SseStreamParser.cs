@@ -63,7 +63,7 @@ namespace NyoCoder
 
                 if (lastEvent == "error" || jsonPart.Contains("\"error\""))
                 {
-                    string errorMsg = "[API Error] " + jsonPart.Trim() + "\n";
+                    string errorMsg = "\n[API Error] " + jsonPart.Trim() + "\n";
                     if (outputCallback != null)
                         outputCallback(errorMsg);
                     else
@@ -111,7 +111,7 @@ namespace NyoCoder
                             if (inReasoning)
                             {
                                 if (onReasoningChunk != null)
-                                    onReasoningChunk("\n[/thinking]\n\n");
+                                    onReasoningChunk("[/thinking]\n");
                                 inReasoning = false;
                             }
                             if (outputCallback != null)
@@ -186,7 +186,7 @@ namespace NyoCoder
 
             // Close any open reasoning block if the stream ended while still in reasoning
             if (inReasoning && onReasoningChunk != null)
-                onReasoningChunk("\n[/thinking]\n\n");
+                onReasoningChunk("[/thinking]\n");
 
             response.ToolCalls.AddRange(partialToolCalls.Values);
             response.Content = output.ToString();

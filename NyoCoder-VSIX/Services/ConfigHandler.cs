@@ -540,7 +540,9 @@ namespace NyoCoder
 				bool firstSection = true;
 
 				AppendSection(lines, ref firstSection, "General", config, written,
-					"apiKey", "llmserver", "model", "maxReadLines", "contextWindowSize", "reasoningeffort");
+					"apiKey", "llmserver", "model", "reasoningeffort");
+				AppendSection(lines, ref firstSection, "Context", config, written,
+					"maxReadLines", "contextWindowSize");
 				AppendSection(lines, ref firstSection, "Appearance", config, written,
 					"markdownparsing", "showreasoningoutput", "showtooloutput");
 				AppendSection(lines, ref firstSection, "Indexing", config, written,

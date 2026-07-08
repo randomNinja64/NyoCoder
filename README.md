@@ -11,7 +11,8 @@ An extension for Visual Studio 2010-2015 that enables AI-assisted coding with Op
   - **LLM Server** (http(s)://ip:port or http(s)://url) - URL for your AI endpoint.
   - **Model** - Model to use
   - **Reasoning Effort** - Amount of reasoning performed by a model (sent as `reasoning_effort` in API requests). Leave blank to use the API default. Supported values: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`.
-  - **Max Read Lines** - Max number of lines that the AI can read from a file at a time
+- **Context**
+  - **Max File Lines to Read** - Max number of lines that the AI can read from a file at a time (default: `500`)
   - **Context Window Size** - If known, can be set here to enable automatic context summarization when context fills.
 - **Appearance**
   - **Render Markdown in Chat Output** - Renders Markdown formatting in chat (default: enabled)

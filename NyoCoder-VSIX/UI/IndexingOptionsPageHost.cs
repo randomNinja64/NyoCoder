@@ -89,7 +89,7 @@ namespace NyoCoder
             chkOnSolutionOpen = new CheckBox { AutoSize = true, Text = "Index on solution open" };
             chkOnSave = new CheckBox { AutoSize = true, Text = "Re-index changed files on save" };
 
-            AddRow(MakeSectionTitle("Indexing Options"), new Padding(0, 0, 0, 12), false);
+            AddRow(MakeSectionTitle("Indexing:"), new Padding(0, 0, 0, 12), false);
 
             AddRow(MakeSectionTitle("Mode:"), new Padding(0, 0, 0, 4), false);
             AddRow(modePanel, new Padding(0, 0, 0, 12), false);

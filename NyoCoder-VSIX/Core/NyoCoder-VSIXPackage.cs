@@ -37,6 +37,7 @@ namespace NyoCoder
     [ProvideToolWindow(typeof(NyoCoderToolWindow))]
     // This attribute registers an options page exposed by this package.
     [ProvideOptionPage(typeof(OptionsPage), "NyoCoder", "General", 0, 0, true)]
+    [ProvideOptionPage(typeof(ContextOptionsPage), "NyoCoder", "Context", 0, 0, true)]
     [ProvideOptionPage(typeof(ToolsOptionsPage), "NyoCoder", "Tools", 0, 0, true)]
     [ProvideOptionPage(typeof(WebSearchOptionsPage), "NyoCoder", "Web Search", 0, 0, true)]
     [ProvideOptionPage(typeof(IndexingOptionsPage), "NyoCoder", "Indexing", 0, 0, true)]

@@ -200,6 +200,12 @@
     <Compile Include="UI\OptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\ContextOptionsPage.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\ContextOptionsPageHost.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\ToolsOptionsPage.cs">
       <SubType>Component</SubType>
     </Compile>

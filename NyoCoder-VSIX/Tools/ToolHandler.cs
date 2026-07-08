@@ -61,6 +61,8 @@ public static class ToolHandler
                         string contentStr = JsonExtractString(args, "content");
                         string content = string.IsNullOrEmpty(contentStr) ? "" : contentStr.Trim();
                         string output = WriteFileTool.Write(filename, content, out exitCode);
+                        if (exitCode == 0)
+                            CodebaseIndexer.RequestIndexFile(filename);
                         toolContent = FormatCommandResult("write file: " + filename, output, exitCode);
                         return true;
                     }
@@ -70,6 +72,8 @@ public static class ToolHandler
                         string sourcePath = GetRequiredArg(args, "source_path");
                         string destinationPath = GetRequiredArg(args, "destination_path");
                         string output = FileHandler.MoveFile(sourcePath, destinationPath, out exitCode);
+                        if (exitCode == 0)
+                            CodebaseIndexer.RequestRenameFile(sourcePath, destinationPath);
                         toolContent = FormatCommandResult("move file: " + sourcePath, output, exitCode);
                         return true;
                     }
@@ -79,6 +83,8 @@ public static class ToolHandler
                         string sourcePath = GetRequiredArg(args, "source_path");
                         string destinationPath = GetRequiredArg(args, "destination_path");
                         string output = FileHandler.CopyFile(sourcePath, destinationPath, out exitCode);
+                        if (exitCode == 0)
+                            CodebaseIndexer.RequestIndexFile(destinationPath);
                         toolContent = FormatCommandResult("copy file: " + sourcePath, output, exitCode);
                         return true;
                     }
@@ -87,6 +93,8 @@ public static class ToolHandler
                     {
                         string filePath = GetRequiredArg(args, "file_path");
                         string output = FileHandler.DeleteFile(filePath, out exitCode);
+                        if (exitCode == 0)
+                            CodebaseIndexer.RequestRemoveFile(filePath);
                         toolContent = FormatCommandResult("delete file: " + filePath, output, exitCode);
                         return true;
                     }
@@ -124,6 +132,8 @@ public static class ToolHandler
                         string filePath = GetRequiredArg(args, "file_path");
                         string content = GetRequiredArg(args, "content");
                         string output = SearchReplaceHandler.Apply(filePath, content, out exitCode);
+                        if (exitCode == 0)
+                            CodebaseIndexer.RequestIndexFile(filePath);
                         toolContent = FormatCommandResult("search_replace: " + filePath, output, exitCode);
                         return true;
                     }

@@ -75,10 +75,14 @@ namespace NyoCoder
                 }
             };
 
-            // Keep the persistent indexing status bar in sync with the shared reporter.
+            // Keep the persistent indexing status bar in sync with the shared reporter. This
+            // control is created once for the life of the tool window, so we subscribe once and
+            // never unsubscribe — VS toggles WPF Loaded/Unloaded on tab switches and docking
+            // changes far more often than the control is actually destroyed, and unsubscribing
+            // on Unloaded (without a matching re-subscribe on the next Loaded) silently stops
+            // the status bar from ever updating again.
             IndexingStatusReporter.StatusChanged += OnIndexingStatusChanged;
             this.Loaded += NyoCoderControl_Loaded;
-            this.Unloaded += NyoCoderControl_Unloaded;
             RefreshIndexingStatus();
         }
 
@@ -90,11 +94,6 @@ namespace NyoCoder
                 try { CodebaseIndex.PublishStatus(); }
                 catch { }
             });
-        }
-
-        private void NyoCoderControl_Unloaded(object sender, RoutedEventArgs e)
-        {
-            IndexingStatusReporter.StatusChanged -= OnIndexingStatusChanged;
         }
 
         private void OnIndexingStatusChanged()

@@ -106,9 +106,9 @@ namespace NyoCoder
         /// </summary>
         public void BeginStepTracking(int prePlanCharCount)
         {
-            _isTrackingStepTokens = true;
             EditorService.InvokeOnUIThread(() =>
             {
+                _isTrackingStepTokens = true;
                 _totalCharacterCount = prePlanCharCount;
                 RefreshTokenDisplay();
                 _subagentStatusRow.Visibility = Visibility.Visible;
@@ -134,8 +134,11 @@ namespace NyoCoder
         /// </summary>
         public void SyncStepCount(int count)
         {
-            _stepCharacterCount = count;
-            EditorService.InvokeOnUIThread(() => RefreshStepTokenDisplay(), _dispatcher);
+            EditorService.InvokeOnUIThread(() =>
+            {
+                _stepCharacterCount = count;
+                RefreshStepTokenDisplay();
+            }, _dispatcher);
         }
 
         /// <summary>
@@ -144,10 +147,10 @@ namespace NyoCoder
         /// </summary>
         public void EndStepTracking(int finalMainCharCount)
         {
-            _isTrackingStepTokens = false;
-            _stepCharacterCount = 0;
             EditorService.InvokeOnUIThread(() =>
             {
+                _isTrackingStepTokens = false;
+                _stepCharacterCount = 0;
                 _totalCharacterCount = finalMainCharCount;
                 RefreshTokenDisplay();
                 _subagentStatusRow.Visibility = Visibility.Collapsed;

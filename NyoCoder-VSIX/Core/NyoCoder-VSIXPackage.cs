@@ -178,7 +178,10 @@ namespace NyoCoder
 
                 _solutionEvents = dte.Events.SolutionEvents;
                 if (_solutionEvents != null)
+                {
                     _solutionEvents.Opened += OnSolutionOpened;
+                    _solutionEvents.AfterClosing += OnSolutionClosed;
+                }
 
                 _documentEvents = dte.Events.get_DocumentEvents(null);
                 if (_documentEvents != null)
@@ -245,6 +248,21 @@ namespace NyoCoder
                 CodebaseIndex.PublishStatus();
                 if (ConfigHandler.GetIndexOnSolutionOpen())
                     CodebaseIndexer.RequestReconcile();
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Fires after a solution is closed (with or without another one opening next). Resets
+        /// the cached "current" index and republishes so the status bar reflects the fallback
+        /// workspace instead of lingering on the closed solution's status.
+        /// </summary>
+        private void OnSolutionClosed()
+        {
+            try
+            {
+                CodebaseIndex.Invalidate();
+                CodebaseIndex.PublishStatus();
             }
             catch { }
         }

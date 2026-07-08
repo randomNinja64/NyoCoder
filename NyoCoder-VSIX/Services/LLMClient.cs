@@ -284,7 +284,7 @@ public class LLMClient
                     // Output tool result
                     if (outputCallback != null && showToolOutput)
                     {
-                        outputCallback("\n[tool output]\n" + toolContent + "\n");
+                        outputCallback("\n[tool output]\n" + (toolContent ?? "").TrimEnd() + "\n");
                     }
 
                 }

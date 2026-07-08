@@ -101,7 +101,7 @@ namespace NyoCoder
             snapshot = new ContextEngine.CompilerErrorSnapshot();
             BuildErrorCheckMode mode = ConfigHandler.GetBuildErrorCheckMode();
 
-            AppendLine(appendText, "\n\nChecking for build errors...");
+            AppendLine(appendText, "\nChecking for build errors...");
 
             if (mode == BuildErrorCheckMode.IntelliSense)
             {

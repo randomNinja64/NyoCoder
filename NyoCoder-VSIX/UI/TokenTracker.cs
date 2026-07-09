@@ -22,8 +22,6 @@ namespace NyoCoder
         private bool _isTrackingStepTokens;
 
         public int TotalCharacterCount { get { return _totalCharacterCount; } }
-        public int StepCharacterCount { get { return _stepCharacterCount; } }
-        public bool IsTrackingStepTokens { get { return _isTrackingStepTokens; } }
         public ChatMode CurrentMode { get; set; }
 
         public TokenTracker(TextBlock tokenStatusText, TextBlock stepTokenStatusText, UIElement subagentStatusRow, Dispatcher dispatcher)

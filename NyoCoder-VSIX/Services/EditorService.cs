@@ -51,26 +51,6 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Invokes a function on the UI thread if necessary and returns the result.
-        /// If already on the UI thread, executes directly; otherwise dispatches to the UI thread.
-        /// </summary>
-        /// <param name="func">The function to invoke.</param>
-        /// <param name="dispatcher">Optional dispatcher to use. If null, uses Application.Current.Dispatcher.</param>
-        internal static T InvokeOnUIThread<T>(Func<T> func, System.Windows.Threading.Dispatcher dispatcher = null)
-        {
-            dispatcher = dispatcher ?? (System.Windows.Application.Current != null ? System.Windows.Application.Current.Dispatcher : null);
-            
-            if (dispatcher != null && !dispatcher.CheckAccess())
-            {
-                return (T)dispatcher.Invoke(func);
-            }
-            else
-            {
-                return func();
-            }
-        }
-
-        /// <summary>
         /// Begins invoking an action on the UI thread asynchronously (non-blocking).
         /// If already on the UI thread, executes directly; otherwise dispatches to the UI thread.
         /// </summary>
@@ -332,23 +312,6 @@ namespace NyoCoder
                 DTE2 check = GetDte();
                 if (check == null) return false;
                 return FindOpenDocument(check, fullPath) != null;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Checks if a document is currently open in Visual Studio.
-        /// </summary>
-        internal static bool IsDocumentOpen(string fullPath)
-        {
-            try
-            {
-                DTE2 dte = GetDte();
-                if (dte == null) return false;
-                return FindOpenDocument(dte, fullPath) != null;
             }
             catch
             {

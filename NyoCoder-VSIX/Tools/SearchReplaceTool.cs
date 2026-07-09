@@ -70,7 +70,6 @@ namespace NyoCoder
             public List<Block> Blocks;
             public List<Change> Changes;
             public List<string> Errors;
-            public List<string> Warnings;
             public string PreviewDiff;
             public string NormalizedFilePath;
 
@@ -79,7 +78,6 @@ namespace NyoCoder
                 Blocks = new List<Block>();
                 Changes = new List<Change>();
                 Errors = new List<string>();
-                Warnings = new List<string>();
                 PreviewDiff = string.Empty;
                 NormalizedFilePath = string.Empty;
             }

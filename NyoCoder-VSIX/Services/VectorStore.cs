@@ -49,7 +49,6 @@ namespace NyoCoder
 
         public int Count { get { return _vectors.Count; } }
         public int Dimension { get { return _dimension; } }
-        public IList<ChunkVector> Vectors { get { return _vectors; } }
 
         public void Add(ChunkVector vector)
         {

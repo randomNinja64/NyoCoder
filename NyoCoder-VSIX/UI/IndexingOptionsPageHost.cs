@@ -16,6 +16,7 @@ namespace NyoCoder
         private TextBox txtEndpoint;
         private TextBox txtModel;
         private TextBox txtApiKey;
+        private NumericUpDown numMaxChunksTotal;
 
         private Label lblStatusBrief;
         private Label lblStatusDetail;
@@ -67,6 +68,15 @@ namespace NyoCoder
             Label lblApiKey = new Label { AutoSize = true, Text = "Embeddings API key (optional; blank = use default API key):" };
             txtApiKey = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, UseSystemPasswordChar = true };
 
+            Label lblMaxChunksTotal = new Label { AutoSize = true, Text = "Max embedding chunks per full index (semantic mode):" };
+            numMaxChunksTotal = new NumericUpDown
+            {
+                Minimum = 1,
+                Maximum = 1000000,
+                Increment = 1000,
+                Width = 120
+            };
+
             lblStatusBrief = new Label { AutoSize = true, Font = new Font(this.Font, FontStyle.Bold), Text = "Index: (loading...)" };
             lblStatusDetail = new Label { AutoSize = true, ForeColor = SystemColors.GrayText, Text = "" };
 
@@ -100,7 +110,9 @@ namespace NyoCoder
             AddRow(lblModel, new Padding(0, 0, 0, 4), true);
             AddRow(txtModel, new Padding(0, 0, 0, 8), false);
             AddRow(lblApiKey, new Padding(0, 0, 0, 4), true);
-            AddRow(txtApiKey, new Padding(0, 0, 0, 12), false);
+            AddRow(txtApiKey, new Padding(0, 0, 0, 8), false);
+            AddRow(lblMaxChunksTotal, new Padding(0, 0, 0, 4), true);
+            AddRow(numMaxChunksTotal, new Padding(0, 0, 0, 12), false);
 
             AddRow(MakeSectionTitle("Status:"), new Padding(0, 0, 0, 4), false);
             AddRow(lblStatusBrief, new Padding(0, 0, 0, 4), true);
@@ -153,6 +165,12 @@ namespace NyoCoder
         {
             get { return txtApiKey.Text != null ? txtApiKey.Text.Trim() : string.Empty; }
             set { txtApiKey.Text = value ?? string.Empty; }
+        }
+
+        public int MaxChunksTotal
+        {
+            get { return (int)numMaxChunksTotal.Value; }
+            set { numMaxChunksTotal.Value = Math.Max(numMaxChunksTotal.Minimum, Math.Min(numMaxChunksTotal.Maximum, value)); }
         }
 
         public bool IndexOnSolutionOpen

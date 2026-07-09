@@ -17,7 +17,6 @@ namespace NyoCoder
         private static int _running; // 0 = idle, 1 = running
         private static int _pendingReconcile; // 1 = run reconcile again when idle
         private const int ProgressInterval = 25;
-        private const int MaxChunksTotal = 20000;
 
         // ── Public requests ────────────────────────────────────────────
 
@@ -140,7 +139,7 @@ namespace NyoCoder
             List<string> embedTexts = new List<string>();
             List<ChunkVector> embedChunks = new List<ChunkVector>();
             HashSet<string> currentSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            int chunkBudget = MaxChunksTotal;
+            int chunkBudget = ConfigHandler.GetIndexMaxChunksTotal();
 
             foreach (string rawFile in files)
             {

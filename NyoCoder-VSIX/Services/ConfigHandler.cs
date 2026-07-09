@@ -359,6 +359,18 @@ namespace NyoCoder
 			return value >= 0 ? value : 10;
 		}
 
+		public static int GetIndexMaxChunksTotal()
+		{
+			int value = GetConfigInt("indexMaxChunksTotal", 20000);
+			return value > 0 ? value : 20000;
+		}
+
+		public static void SetIndexMaxChunksTotal(int value)
+		{
+			if (value <= 0) value = 20000;
+			SetConfigValue("indexMaxChunksTotal", value.ToString());
+		}
+
 		// -------------------------------------------------------------------------
 		// Chat appearance
 		// -------------------------------------------------------------------------
@@ -547,7 +559,8 @@ namespace NyoCoder
 					"markdownparsing", "showreasoningoutput", "showtooloutput");
 				AppendSection(lines, ref firstSection, "Indexing", config, written,
 					"indexingMode", "embeddingsEndpoint", "embeddingsModel", "embeddingsApiKey",
-					"indexOnSolutionOpen", "indexOnSave", "indexChunkLines", "indexChunkOverlap");
+					"indexOnSolutionOpen", "indexOnSave", "indexChunkLines", "indexChunkOverlap",
+					"indexMaxChunksTotal");
 				AppendSection(lines, ref firstSection, "Web Search", config, written,
 					"searxngInstance", "webUserAgent", "maxSearchResults", "maxWebContentLength");
 				AppendSection(lines, ref firstSection, "Build Error Handling", config, written,

@@ -34,6 +34,7 @@ An extension for Visual Studio 2010-2015 that enables AI-assisted coding with Op
     - **Embeddings Endpoint** - OpenAI-compatible embeddings API URL (blank = use **LLM Server**)
     - **Embeddings Model** - Embeddings model name (required for Semantic mode)
     - **Embeddings API Key** - API key for the embeddings endpoint (blank = use **API Key**)
+    - **Max Embedding Chunks** - Maximum number of text embedding chunks to create during a full workspace index in Semantic mode; per-file save re-indexes are not limited (default: `20000`)
   - **When to Index**
     - **Index on Solution Open** - Automatically index the solution when it is opened (default: enabled)
     - **Re-index Changed Files on Save** - Update the index when files are saved (default: enabled)

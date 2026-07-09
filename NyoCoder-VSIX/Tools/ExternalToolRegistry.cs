@@ -95,22 +95,6 @@ namespace NyoCoder
             }
         }
 
-        /// <summary>
-        /// Re-scans the tools directory. Call after the user installs/removes a package.
-        /// </summary>
-        public static void Reload()
-        {
-            lock (_lock)
-            {
-                _tools.Clear();
-                _packages.Clear();
-                _optionDefaults.Clear();
-                _contextInjectorsByExecutable.Clear();
-                LoadToolsFromDirectory(ToolsDirectory);
-                _loaded = true;
-            }
-        }
-
         public static void LoadToolsFromDirectory(string toolsDir)
         {
             if (!Directory.Exists(toolsDir))

@@ -92,11 +92,11 @@ public class LLMClient
         public List<ToolHandler.ToolCall> ToolCalls;
         public string ToolCallId;
 
-        public ChatMessage(string role, string content, string toolCallId = "")
+        public ChatMessage(string role, string content)
         {
             Role = role;
             Content = content;
-            ToolCallId = toolCallId;
+            ToolCallId = null;
             Image = null;
             ToolCalls = new List<ToolHandler.ToolCall>();
         }
@@ -125,7 +125,8 @@ public class LLMClient
         Func<bool> stopRequested = null,
         Action<int> onSummarized = null,
         ChatMode mode = ChatMode.Agent,
-        Func<string> dequeueSteerMessage = null)
+        Func<string> dequeueSteerMessage = null,
+        Action startBlock = null)
     {
         FilesModifiedThisTurn = false;
 
@@ -144,7 +145,8 @@ public class LLMClient
             {
                 if (outputCallback != null)
                 {
-                    outputCallback("\n[Session stopped by user]\n");
+                    if (startBlock != null) startBlock();
+                    outputCallback("[Session stopped by user]\n");
                 }
                 return;
             }
@@ -157,8 +159,9 @@ public class LLMClient
                 {
                     if (!string.IsNullOrEmpty(toolCall.Name) && string.IsNullOrEmpty(toolCall.Arguments))
                     {
-                        // Show tool name when we first see it (no leading newline - spacing handled by context)
-                        outputCallback("\n[tool call] " + toolCall.Name + "(");
+                        // Show tool name when we first see it
+                        if (startBlock != null) startBlock();
+                        outputCallback("[tool call] " + toolCall.Name + "(");
                     }
                     else if (!string.IsNullOrEmpty(toolCall.Arguments))
                     {
@@ -168,13 +171,14 @@ public class LLMClient
                 };
             }
 
-            LLMCompletionResponse response = sendMessages(this.Conversation, outputCallback, toolCallStreamCallback, stopRequested, mode);
+            LLMCompletionResponse response = sendMessages(this.Conversation, outputCallback, toolCallStreamCallback, stopRequested, mode, startBlock);
 
             if ((stopRequested != null && stopRequested()) || response.FinishReason == "stopped")
             {
                 if (outputCallback != null)
                 {
-                    outputCallback("\n[Session stopped by user]\n");
+                    if (startBlock != null) startBlock();
+                    outputCallback("[Session stopped by user]\n");
                 }
                 return;
             }
@@ -202,7 +206,8 @@ public class LLMClient
                     {
                         if (outputCallback != null)
                         {
-                            outputCallback("\n[Session stopped by user]\n");
+                            if (startBlock != null) startBlock();
+                            outputCallback("[Session stopped by user]\n");
                         }
                         return;
                     }
@@ -244,7 +249,8 @@ public class LLMClient
                             // User stopped the session - break out of the conversation loop
                             if (outputCallback != null)
                             {
-                                outputCallback("\n[Session stopped by user]\n");
+                                if (startBlock != null) startBlock();
+                                outputCallback("[Session stopped by user]\n");
                             }
                             return; // Exit ProcessConversation
                         }
@@ -284,15 +290,19 @@ public class LLMClient
                     // Output tool result
                     if (outputCallback != null && showToolOutput)
                     {
-                        outputCallback("\n[tool output]\n" + (toolContent ?? "").TrimEnd() + "\n");
+                        if (startBlock != null) startBlock();
+                        outputCallback("[tool output]\n" + (toolContent ?? "").TrimEnd() + "\n");
                     }
 
                 }
 
-                if (InjectPendingSteerMessages(dequeueSteerMessage, outputCallback))
+                if (InjectPendingSteerMessages(dequeueSteerMessage, outputCallback, startBlock))
                 {
                     if (outputCallback != null)
-                        outputCallback("\nAssistant: \n");
+                    {
+                        if (startBlock != null) startBlock();
+                        outputCallback("Assistant: \n");
+                    }
                     continue;
                 }
 
@@ -301,10 +311,11 @@ public class LLMClient
                 {
                     if (outputCallback != null)
                     {
-                        outputCallback("\n[Context usage high - summarizing conversation...]\n");
+                        if (startBlock != null) startBlock();
+                        outputCallback("[Context usage high - summarizing conversation...]\n");
                     }
                     
-                    string summary = SummarizeConversation(this.Conversation, outputCallback);
+                    string summary = SummarizeConversation(this.Conversation, outputCallback, startBlock);
                     
                     if (!string.IsNullOrEmpty(summary))
                     {
@@ -316,7 +327,8 @@ public class LLMClient
                         
                         if (outputCallback != null)
                         {
-                            outputCallback("\n[Conversation summarized - continuing...]\n\n");
+                            if (startBlock != null) startBlock();
+                            outputCallback("[Conversation summarized - continuing...]\n");
                         }
                         
                         // Notify UI to reset character count
@@ -332,10 +344,16 @@ public class LLMClient
                 {
                     if (outputCallback != null)
                     {
-                        outputCallback("\n[Plan created — executing steps...]\n");
+                        if (startBlock != null) startBlock();
+                        outputCallback("[Plan created — executing steps...]\n");
                     }
                     break;
                 }
+
+                // Pad now so the next stream's first output (text or otherwise) starts on a
+                // fresh block after the tool output; a following StartBlock becomes a no-op.
+                if (outputCallback != null && startBlock != null)
+                    startBlock();
 
                 // Run loop again so assistant can ingest tool output
                 continue;
@@ -349,10 +367,13 @@ public class LLMClient
             };
             this.Conversation.Add(assistantMsg);
 
-            if (InjectPendingSteerMessages(dequeueSteerMessage, outputCallback))
+            if (InjectPendingSteerMessages(dequeueSteerMessage, outputCallback, startBlock))
             {
                 if (outputCallback != null)
-                    outputCallback("\nAssistant: \n");
+                {
+                    if (startBlock != null) startBlock();
+                    outputCallback("Assistant: \n");
+                }
                 continue;
             }
 
@@ -365,7 +386,7 @@ public class LLMClient
     /// Must only be called when the conversation is in a valid state (after a full tool
     /// batch or after an assistant text message — never between tool_call and tool results).
     /// </summary>
-    private bool InjectPendingSteerMessages(Func<string> dequeueSteer, Action<string> outputCallback)
+    private bool InjectPendingSteerMessages(Func<string> dequeueSteer, Action<string> outputCallback, Action startBlock = null)
     {
         if (dequeueSteer == null)
             return false;
@@ -377,7 +398,10 @@ public class LLMClient
             injected = true;
             this.Conversation.Add(new ChatMessage("user", msg));
             if (outputCallback != null)
-                outputCallback("\n[steer] User: " + msg + "\n");
+            {
+                if (startBlock != null) startBlock();
+                outputCallback("[steer] User: " + msg + "\n");
+            }
         }
 
         return injected;
@@ -452,7 +476,7 @@ public class LLMClient
         return msgObj;
     }
 
-    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null, ChatMode mode = ChatMode.Agent)
+    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null, ChatMode mode = ChatMode.Agent, Action startBlock = null)
     {
         // Build payload
         JObject payload = new JObject();
@@ -497,7 +521,7 @@ public class LLMClient
             return new LLMCompletionResponse("", new List<ToolHandler.ToolCall>(), "stopped");
         }
 
-        return SendHttpRequest(payload, outputCallback, toolCallCallback, stopRequested);
+        return SendHttpRequest(payload, outputCallback, toolCallCallback, stopRequested, startBlock);
     }
 
     /// <summary>
@@ -548,7 +572,7 @@ public class LLMClient
     /// Summarizes the current conversation to reduce context usage.
     /// Appends a summary request to the conversation, gets the summary, and returns it.
     /// </summary>
-    public string SummarizeConversation(List<ChatMessage> conversation, Action<string> outputCallback = null)
+    public string SummarizeConversation(List<ChatMessage> conversation, Action<string> outputCallback = null, Action startBlock = null)
     {
         if (conversation == null || conversation.Count == 0)
             return string.Empty;
@@ -570,12 +594,12 @@ public class LLMClient
             {
                 outputCallback(text);
             }
-        }, null, null);
+        }, null, null, startBlock: startBlock);
 
         return summary.ToString();
     }
 
-    private LLMCompletionResponse SendHttpRequest(JObject payload, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null)
+    private LLMCompletionResponse SendHttpRequest(JObject payload, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null, Action startBlock = null)
     {
         LLMCompletionResponse completionResponse = new LLMCompletionResponse
         {
@@ -612,7 +636,8 @@ public class LLMClient
                 completionResponse = SseStreamParser.Parse(
                     reader, outputCallback, toolCallCallback, stopRequested,
                     () => { try { request.Abort(); } catch { } },
-                    onReasoningChunk: ConfigHandler.GetShowReasoningOutput() ? outputCallback : null);
+                    onReasoningChunk: ConfigHandler.GetShowReasoningOutput() ? outputCallback : null,
+                    startBlock: startBlock);
             }
         }
         catch (Exception ex)
@@ -628,12 +653,15 @@ public class LLMClient
             if (llmEndpoint.StartsWith("https:", StringComparison.OrdinalIgnoreCase) &&
                 File.Exists(curlPath) && ShouldFallbackToCurl(ex))
             {
-                return CurlClient.SendRequest(llmEndpoint, apiKey, payload, outputCallback, toolCallCallback, stopRequested);
+                return CurlClient.SendRequest(llmEndpoint, apiKey, payload, outputCallback, toolCallCallback, stopRequested, startBlock);
             }
 
             string errorMsg = "Error sending request: " + ex.Message;
             if (outputCallback != null)
-                outputCallback("\n" + errorMsg);
+            {
+                if (startBlock != null) startBlock();
+                outputCallback(errorMsg);
+            }
             else
                 Console.Error.WriteLine(errorMsg);
 

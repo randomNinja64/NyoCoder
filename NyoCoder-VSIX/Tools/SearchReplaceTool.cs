@@ -135,7 +135,7 @@ namespace NyoCoder
             }
 
             // Normalize line endings for consistent matching
-            original = NormalizeLineEndings(original);
+            original = TextNormalization.NormalizeLineEndings(original);
 
             res.OriginalContent = original;
 
@@ -486,8 +486,8 @@ namespace NyoCoder
                 {
                     blocks.Add(new Block
                     {
-                        Search = NormalizeLineEndings((match.Groups[1].Value ?? string.Empty).TrimEnd('\r', '\n')),
-                        Replace = NormalizeLineEndings((match.Groups[2].Value ?? string.Empty).TrimEnd('\r', '\n'))
+                        Search = TextNormalization.NormalizeLineEndings((match.Groups[1].Value ?? string.Empty).TrimEnd('\r', '\n')),
+                        Replace = TextNormalization.NormalizeLineEndings((match.Groups[2].Value ?? string.Empty).TrimEnd('\r', '\n'))
                     });
                 }
                 return blocks;
@@ -498,18 +498,12 @@ namespace NyoCoder
             {
                 blocks.Add(new Block
                 {
-                    Search = NormalizeLineEndings((match.Groups[1].Value ?? string.Empty).TrimEnd('\r', '\n')),
-                    Replace = NormalizeLineEndings((match.Groups[2].Value ?? string.Empty).TrimEnd('\r', '\n'))
+                    Search = TextNormalization.NormalizeLineEndings((match.Groups[1].Value ?? string.Empty).TrimEnd('\r', '\n')),
+                    Replace = TextNormalization.NormalizeLineEndings((match.Groups[2].Value ?? string.Empty).TrimEnd('\r', '\n'))
                 });
             }
 
             return blocks;
-        }
-
-        private static string NormalizeLineEndings(string text)
-        {
-            if (text == null) return null;
-            return text.Replace("\r\n", "\n").Replace("\r", "\n");
         }
 
         private static int CountOccurrences(string text, string search)
@@ -542,8 +536,8 @@ namespace NyoCoder
         internal static string BuildUnifiedDiff(string oldText, string newText, int maxLines)
         {
             // Simple line-based diff (good enough for a preview)
-            string[] a = NormalizeLineEndings(oldText ?? string.Empty).Split('\n');
-            string[] b = NormalizeLineEndings(newText ?? string.Empty).Split('\n');
+            string[] a = TextNormalization.NormalizeLineEndings(oldText ?? string.Empty).Split('\n');
+            string[] b = TextNormalization.NormalizeLineEndings(newText ?? string.Empty).Split('\n');
 
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("--- original");

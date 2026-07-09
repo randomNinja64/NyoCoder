@@ -12,6 +12,7 @@ namespace NyoCoder
     internal class MessageDispatcher
     {
         private readonly Action<string> _appendText;
+        private readonly Action _startBlock;
         private readonly Action<string> _appendLine;
         private readonly Action _applyMarkdown;
         private readonly Func<bool> _stopRequested;
@@ -29,6 +30,7 @@ namespace NyoCoder
 
         internal MessageDispatcher(
             Action<string> appendText,
+            Action startBlock,
             Action<string> appendLine,
             Action applyMarkdown,
             Func<bool> stopRequested,
@@ -44,6 +46,7 @@ namespace NyoCoder
             Dispatcher dispatcher)
         {
             _appendText = appendText;
+            _startBlock = startBlock;
             _appendLine = appendLine;
             _applyMarkdown = applyMarkdown;
             _stopRequested = stopRequested;
@@ -65,7 +68,8 @@ namespace NyoCoder
         internal void QueueSteer(string message)
         {
             _steerer.Queue(message);
-            _appendLine("\n[steering queued] " + message);
+            _startBlock();
+            _appendLine("[steering queued] " + message);
         }
 
         internal void ClearSteerQueue()
@@ -129,7 +133,8 @@ namespace NyoCoder
                         stopRequested: _stopRequested,
                         onSummarized: _resetCharacterCount,
                         mode: chatMode,
-                        dequeueSteerMessage: _steerer.TryDequeue
+                        dequeueSteerMessage: _steerer.TryDequeue,
+                        startBlock: _startBlock
                     );
 
                     ApplyMarkdownIfEnabled();
@@ -160,7 +165,8 @@ namespace NyoCoder
                             _stopRequested,
                             _appendText,
                             _steerer.TryDequeue,
-                            _resetCharacterCount);
+                            _resetCharacterCount,
+                            _startBlock);
                         ApplyMarkdownIfEnabled();
                     }
 
@@ -170,7 +176,8 @@ namespace NyoCoder
                 }
                 catch (Exception ex)
                 {
-                    _appendLine("\nError: " + ex.Message);
+                    _startBlock();
+                    _appendLine("Error: " + ex.Message);
                     EditorService.InvokeOnUIThread(() =>
                     {
                         MessageBox.Show(
@@ -197,7 +204,8 @@ namespace NyoCoder
                 llmClient,
                 _appendText,
                 _stopRequested,
-                _steerer.TryDequeue);
+                _steerer.TryDequeue,
+                _startBlock);
 
             executor.ExecutionStarted += _tokenTracker.BeginStepTracking;
             executor.MainTokenCountChanged += _tokenTracker.SyncMainCount;
@@ -228,8 +236,10 @@ namespace NyoCoder
                 {
                     _setMode(ChatMode.Agent);
 
-                    _appendLine("\n[Handing off to Agent for implementation...]\n");
-                    _appendLine("\nAssistant: ");
+                    _startBlock();
+                    _appendLine("[Handing off to Agent for implementation...]");
+                    _startBlock();
+                    _appendLine("Assistant: ");
 
                     llmClient.ProcessConversation(
                         "The plan above has been approved. Please implement it now. Use manage_plan to track your progress through the steps if the tool is available.",
@@ -240,7 +250,8 @@ namespace NyoCoder
                         stopRequested: _stopRequested,
                         onSummarized: _resetCharacterCount,
                         mode: ChatMode.Agent,
-                        dequeueSteerMessage: _steerer.TryDequeue
+                        dequeueSteerMessage: _steerer.TryDequeue,
+                        startBlock: _startBlock
                     );
 
                     ApplyMarkdownIfEnabled();
@@ -249,7 +260,8 @@ namespace NyoCoder
                 }
                 else if (reviewResult == PlanReviewResult.Refine)
                 {
-                    _appendLine("\nAssistant: ");
+                    _startBlock();
+                    _appendLine("Assistant: ");
 
                     llmClient.ProcessConversation(
                         refineText,
@@ -260,7 +272,8 @@ namespace NyoCoder
                         stopRequested: _stopRequested,
                         onSummarized: _resetCharacterCount,
                         mode: planMode,
-                        dequeueSteerMessage: _steerer.TryDequeue
+                        dequeueSteerMessage: _steerer.TryDequeue,
+                        startBlock: _startBlock
                     );
 
                     ApplyMarkdownIfEnabled();
@@ -269,7 +282,8 @@ namespace NyoCoder
                 }
                 else // Cancel
                 {
-                    _appendLine("\n[Plan cancelled]\n");
+                    _startBlock();
+                    _appendLine("[Plan cancelled]");
                     _hideStepDisplay();
                     break;
                 }

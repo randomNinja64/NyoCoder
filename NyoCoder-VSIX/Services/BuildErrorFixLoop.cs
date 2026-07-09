@@ -19,10 +19,14 @@ namespace NyoCoder
             Func<bool> stopRequested,
             Action<string> appendText,
             Func<string> dequeueSteerMessage,
-            Action<int> onSummarized)
+            Action<int> onSummarized,
+            Action startBlock = null)
         {
             if (llmClient == null)
                 return;
+
+            if (startBlock == null)
+                startBlock = delegate { };
 
             if (ConfigHandler.GetBuildErrorCheckMode() == BuildErrorCheckMode.Off)
                 return;
@@ -31,7 +35,7 @@ namespace NyoCoder
                 return;
 
             ContextEngine.CompilerErrorSnapshot snapshot;
-            if (!TryDetectErrors(out snapshot, appendText))
+            if (!TryDetectErrors(out snapshot, appendText, startBlock))
                 return;
 
             if (snapshot.Count == 0)
@@ -48,7 +52,8 @@ namespace NyoCoder
                     return;
 
                 attempts++;
-                AppendLine(appendText, "\nAssistant: ");
+                startBlock();
+                AppendLine(appendText, "Assistant: ");
 
                 string fixPrompt =
                     "The following build errors were reported after your previous changes. " +
@@ -64,12 +69,13 @@ namespace NyoCoder
                     stopRequested: stopRequested,
                     onSummarized: onSummarized,
                     mode: ChatMode.Debug,
-                    dequeueSteerMessage: dequeueSteerMessage);
+                    dequeueSteerMessage: dequeueSteerMessage,
+                    startBlock: startBlock);
 
                 if (stopRequested != null && stopRequested())
                     return;
 
-                if (!TryDetectErrors(out snapshot, appendText))
+                if (!TryDetectErrors(out snapshot, appendText, startBlock))
                     return;
 
                 if (snapshot.Count == 0)
@@ -80,7 +86,8 @@ namespace NyoCoder
                     unchangedStreak++;
                     if (unchangedStreak >= 2)
                     {
-                        AppendLine(appendText, "\n[Unable to resolve build errors: no progress after 2 attempts]");
+                        startBlock();
+                        AppendLine(appendText, "[Unable to resolve build errors: no progress after 2 attempts]");
                         return;
                     }
                 }
@@ -91,17 +98,20 @@ namespace NyoCoder
                 }
             }
 
-            AppendLine(appendText, "\n[Unable to resolve build errors: max attempts reached]");
+            startBlock();
+            AppendLine(appendText, "[Unable to resolve build errors: max attempts reached]");
         }
 
         private static bool TryDetectErrors(
             out ContextEngine.CompilerErrorSnapshot snapshot,
-            Action<string> appendText)
+            Action<string> appendText,
+            Action startBlock)
         {
             snapshot = new ContextEngine.CompilerErrorSnapshot();
             BuildErrorCheckMode mode = ConfigHandler.GetBuildErrorCheckMode();
 
-            AppendLine(appendText, "\nChecking for build errors...");
+            startBlock();
+            AppendLine(appendText, "Checking for build errors...");
 
             if (mode == BuildErrorCheckMode.IntelliSense)
             {

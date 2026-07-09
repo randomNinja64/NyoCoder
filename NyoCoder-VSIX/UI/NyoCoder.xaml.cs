@@ -27,6 +27,9 @@ namespace NyoCoder
         // Owns background conversation loop, plan execution, and plan review
         private MessageDispatcher _dispatcher;
 
+        // Tracks trailing newlines so blocks are separated by exactly one blank line
+        private ChatOutputWriter _outputWriter;
+
         private const string SteerInputTooltip =
             "Queue a message to steer the conversation after the current tool call or response";
 
@@ -38,16 +41,20 @@ namespace NyoCoder
                 ScrollViewer.ScrollChangedEvent,
                 new ScrollChangedEventHandler(OutputTextBox_ScrollChanged));
 
+            _outputWriter = new ChatOutputWriter(AppendTextDirect);
+
             _interactionManager = new InteractionManager(
                 ButtonPanel,
                 AppendText,
                 ScrollToBottom,
                 hideInputBar: () => InputBar.Visibility = Visibility.Collapsed,
-                showInputBar: () => InputBar.Visibility = Visibility.Visible);
+                showInputBar: () => InputBar.Visibility = Visibility.Visible,
+                startBlock: _outputWriter.StartBlock);
             _interactionManager.StopRequested += () => { StopRequested = true; };
             _tokenTracker = new TokenTracker(TokenStatusText, StepTokenStatusText, SubagentStatusRow, Dispatcher);
             _dispatcher = new MessageDispatcher(
                 AppendText,
+                _outputWriter.StartBlock,
                 AppendLine,
                 ApplyMarkdown,
                 () => StopRequested,
@@ -135,9 +142,18 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Appends text to the output pane.
+        /// Appends text to the output pane. Routes through the output writer so
+        /// block spacing stays accurate — all chat output must use this method.
         /// </summary>
         public void AppendText(string text)
+        {
+            _outputWriter.Write(text);
+        }
+
+        /// <summary>
+        /// Raw sink used exclusively by the ChatOutputWriter.
+        /// </summary>
+        private void AppendTextDirect(string text)
         {
             EditorService.InvokeOnUIThread(() => AppendTextInternal(text), Dispatcher);
         }
@@ -214,6 +230,7 @@ namespace NyoCoder
             {
                 OutputTextBox.Document.Blocks.Clear();
                 _tokenTracker.Reset();
+                _outputWriter.Reset();
 
                 // Reset step planner display
                 if (StepPlanner.Instance != null)
@@ -265,6 +282,7 @@ namespace NyoCoder
             {
                 OutputTextBox.Document.Blocks.Clear();
                 _tokenTracker.ResetCharacterCount(text != null ? text.Length : 0);
+                _outputWriter.Reset();
                 var paragraph = new Paragraph(new Run(text)) { Margin = new Thickness(0), Padding = new Thickness(0) };
                 OutputTextBox.Document.Blocks.Add(paragraph);
             }, Dispatcher);
@@ -517,9 +535,10 @@ namespace NyoCoder
             if (!string.IsNullOrEmpty(attachedImage))
                 userMessageDisplay += " [Image attached]";
 
-            string prefix = isNewSession ? "" : "\n";
-            AppendLine(prefix + "User: " + userMessageDisplay);
-            AppendLine("\nAssistant: ");
+            _outputWriter.StartBlock();
+            AppendLine("User: " + userMessageDisplay);
+            _outputWriter.StartBlock();
+            AppendLine("Assistant: ");
 
             StopRequested = false;
 

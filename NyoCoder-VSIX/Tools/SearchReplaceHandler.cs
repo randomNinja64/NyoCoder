@@ -48,76 +48,24 @@ namespace NyoCoder
                     return sb.ToString();
                 }
 
-                // 1b) Build an inline preview buffer (old + new right next to each other)
-                SearchReplaceTool.InlinePreview inline = SearchReplaceTool.BuildInlinePreview(preview);
+                DiffApprovalHelper.Result flow = DiffApprovalHelper.RunAfterPreview(
+                    "search_replace",
+                    preview,
+                    filePath,
+                    preview.OriginalContent ?? string.Empty,
+                    preview.NewContent ?? string.Empty,
+                    () => SearchReplaceTool.ApplyPreview(preview));
 
-                // Try to apply the inline preview to the open document (no save) so it shows inline in the editor.
-                bool previewShownInline = false;
-                if (!string.IsNullOrEmpty(preview.NormalizedFilePath))
-                    previewShownInline = EditorService.TrySetOpenDocumentContent(preview.NormalizedFilePath, inline.Content, false);
-
-                // Show inline highlight adornments (background + strikethrough) for preview spans
-                if (previewShownInline && inline.Spans.Count > 0)
+                if (flow.Approval != ApprovalResult.Approved)
                 {
-                    string p = string.IsNullOrEmpty(preview.NormalizedFilePath)
-                        ? EditorService.NormalizeFilePath(filePath)
-                        : preview.NormalizedFilePath;
-                    ToolHandler.RaiseDiffChangesPreview(p, inline.Spans);
-                }
-
-                // 2) Ask user to approve/reject using the bottom bar in the NyoCoder panel
-                ApprovalResult approvalResult = ApprovalResult.Rejected;
-                string notApprovedMessage = "Rejected by user. No changes applied.";
-                if (ToolApprovalService.IsAvailable)
-                {
-                    StringBuilder approvalArgs = new StringBuilder();
-                    approvalArgs.AppendLine("Apply these changes?");
-                    approvalArgs.AppendLine("File: " + (string.IsNullOrEmpty(preview.NormalizedFilePath) ? filePath : preview.NormalizedFilePath));
-                    approvalArgs.AppendLine();
-                    if (!string.IsNullOrEmpty(preview.PreviewDiff))
-                        approvalArgs.Append(preview.PreviewDiff);
-                    approvalResult = ToolApprovalService.Request("search_replace", approvalArgs.ToString());
-                    if (approvalResult == ApprovalResult.Stopped)
-                        notApprovedMessage = "Session stopped by user. No changes applied.";
-                }
-                else
-                {
-                    exitCode = 1;
-                    notApprovedMessage = "Error: Approval UI unavailable. No changes applied.";
-                }
-
-                if (approvalResult != ApprovalResult.Approved)
-                {
-                    string p = string.IsNullOrEmpty(preview.NormalizedFilePath)
-                        ? EditorService.NormalizeFilePath(filePath)
-                        : preview.NormalizedFilePath;
-                    ToolHandler.RaiseDiffPreviewCleared(p);
-
-                    if (previewShownInline && !string.IsNullOrEmpty(preview.NormalizedFilePath))
-                        EditorService.TrySetOpenDocumentContent(preview.NormalizedFilePath, preview.OriginalContent ?? "", false);
-
+                    if (flow.ApprovalUiUnavailable)
+                        exitCode = 1;
                     addSpacer();
-                    sb.AppendLine(notApprovedMessage);
+                    sb.AppendLine(flow.NotApprovedMessage);
                     return sb.ToString();
                 }
 
-                // 3) Clear preview adornments, then apply changes
-                {
-                    string p = string.IsNullOrEmpty(preview.NormalizedFilePath)
-                        ? EditorService.NormalizeFilePath(filePath)
-                        : preview.NormalizedFilePath;
-                    ToolHandler.RaiseDiffPreviewCleared(p);
-                }
-
-                bool appliedOk = false;
-
-                if (previewShownInline && !string.IsNullOrEmpty(preview.NormalizedFilePath))
-                    appliedOk = EditorService.TrySetOpenDocumentContent(preview.NormalizedFilePath, preview.NewContent ?? "", true);
-
-                if (!appliedOk)
-                    appliedOk = SearchReplaceTool.ApplyPreview(preview);
-
-                if (!appliedOk)
+                if (!flow.Applied)
                 {
                     exitCode = 1;
                     addSpacer();

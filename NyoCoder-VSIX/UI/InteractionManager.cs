@@ -38,6 +38,7 @@ namespace NyoCoder
         private readonly Action _scrollToBottom;
         private readonly Action _hideInputBar;
         private readonly Action _showInputBar;
+        private readonly Action _startBlock;
 
         // Shared synchronization — only one interaction pending at a time.
         private ManualResetEvent _pendingWaitHandle;
@@ -62,13 +63,15 @@ namespace NyoCoder
             Action<string> appendText,
             Action scrollToBottom = null,
             Action hideInputBar = null,
-            Action showInputBar = null)
+            Action showInputBar = null,
+            Action startBlock = null)
         {
             _buttonPanel = buttonPanel;
             _appendText = appendText;
             _scrollToBottom = scrollToBottom;
             _hideInputBar = hideInputBar;
             _showInputBar = showInputBar;
+            _startBlock = startBlock ?? delegate { };
         }
 
         // ── Tool approval ──────────────────────────────────────────────
@@ -95,7 +98,8 @@ namespace NyoCoder
 
         private void ShowApprovalUI(string toolName, string arguments)
         {
-            _appendText("\n[Approval Required] " + toolName);
+            _startBlock();
+            _appendText("[Approval Required] " + toolName);
             _appendText("\n" + arguments + "\n");
 
             _buttonPanel.Children.Clear();
@@ -142,7 +146,8 @@ namespace NyoCoder
 
         private void ShowQuestionUI(string question, string[] options)
         {
-            _appendText("\n[Question] " + (question ?? "") + "\n");
+            _startBlock();
+            _appendText("[Question] " + (question ?? "") + "\n");
 
             _buttonPanel.Children.Clear();
 
@@ -228,7 +233,8 @@ namespace NyoCoder
 
         private void ShowPlanReviewUI()
         {
-            _appendText("\n[Review the plan above. Execute, refine, or cancel?]\n");
+            _startBlock();
+            _appendText("[Review the plan above. Execute, refine, or cancel?]\n");
 
             _buttonPanel.Children.Clear();
 

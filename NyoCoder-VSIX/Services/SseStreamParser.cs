@@ -17,13 +17,15 @@ namespace NyoCoder
         /// <param name="toolCallCallback">Called when a tool call name or argument chunk is seen.</param>
         /// <param name="stopRequested">Returns true when the caller wants to abort early.</param>
         /// <param name="onStop">Optional action invoked when a stop is detected mid-stream (e.g. abort the HTTP request).</param>
+        /// <param name="startBlock">Optional action that pads the chat output to a blank line before a new block starts.</param>
         public static LLMClient.LLMCompletionResponse Parse(
             TextReader reader,
             Action<string> outputCallback,
             Action<ToolHandler.ToolCall> toolCallCallback,
             Func<bool> stopRequested,
             Action onStop = null,
-            Action<string> onReasoningChunk = null)
+            Action<string> onReasoningChunk = null,
+            Action startBlock = null)
         {
             LLMClient.LLMCompletionResponse response = new LLMClient.LLMCompletionResponse
             {
@@ -63,11 +65,13 @@ namespace NyoCoder
 
                 if (lastEvent == "error" || jsonPart.Contains("\"error\""))
                 {
-                    string errorMsg = "\n[API Error] " + jsonPart.Trim() + "\n";
                     if (outputCallback != null)
-                        outputCallback(errorMsg);
+                    {
+                        if (startBlock != null) startBlock();
+                        outputCallback("[API Error] " + jsonPart.Trim() + "\n");
+                    }
                     else
-                        Console.Write(errorMsg);
+                        Console.Write("\n[API Error] " + jsonPart.Trim() + "\n");
                     lastEvent = null;
                     continue;
                 }
@@ -94,6 +98,7 @@ namespace NyoCoder
                             {
                                 if (!inReasoning)
                                 {
+                                    if (startBlock != null) startBlock();
                                     onReasoningChunk("[thinking]\n");
                                     inReasoning = true;
                                 }
@@ -111,7 +116,11 @@ namespace NyoCoder
                             if (inReasoning)
                             {
                                 if (onReasoningChunk != null)
+                                {
                                     onReasoningChunk("[/thinking]\n");
+                                    // Blank line between the thinking block and the text that follows
+                                    if (startBlock != null) startBlock();
+                                }
                                 inReasoning = false;
                             }
                             if (outputCallback != null)

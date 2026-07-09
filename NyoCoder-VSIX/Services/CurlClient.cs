@@ -106,7 +106,8 @@ namespace NyoCoder
             string serverUrl, string apiKey, JObject payload,
             Action<string> outputCallback,
             Action<ToolHandler.ToolCall> toolCallCallback,
-            Func<bool> stopRequested)
+            Func<bool> stopRequested,
+            Action startBlock = null)
         {
             // Use a Windows named pipe so curl can read the JSON body from memory
             // without touching disk, avoiding stdin pipe deadlock issues.
@@ -153,7 +154,8 @@ namespace NyoCoder
 
                         LLMClient.LLMCompletionResponse result = SseStreamParser.Parse(
                             process.StandardOutput, outputCallback, toolCallCallback, stopRequested,
-                            onReasoningChunk: ConfigHandler.GetShowReasoningOutput() ? outputCallback : null);
+                            onReasoningChunk: ConfigHandler.GetShowReasoningOutput() ? outputCallback : null,
+                            startBlock: startBlock);
 
                         pipeThread.Join(5000);
                         process.WaitForExit();

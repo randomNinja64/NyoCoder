@@ -42,7 +42,7 @@ namespace NyoCoder
             EditorService.InvokeOnUIThread(() =>
             {
                 _totalCharacterCount = newCount;
-                RefreshTokenDisplay();
+                RefreshTokenDisplay(_totalCharacterCount, "Tokens", _tokenStatusText);
             }, _dispatcher);
         }
 
@@ -57,7 +57,7 @@ namespace NyoCoder
             EditorService.BeginInvokeOnUIThread(() =>
             {
                 _totalCharacterCount = Math.Max(0, _totalCharacterCount + delta);
-                RefreshTokenDisplay();
+                RefreshTokenDisplay(_totalCharacterCount, "Tokens", _tokenStatusText);
             }, _dispatcher);
         }
 
@@ -74,12 +74,12 @@ namespace NyoCoder
             if (_isTrackingStepTokens)
             {
                 _stepCharacterCount += charCount;
-                RefreshStepTokenDisplay();
+                RefreshTokenDisplay(_stepCharacterCount, "Step Tokens", _stepTokenStatusText);
             }
             else
             {
                 _totalCharacterCount += charCount;
-                RefreshTokenDisplay();
+                RefreshTokenDisplay(_totalCharacterCount, "Tokens", _tokenStatusText);
             }
         }
 
@@ -92,7 +92,7 @@ namespace NyoCoder
             _totalCharacterCount = 0;
             _isTrackingStepTokens = false;
             _stepCharacterCount = 0;
-            RefreshTokenDisplay();
+            RefreshTokenDisplay(_totalCharacterCount, "Tokens", _tokenStatusText);
             _subagentStatusRow.Visibility = Visibility.Collapsed;
         }
 
@@ -108,7 +108,7 @@ namespace NyoCoder
             {
                 _isTrackingStepTokens = true;
                 _totalCharacterCount = prePlanCharCount;
-                RefreshTokenDisplay();
+                RefreshTokenDisplay(_totalCharacterCount, "Tokens", _tokenStatusText);
                 _subagentStatusRow.Visibility = Visibility.Visible;
             }, _dispatcher);
         }
@@ -122,7 +122,7 @@ namespace NyoCoder
             EditorService.BeginInvokeOnUIThread(() =>
             {
                 _totalCharacterCount = count;
-                RefreshTokenDisplay();
+                RefreshTokenDisplay(_totalCharacterCount, "Tokens", _tokenStatusText);
             }, _dispatcher);
         }
 
@@ -135,7 +135,7 @@ namespace NyoCoder
             EditorService.InvokeOnUIThread(() =>
             {
                 _stepCharacterCount = count;
-                RefreshStepTokenDisplay();
+                RefreshTokenDisplay(_stepCharacterCount, "Step Tokens", _stepTokenStatusText);
             }, _dispatcher);
         }
 
@@ -150,51 +150,31 @@ namespace NyoCoder
                 _isTrackingStepTokens = false;
                 _stepCharacterCount = 0;
                 _totalCharacterCount = finalMainCharCount;
-                RefreshTokenDisplay();
+                RefreshTokenDisplay(_totalCharacterCount, "Tokens", _tokenStatusText);
                 _subagentStatusRow.Visibility = Visibility.Collapsed;
             }, _dispatcher);
         }
 
         // ── Display helpers (must be called on UI thread) ──────────────
 
-        private void RefreshTokenDisplay()
+        private void RefreshTokenDisplay(int characterCount, string label, TextBlock target)
         {
-            int approximateTokens = ContextEngine.ApproximateTokens(_totalCharacterCount, CurrentMode);
+            int approximateTokens = ContextEngine.ApproximateTokens(characterCount, CurrentMode);
             int? contextWindowSize = ConfigHandler.ContextWindowSize;
 
             string statusText;
             if (contextWindowSize.HasValue && contextWindowSize.Value > 0)
             {
                 double percentage = (double)approximateTokens / contextWindowSize.Value * 100;
-                statusText = string.Format("Tokens: ~{0:N0} / {1:N0} ({2:F1}%)",
-                    approximateTokens, contextWindowSize.Value, percentage);
+                statusText = string.Format("{0}: ~{1:N0} / {2:N0} ({3:F1}%)",
+                    label, approximateTokens, contextWindowSize.Value, percentage);
             }
             else
             {
-                statusText = string.Format("Tokens: ~{0:N0}", approximateTokens);
+                statusText = string.Format("{0}: ~{1:N0}", label, approximateTokens);
             }
 
-            _tokenStatusText.Text = statusText;
-        }
-
-        private void RefreshStepTokenDisplay()
-        {
-            int approximateTokens = ContextEngine.ApproximateTokens(_stepCharacterCount, CurrentMode);
-            int? contextWindowSize = ConfigHandler.ContextWindowSize;
-
-            string statusText;
-            if (contextWindowSize.HasValue && contextWindowSize.Value > 0)
-            {
-                double percentage = (double)approximateTokens / contextWindowSize.Value * 100;
-                statusText = string.Format("Step Tokens: ~{0:N0} / {1:N0} ({2:F1}%)",
-                    approximateTokens, contextWindowSize.Value, percentage);
-            }
-            else
-            {
-                statusText = string.Format("Step Tokens: ~{0:N0}", approximateTokens);
-            }
-
-            _stepTokenStatusText.Text = statusText;
+            target.Text = statusText;
         }
     }
 }

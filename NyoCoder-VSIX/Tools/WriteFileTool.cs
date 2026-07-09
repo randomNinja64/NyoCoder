@@ -64,8 +64,8 @@ namespace NyoCoder
                 if (originalRaw == null)
                     originalRaw = File.ReadAllText(expandedPath, Encoding.UTF8);
 
-                string normalizedOriginal = originalRaw.Replace("\r\n", "\n").Replace("\r", "\n");
-                string normalizedNew = (newContent ?? string.Empty).Replace("\r\n", "\n").Replace("\r", "\n");
+                string normalizedOriginal = TextNormalization.NormalizeLineEndings(originalRaw);
+                string normalizedNew = TextNormalization.NormalizeLineEndings(newContent ?? string.Empty);
 
                 if (string.Equals(normalizedOriginal, normalizedNew, StringComparison.Ordinal))
                     return "File written successfully: " + expandedPath + " (no changes)";
@@ -95,51 +95,30 @@ namespace NyoCoder
 
                 EditorService.TryOpenFileInVisualStudio(expandedPath);
 
-                const int InlinePreviewMaxChars = 100000;
-                bool previewShownInline = false;
-                if (normalizedOriginal.Length + normalizedNew.Length < InlinePreviewMaxChars)
+                DiffApprovalHelper.Result flow = DiffApprovalHelper.RunAfterPreview(
+                    "write_file",
+                    res,
+                    expandedPath,
+                    originalRaw,
+                    newContent,
+                    () =>
+                    {
+                        File.WriteAllText(expandedPath, newContent, Encoding.UTF8);
+                        return true;
+                    });
+
+                if (flow.Approval != ApprovalResult.Approved)
                 {
-                    SearchReplaceTool.InlinePreview inline = SearchReplaceTool.BuildInlinePreview(res);
-                    previewShownInline = EditorService.TrySetOpenDocumentContent(expandedPath, inline.Content, false);
-                    if (previewShownInline && inline.Spans.Count > 0)
-                        ToolHandler.RaiseDiffChangesPreview(expandedPath, inline.Spans);
+                    if (flow.ApprovalUiUnavailable)
+                        exitCode = 1;
+                    return flow.NotApprovedMessage;
                 }
 
-                ApprovalResult approvalResult = ApprovalResult.Rejected;
-                string notApprovedMessage = "Rejected by user. No changes applied.";
-                if (ToolApprovalService.IsAvailable)
-                {
-                    StringBuilder approvalArgs = new StringBuilder();
-                    approvalArgs.AppendLine("Apply these changes?");
-                    approvalArgs.AppendLine("File: " + expandedPath);
-                    approvalArgs.AppendLine();
-                    if (!string.IsNullOrEmpty(res.PreviewDiff))
-                        approvalArgs.Append(res.PreviewDiff);
-                    approvalResult = ToolApprovalService.Request("write_file", approvalArgs.ToString());
-                    if (approvalResult == ApprovalResult.Stopped)
-                        notApprovedMessage = "Session stopped by user. No changes applied.";
-                }
-                else
+                if (!flow.Applied)
                 {
                     exitCode = 1;
-                    notApprovedMessage = "Error: Approval UI unavailable. No changes applied.";
+                    return "Error: Failed to apply changes.";
                 }
-
-                if (approvalResult != ApprovalResult.Approved)
-                {
-                    ToolHandler.RaiseDiffPreviewCleared(expandedPath);
-                    if (previewShownInline)
-                        EditorService.TrySetOpenDocumentContent(expandedPath, originalRaw, false);
-                    return notApprovedMessage;
-                }
-
-                ToolHandler.RaiseDiffPreviewCleared(expandedPath);
-
-                bool appliedOk = false;
-                if (previewShownInline)
-                    appliedOk = EditorService.TrySetOpenDocumentContent(expandedPath, newContent, true);
-                if (!appliedOk)
-                    File.WriteAllText(expandedPath, newContent, Encoding.UTF8);
 
                 return "Approved. File written successfully: " + expandedPath;
             }

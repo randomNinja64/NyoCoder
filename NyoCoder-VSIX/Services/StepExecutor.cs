@@ -15,6 +15,7 @@ namespace NyoCoder
         private readonly Action<string> _appendText;
         private readonly Func<bool> _stopRequested;
         private readonly Func<string> _dequeueSteerMessage;
+        private readonly Action _startBlock;
 
         /// <summary>
         /// Fired when the main conversation token count should be synced.
@@ -45,13 +46,15 @@ namespace NyoCoder
             LLMClient mainClient,
             Action<string> appendText,
             Func<bool> stopRequested,
-            Func<string> dequeueSteerMessage = null)
+            Func<string> dequeueSteerMessage = null,
+            Action startBlock = null)
         {
             _planner = planner;
             _mainClient = mainClient;
             _appendText = appendText;
             _stopRequested = stopRequested;
             _dequeueSteerMessage = dequeueSteerMessage;
+            _startBlock = startBlock ?? delegate { };
         }
 
         /// <summary>
@@ -100,6 +103,7 @@ namespace NyoCoder
                         if (stepClient == null)
                         {
                             _planner.SetStepStatus(stepIdx, StepStatus.Failed);
+                            _startBlock();
                             _appendText("[Step failed: could not create LLM client]\n");
                             continue;
                         }
@@ -111,7 +115,8 @@ namespace NyoCoder
                         stepCharacterCount = prePlanCharCount;
                         RaiseStepTokenCountChanged(stepCharacterCount);
 
-                        _appendText("\n\u2501\u2501\u2501 Step " + (stepIdx + 1) + "/" + _planner.Steps.Count + ": " + step.Title + " \u2501\u2501\u2501\n\n");
+                        _startBlock();
+                        _appendText("\u2501\u2501\u2501 Step " + (stepIdx + 1) + "/" + _planner.Steps.Count + ": " + step.Title + " \u2501\u2501\u2501\n");
 
                         // Build fresh editor context
                         string freshContext = string.Empty;
@@ -156,7 +161,8 @@ namespace NyoCoder
                                 localStepCharCount = newCharCount;
                                 RaiseStepTokenCountChanged(newCharCount);
                             },
-                            dequeueSteerMessage: _dequeueSteerMessage
+                            dequeueSteerMessage: _dequeueSteerMessage,
+                            startBlock: _startBlock
                         );
 
                         stepCharacterCount = localStepCharCount;
@@ -204,11 +210,13 @@ namespace NyoCoder
                     catch (Exception stepEx)
                     {
                         _planner.SetStepStatus(stepIdx, StepStatus.Failed);
-                        _appendText("\n[Step failed: " + stepEx.Message + "]\n");
+                        _startBlock();
+                        _appendText("[Step failed: " + stepEx.Message + "]\n");
                     }
                 }
 
-                _appendText("\n\u2501\u2501\u2501 All steps completed \u2501\u2501\u2501\n");
+                _startBlock();
+                _appendText("\u2501\u2501\u2501 All steps completed \u2501\u2501\u2501\n");
             }
             finally
             {

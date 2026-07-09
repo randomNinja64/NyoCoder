@@ -149,6 +149,7 @@
     <Compile Include="Editor\DiffHighlightAdornmentFactory.cs" />
     <!-- Services -->
     <Compile Include="Services\BuildErrorFixLoop.cs" />
+    <Compile Include="Services\ChatOutputWriter.cs" />
     <Compile Include="Services\CodebaseIndex.cs" />
     <Compile Include="Services\CodebaseIndexer.cs" />
     <Compile Include="Services\ConfigHandler.cs" />
@@ -165,12 +166,14 @@
     <Compile Include="Services\MessageDispatcher.cs" />
     <Compile Include="Services\SymbolExtractor.cs" />
     <Compile Include="Services\SymbolReferenceExtractor.cs" />
+    <Compile Include="Services\TextNormalization.cs" />
     <Compile Include="Services\ToolApprovalService.cs" />
     <Compile Include="Services\StepExecutor.cs" />
     <Compile Include="Services\StepPlanner.cs" />
     <Compile Include="Services\VectorStore.cs" />
     <!-- Tools -->
     <Compile Include="Tools\CodebaseSearchTool.cs" />
+    <Compile Include="Tools\DiffApprovalHelper.cs" />
     <Compile Include="Tools\ExternalToolRegistry.cs" />
     <Compile Include="Tools\GrepSearchTool.cs" />
     <Compile Include="Tools\SearchReplaceHandler.cs" />

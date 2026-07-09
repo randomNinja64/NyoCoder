@@ -25,7 +25,8 @@ namespace NyoCoder
             "    Apply patches, run commands, based on user approvals.\n\n" +
             "Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.\n\n" +
             "Always try your hardest to use the tools to answer the user's request. If you can't use the tools, explain why and ask the user for more information.\n\n" +
-            "Act as an agentic assistant. For long tasks, break them down and work through them step by step.";
+            "Act as an agentic assistant. For long tasks, break them down and work through them step by step.\n\n" +
+            "When creating or moving files that belong in a project, register them in the relevant project manifest if the build requires it.";
 
         /// <summary>
         /// Additional system prompt instructions for Plan mode.

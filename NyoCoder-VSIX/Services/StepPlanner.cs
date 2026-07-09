@@ -45,7 +45,10 @@ namespace NyoCoder
         /// </summary>
         public static StepPlanner Initialize()
         {
-            Instance = new StepPlanner();
+            if (Instance == null)
+                Instance = new StepPlanner();
+            else
+                Instance.Reset();
             return Instance;
         }
 

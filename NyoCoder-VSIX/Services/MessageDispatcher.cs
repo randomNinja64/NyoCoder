@@ -27,6 +27,7 @@ namespace NyoCoder
         private readonly InteractionManager _interactionManager;
         private readonly ConversationSteerer _steerer = new ConversationSteerer();
         private readonly Dispatcher _dispatcher;
+        private bool _stepsChangedSubscribed;
 
         internal MessageDispatcher(
             Action<string> appendText,
@@ -121,7 +122,11 @@ namespace NyoCoder
                     if (isNewSession)
                     {
                         StepPlanner.Initialize();
-                        StepPlanner.Instance.StepsChanged += _onStepsChanged;
+                        if (!_stepsChangedSubscribed)
+                        {
+                            StepPlanner.Instance.StepsChanged += _onStepsChanged;
+                            _stepsChangedSubscribed = true;
+                        }
                     }
 
                     llmClient.ProcessConversation(

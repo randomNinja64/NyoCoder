@@ -20,9 +20,7 @@
         <!-- Status bar showing token usage and step progress -->
         <Border x:Name="TokenStatusBar"
                 Grid.Row="0"
-                Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}"
-                BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
-                BorderThickness="0,0,0,1"
+                Background="{DynamicResource {x:Static vsfx:VsBrushes.CommandBarGradientBeginKey}}"
                 Padding="6,3">
             <StackPanel>
                 <Grid>
@@ -88,9 +86,7 @@
         <!-- Input bar -->
         <Border x:Name="InputBar"
                 Grid.Row="3"
-                Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}"
-                BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
-                BorderThickness="0,1,0,0"
+                Background="{DynamicResource {x:Static vsfx:VsBrushes.CommandBarGradientBeginKey}}"
                 Padding="4">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -122,8 +118,6 @@
                          Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
                          Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
                          CaretBrush="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
-                         BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
-                         BorderThickness="1"
                          PreviewKeyDown="InputBox_PreviewKeyDown"/>
                 <StackPanel Grid.Column="2"
                            Orientation="Vertical"
@@ -149,10 +143,8 @@
         <!-- Persistent indexing status bar (visible only when indexing mode != Off) -->
         <Border x:Name="IndexingStatusBar"
                 Grid.Row="4"
-                Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}"
-                BorderBrush="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBorderKey}}"
-                BorderThickness="0,1,0,0"
-                Padding="6,3"
+                Background="{DynamicResource {x:Static vsfx:VsBrushes.CommandBarGradientBeginKey}}"
+                Padding="6,0,6,4"
                 Visibility="Collapsed">
             <TextBlock x:Name="IndexingStatusText"
                        Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"

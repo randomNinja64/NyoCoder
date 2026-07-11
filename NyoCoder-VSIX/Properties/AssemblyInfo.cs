@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("NyoCoder")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("AI-assisted coding for Visual Studio 2010+")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("NyoCoder")]
 [assembly: AssemblyProduct("NyoCoder")]

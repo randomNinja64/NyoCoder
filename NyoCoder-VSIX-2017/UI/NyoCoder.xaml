@@ -1,0 +1,155 @@
+<UserControl x:Class="NyoCoder.NyoCoderControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:vsfx="clr-namespace:Microsoft.VisualStudio.Shell;assembly=Microsoft.VisualStudio.Shell.15.0"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300"
+             Name="NyoCoderWindow"
+             Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Status bar showing token usage and step progress -->
+        <Border x:Name="TokenStatusBar"
+                Grid.Row="0"
+                Background="{DynamicResource {x:Static vsfx:VsBrushes.CommandBarGradientBeginKey}}"
+                Padding="6,3">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TokenStatusText"
+                               Grid.Column="0"
+                               Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
+                               Text="Tokens: 0"/>
+                    <TextBlock x:Name="StepStatusText"
+                               Grid.Column="1"
+                               Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
+                               Margin="12,0,0,0"
+                               HorizontalAlignment="Right"
+                               Visibility="Collapsed"/>
+                </Grid>
+                <Grid x:Name="SubagentStatusRow"
+                      Margin="0,2,0,0"
+                      Visibility="Collapsed">
+                    <TextBlock x:Name="StepTokenStatusText"
+                               Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+        
+        <!-- Output text box -->
+        <RichTextBox x:Name="OutputTextBox"
+                     Grid.Row="1"
+                     IsReadOnly="True"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"
+                     Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                     Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
+                     Padding="4"
+                     BorderThickness="0">
+            <FlowDocument Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}" LineHeight="14" LineStackingStrategy="BlockLineHeight">
+                <FlowDocument.Resources>
+                    <Style TargetType="{x:Type Paragraph}">
+                        <Setter Property="Margin" Value="0"/>
+                        <Setter Property="Padding" Value="0"/>
+                    </Style>
+                </FlowDocument.Resources>
+                <Paragraph>
+                    <Run Text="NyoCoder is ready. Type a message below, or press Ctrl+Alt+N from anywhere in Visual Studio."/>
+                </Paragraph>
+            </FlowDocument>
+        </RichTextBox>
+        
+        <!-- Button panel -->
+        <ScrollViewer Grid.Row="2"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled"
+                      Margin="2"
+                      Visibility="{Binding ElementName=ButtonPanel, Path=Visibility}">
+            <StackPanel x:Name="ButtonPanel"
+                        Orientation="Horizontal"
+                        MinHeight="36"
+                        Visibility="Collapsed"/>
+        </ScrollViewer>
+
+        <!-- Input bar -->
+        <Border x:Name="InputBar"
+                Grid.Row="3"
+                Background="{DynamicResource {x:Static vsfx:VsBrushes.CommandBarGradientBeginKey}}"
+                Padding="4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0"
+                            Orientation="Vertical"
+                            Margin="0,0,4,0">
+                    <Button x:Name="NewChatButton"
+                            Content="New Chat"
+                            MinWidth="60"
+                            Padding="8,1"
+                            Margin="0,0,0,4"
+                            Click="NewChatButton_Click"/>
+                    <ComboBox x:Name="ModeSelector"
+                              MinWidth="60"/>
+                </StackPanel>
+                <TextBox x:Name="InputBox"
+                         Grid.Column="1"
+                         Margin="0,0,4,0"
+                         MinHeight="48"
+                         Height="48"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalContentAlignment="Top"
+                         VerticalScrollBarVisibility="Auto"
+                         Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
+                         Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                         CaretBrush="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                         PreviewKeyDown="InputBox_PreviewKeyDown"/>
+                <StackPanel Grid.Column="2"
+                           Orientation="Vertical"
+                           VerticalAlignment="Top">
+                    <Button x:Name="InputSendButton"
+                            Content="Send"
+                            MinWidth="60"
+                            MinHeight="20"
+                            Padding="8,1"
+                            Margin="0,0,0,4"
+                            Click="InputSendButton_Click"/>
+                    <ToggleButton x:Name="AttachImageButton"
+                            Content="Attach Image"
+                            MinWidth="60"
+                            MinHeight="20"
+                            Padding="8,1"
+                            Checked="AttachImageButton_Checked"
+                            Unchecked="AttachImageButton_Unchecked"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Persistent indexing status bar (visible only when indexing mode != Off) -->
+        <Border x:Name="IndexingStatusBar"
+                Grid.Row="4"
+                Background="{DynamicResource {x:Static vsfx:VsBrushes.CommandBarGradientBeginKey}}"
+                Padding="6,0,6,4"
+                Visibility="Collapsed">
+            <TextBlock x:Name="IndexingStatusText"
+                       Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
+                       TextTrimming="CharacterEllipsis"
+                       Text="Index: idle"/>
+        </Border>
+    </Grid>
+</UserControl>

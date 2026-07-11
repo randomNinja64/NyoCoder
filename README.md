@@ -2,7 +2,7 @@
 
 ## Description 
 
-An extension for Visual Studio 2010-2015 that enables AI-assisted coding with OpenAI-compatible endpoints (llama.cpp, LM Studio, etc.)
+An extension targeting Visual Studio 2010-2015 that enables AI-assisted coding with OpenAI-compatible endpoints (llama.cpp, LM Studio, etc.)
 
 ## Configuration (Options > NyoCoder Options...)
 
@@ -50,7 +50,7 @@ An extension for Visual Studio 2010-2015 that enables AI-assisted coding with Op
 
 ## Installation
 
-The VSIX for the tool can be downloaded from "Releases". Download and open it to install the extension.
+The VSIX for the tool can be downloaded from "Releases". Download the appropriate version for your release of Visual Studio (2010-2015, or 2017+) and open it to install the extension.
 
 ## Usage
 

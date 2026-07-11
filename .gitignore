@@ -403,3 +403,4 @@ FodyWeavers.xsd
 # Dependencies folder - ignore contents but keep folder
 **/[Dd]ependencies/*
 !**/[Dd]ependencies/.gitkeep
+*.vsix

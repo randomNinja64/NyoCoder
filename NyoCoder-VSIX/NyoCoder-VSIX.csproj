@@ -147,8 +147,8 @@
     <Compile Include="Core\NyoCoderPackageBase.cs" />
     <Compile Include="Core\NyoCoder-VSIXPackage.cs" />
     <!-- Editor -->
-    <Compile Include="Editor\DiffHighlightAdornment.cs" />
-    <Compile Include="Editor\DiffHighlightAdornmentFactory.cs" />
+    <Compile Include="Editor\DiffHighlightClassificationDefinitions.cs" />
+    <Compile Include="Editor\DiffHighlightTagger.cs" />
     <!-- Services -->
     <Compile Include="Services\BuildErrorFixLoop.cs" />
     <Compile Include="Services\ChatOutputWriter.cs" />

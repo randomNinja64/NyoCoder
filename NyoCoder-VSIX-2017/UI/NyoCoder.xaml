@@ -14,7 +14,6 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
         <!-- Status bar showing token usage and step progress -->
@@ -83,73 +82,73 @@
                         Visibility="Collapsed"/>
         </ScrollViewer>
 
-        <!-- Input bar -->
+        <!-- Input bar (includes indexing status; hidden together when approval UI shows) -->
         <Border x:Name="InputBar"
                 Grid.Row="3"
                 Background="{DynamicResource {x:Static vsfx:VsBrushes.CommandBarGradientBeginKey}}"
                 Padding="4">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0"
-                            Orientation="Vertical"
-                            Margin="0,0,4,0">
-                    <Button x:Name="NewChatButton"
-                            Content="New Chat"
-                            MinWidth="60"
-                            Padding="8,1"
-                            Margin="0,0,0,4"
-                            Click="NewChatButton_Click"/>
-                    <ComboBox x:Name="ModeSelector"
-                              MinWidth="60"/>
-                </StackPanel>
-                <TextBox x:Name="InputBox"
-                         Grid.Column="1"
-                         Margin="0,0,4,0"
-                         MinHeight="48"
-                         Height="48"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         VerticalContentAlignment="Top"
-                         VerticalScrollBarVisibility="Auto"
-                         Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
-                         Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
-                         CaretBrush="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
-                         PreviewKeyDown="InputBox_PreviewKeyDown"/>
-                <StackPanel Grid.Column="2"
-                           Orientation="Vertical"
-                           VerticalAlignment="Top">
-                    <Button x:Name="InputSendButton"
-                            Content="Send"
-                            MinWidth="60"
-                            MinHeight="20"
-                            Padding="8,1"
-                            Margin="0,0,0,4"
-                            Click="InputSendButton_Click"/>
-                    <ToggleButton x:Name="AttachImageButton"
-                            Content="Attach Image"
-                            MinWidth="60"
-                            MinHeight="20"
-                            Padding="8,1"
-                            Checked="AttachImageButton_Checked"
-                            Unchecked="AttachImageButton_Unchecked"/>
-                </StackPanel>
-            </Grid>
-        </Border>
+            <StackPanel Orientation="Vertical">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0"
+                                Orientation="Vertical"
+                                Margin="0,0,4,0">
+                        <Button x:Name="NewChatButton"
+                                Content="New Chat"
+                                MinWidth="60"
+                                Padding="8,1"
+                                Margin="0,0,0,4"
+                                Click="NewChatButton_Click"/>
+                        <ComboBox x:Name="ModeSelector"
+                                  MinWidth="60"/>
+                    </StackPanel>
+                    <TextBox x:Name="InputBox"
+                             Grid.Column="1"
+                             Margin="0,0,4,0"
+                             MinHeight="48"
+                             Height="48"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalContentAlignment="Top"
+                             VerticalScrollBarVisibility="Auto"
+                             Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
+                             Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                             CaretBrush="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                             PreviewKeyDown="InputBox_PreviewKeyDown"/>
+                    <StackPanel Grid.Column="2"
+                               Orientation="Vertical"
+                               VerticalAlignment="Top">
+                        <Button x:Name="InputSendButton"
+                                Content="Send"
+                                MinWidth="60"
+                                MinHeight="20"
+                                Padding="8,1"
+                                Margin="0,0,0,4"
+                                Click="InputSendButton_Click"/>
+                        <ToggleButton x:Name="AttachImageButton"
+                                Content="Attach Image"
+                                MinWidth="60"
+                                MinHeight="20"
+                                Padding="8,1"
+                                Checked="AttachImageButton_Checked"
+                                Unchecked="AttachImageButton_Unchecked"/>
+                    </StackPanel>
+                </Grid>
 
-        <!-- Persistent indexing status bar (visible only when indexing mode != Off) -->
-        <Border x:Name="IndexingStatusBar"
-                Grid.Row="4"
-                Background="{DynamicResource {x:Static vsfx:VsBrushes.CommandBarGradientBeginKey}}"
-                Padding="6,0,6,4"
-                Visibility="Collapsed">
-            <TextBlock x:Name="IndexingStatusText"
-                       Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
-                       TextTrimming="CharacterEllipsis"
-                       Text="Index: idle"/>
+                <!-- Indexing status (visible only when indexing mode != Off; hidden with InputBar) -->
+                <Border x:Name="IndexingStatusBar"
+                        Margin="2,4,2,0"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="IndexingStatusText"
+                               Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
+                               TextTrimming="CharacterEllipsis"
+                               Text="Index: idle"/>
+                </Border>
+            </StackPanel>
         </Border>
     </Grid>
 </UserControl>

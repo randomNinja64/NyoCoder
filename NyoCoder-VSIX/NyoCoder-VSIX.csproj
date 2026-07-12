@@ -13,7 +13,6 @@
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>Key.snk</AssemblyOriginatorKeyFile>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <TargetVsixContainer>$(OutputPath)NyoCoder-VSIX-2010-2015.vsix</TargetVsixContainer>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -32,6 +31,10 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <RunCodeAnalysis>true</RunCodeAnalysis>
+  </PropertyGroup>
+  <!-- Must come after OutputPath is set; early $(OutputPath) expansion resolves empty and drops the .vsix in the project folder. -->
+  <PropertyGroup>
+    <TargetVsixContainer>$(OutputPath)NyoCoder-VSIX-2010-2015.vsix</TargetVsixContainer>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.CSharp" />

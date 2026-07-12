@@ -32,7 +32,8 @@ namespace NyoCoder
         public DiffAdditionFormatDefinition()
         {
             this.DisplayName = "NyoCoder Diff Addition";
-            this.BackgroundColor = Color.FromRgb(0xB0, 0xF0, 0xB0);
+            this.BackgroundColor = Color.FromRgb(0x00, 0xE8, 0x00);
+            this.BackgroundOpacity = 0.3;
         }
     }
 
@@ -46,7 +47,8 @@ namespace NyoCoder
         public DiffDeletionFormatDefinition()
         {
             this.DisplayName = "NyoCoder Diff Deletion";
-            this.BackgroundColor = Color.FromRgb(0xF5, 0xB0, 0xB0);
+            this.BackgroundColor = Color.FromRgb(0xE8, 0x00, 0x00);
+            this.BackgroundOpacity = 0.3;
             this.TextDecorations = System.Windows.TextDecorations.Strikethrough;
         }
     }

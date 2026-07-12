@@ -3,7 +3,7 @@
   <Metadata>
     <Identity Id="NyoCoder.VSIX.2017" Version="1.4.0" Language="en-US" Publisher="NyoCoder" />
     <DisplayName>NyoCoder</DisplayName>
-    <Description xml:space="preserve">AI-assisted coding for Visual Studio 2010+</Description>
+    <Description xml:space="preserve">AI-assisted coding for Visual Studio 2010 and above</Description>
     <License>LICENSE.rtf</License>
     <Icon>Resources\Package.ico</Icon>
   </Metadata>

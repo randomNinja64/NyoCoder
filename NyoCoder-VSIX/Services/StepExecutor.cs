@@ -127,16 +127,29 @@ namespace NyoCoder
                             freshContext = contextEngine.BuildUserPromptContext();
                         }
 
-                        // Build step prompt with plan state + step identity
-                        StringBuilder stepPrompt = new StringBuilder();
-                        if (!string.IsNullOrWhiteSpace(freshContext))
+                        // Build step body (plan state + step identity)
+                        StringBuilder stepBody = new StringBuilder();
+                        stepBody.Append(_planner.ReadPlan());
+                        stepBody.Append("\n\nYou are now working on Step " + (stepIdx + 1) + ": \"" + step.Title + "\"\n");
+                        stepBody.Append("Focus on completing this step only.");
+
+                        string stepPrompt = !string.IsNullOrWhiteSpace(freshContext)
+                            ? freshContext + "\n\n---\n\n" + stepBody
+                            : stepBody.ToString();
+
+                        AutoRagContext.Result rag = AutoRagContext.TryRetrieve(step.Title);
+                        if (rag != null && !string.IsNullOrEmpty(rag.UserStatusLine)
+                            && (rag.Outcome == AutoRagContext.Status.NoIndex
+                                || rag.Outcome == AutoRagContext.Status.Success))
                         {
-                            stepPrompt.Append(freshContext);
-                            stepPrompt.Append("\n\n");
+                            _startBlock();
+                            _appendText(rag.UserStatusLine + "\n");
                         }
-                        stepPrompt.Append(_planner.ReadPlan());
-                        stepPrompt.Append("\n\nYou are now working on Step " + (stepIdx + 1) + ": \"" + step.Title + "\"\n");
-                        stepPrompt.Append("Focus on completing this step only.");
+                        if (rag != null && rag.Outcome == AutoRagContext.Status.Success
+                            && !string.IsNullOrWhiteSpace(rag.PromptBlock))
+                        {
+                            stepPrompt = AutoRagContext.MergeIntoPrompt(stepPrompt, rag.PromptBlock);
+                        }
 
                         // Add step prompt chars to step tracking
                         stepCharacterCount += stepPrompt.Length;
@@ -147,7 +160,7 @@ namespace NyoCoder
 
                         // Execute step with its own context (auto-summarize enabled)
                         stepClient.ProcessConversation(
-                            stepPrompt.ToString(),
+                            stepPrompt,
                             null, // no image for steps
                             ConfigHandler.GetShowToolOutput(),
                             delegate(string text)

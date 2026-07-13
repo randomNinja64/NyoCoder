@@ -27,18 +27,32 @@ namespace NyoCoder
         private static readonly Regex HorizontalRulePattern = new Regex(@"^(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$", RegexOptions.Compiled);
         private static readonly Regex BacktickFencePattern = new Regex(@"^([^`]*:\s*)?(`{3,})([^`]*)$", RegexOptions.Compiled);
 
-        public static void ProcessMarkdown(RichTextBox chatOutput)
+        /// <summary>
+        /// Renders markdown in blocks at or after <paramref name="startBlockIndex"/>, then
+        /// advances that index to the document's block count so later passes skip already-handled content.
+        /// </summary>
+        public static void ProcessMarkdown(RichTextBox chatOutput, ref int startBlockIndex)
         {
             if (chatOutput == null)
                 return;
+
+            List<Block> blocks = chatOutput.Document.Blocks.ToList();
+            if (startBlockIndex < 0)
+                startBlockIndex = 0;
+            if (startBlockIndex > blocks.Count)
+                startBlockIndex = blocks.Count;
 
             int activeBacktickFenceLength = 0;
             bool insideThinkTag = false;
             Brush codeBlockBrush = chatOutput.TryFindResource(VsBrushes.ToolWindowBackgroundKey) as Brush;
             FontFamily codeFont = new FontFamily("Courier New");
 
-            foreach (Paragraph paragraph in chatOutput.Document.Blocks.OfType<Paragraph>().ToList())
+            for (int i = startBlockIndex; i < blocks.Count; i++)
             {
+                Paragraph paragraph = blocks[i] as Paragraph;
+                if (paragraph == null)
+                    continue;
+
                 string paragraphText = new TextRange(paragraph.ContentStart, paragraph.ContentEnd).Text;
                 string trimmedText = paragraphText.Trim();
 
@@ -114,6 +128,8 @@ namespace NyoCoder
                 ReplaceInRuns(paragraph, ItalicPattern, match => new Run(FirstCapturedGroup(match)) { FontStyle = FontStyles.Italic });
                 ReplaceInRuns(paragraph, StrikethroughPattern, match => new Run(match.Groups[1].Value) { TextDecorations = TextDecorations.Strikethrough });
             }
+
+            startBlockIndex = blocks.Count;
         }
 
         private static void ConsolidateRuns(Paragraph paragraph)

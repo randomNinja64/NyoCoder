@@ -6,21 +6,26 @@ using System.Text;
 namespace NyoCoder
 {
     /// <summary>
-    /// Implements the codebase_search tool. Resolves a backend (semantic or symbol) from the
-    /// configured indexing mode, then ranks results from the persisted index. Always usable:
-    /// when no index is available or a backend yields nothing, it falls back to grep_search
-    /// and prepends a note explaining the fallback.
+    /// Implements the codebase_search tool. Prefers the configured indexing mode, then the
+    /// other indexed backend, then falls back to grep_search with an explanatory note.
     /// </summary>
     internal static class CodebaseSearchTool
     {
         private const int MaxResults = 10;
         private const int MaxCallersShown = 6;
         private const int SnippetLines = 6;
+        private const string StaleNote = "({0} stale result(s) to missing files were dropped; consider re-indexing.)";
+
+        /// <summary>Result of an index search (semantic or symbol). Null fields mean no hits.</summary>
+        internal sealed class IndexedHitSet
+        {
+            public string FormattedText;
+            public List<string> FilePaths;
+        }
 
         public static string Search(string query, out int exitCode)
         {
             exitCode = 0;
-
             if (string.IsNullOrWhiteSpace(query))
             {
                 exitCode = 1;
@@ -28,56 +33,48 @@ namespace NyoCoder
             }
 
             IndexingMode mode = ConfigHandler.GetIndexingMode();
+            CodebaseIndex index = TryGetIndex();
+            bool hasIndex = index != null && index.HasIndex;
+            IndexedHitSet hits = null;
+            string note;
 
-            CodebaseIndex index;
-            try { index = CodebaseIndex.GetCurrent(); }
-            catch { index = null; }
-
-            switch (mode)
+            if (mode != IndexingMode.Off && hasIndex)
             {
-                case IndexingMode.Semantic:
-                    if (index != null)
-                    {
-                        string semanticNote;
-                        string semanticResult = TrySemantic(index, query, out semanticNote);
-                        if (semanticResult != null)
-                            return semanticResult;
-                        if (!string.IsNullOrEmpty(semanticNote))
-                            return FallToSymbolOrGrep(index, query, semanticNote, ref exitCode);
-                    }
-                    break;
-
-                case IndexingMode.Symbol:
-                    if (index != null)
-                    {
-                        string symbolResult = TrySymbol(index, query);
-                        if (symbolResult != null)
-                            return symbolResult;
-                    }
-                    break;
+                if (mode == IndexingMode.Semantic)
+                {
+                    hits = SearchSemantic(index, query, MaxResults, null, out note);
+                    if (hits == null)
+                        hits = WithBanner(SearchSymbols(index, query, MaxResults, null),
+                            string.IsNullOrEmpty(note) ? null
+                                : "[codebase_search] " + note + " Showing symbol-index results instead."
+                                    + Environment.NewLine + Environment.NewLine);
+                }
+                else
+                {
+                    hits = SearchSymbols(index, query, MaxResults, null);
+                    if (hits == null)
+                        hits = WithBanner(SearchSemantic(index, query, MaxResults, null, out note),
+                            "[codebase_search] No symbol-index matches. Showing semantic results instead.\n\n");
+                }
             }
 
-            string reason = mode == IndexingMode.Off
-                ? "Indexing is Off"
-                : (index == null || !index.HasIndex ? "No usable index" : "No index matches");
-            return GrepFallback(index, query, "[codebase_search] " + reason + "; fell back to grep_search.", ref exitCode);
+            if (hits != null && !string.IsNullOrWhiteSpace(hits.FormattedText))
+                return hits.FormattedText;
+
+            string reason = mode == IndexingMode.Off ? "Indexing is Off"
+                : (!hasIndex ? "No usable index" : "No index matches");
+            string directory = index != null ? index.WorkspaceRoot : null;
+            string grepOutput = GrepSearchTool.Search(query, directory, null, "true", out exitCode);
+            return "[codebase_search] " + reason + "; fell back to grep_search."
+                + Environment.NewLine + Environment.NewLine + grepOutput;
         }
 
-        private static string FallToSymbolOrGrep(CodebaseIndex index, string query,
-            string carriedNote, ref int exitCode)
-        {
-            string symbolResult = TrySymbol(index, query, carriedNote);
-            if (symbolResult != null)
-                return symbolResult;
-            return GrepFallback(index, query, "[codebase_search] " + carriedNote + " Fell back to grep_search.", ref exitCode);
-        }
-
-        // ── Semantic ───────────────────────────────────────────────────
-
-        /// <summary>Returns formatted results, or null to signal a fallback (with a note).</summary>
-        private static string TrySemantic(CodebaseIndex index, string query, out string note)
+        /// <summary>Embeddings / vector search against the semantic index. Returns null on failure.</summary>
+        public static IndexedHitSet SearchSemantic(CodebaseIndex index, string query, int maxResults,
+            string excludeFilePath, out string note)
         {
             note = null;
+            if (index == null) { note = "No index available."; return null; }
 
             EmbeddingsClient client = EmbeddingsClient.CreateFromConfig();
             if (client == null)
@@ -85,7 +82,6 @@ namespace NyoCoder
                 note = "Semantic search is not configured (set embeddings endpoint + model).";
                 return null;
             }
-
             if (index.Vectors.Count == 0)
             {
                 note = "No semantic vectors in the index (run indexing in Semantic mode).";
@@ -95,109 +91,102 @@ namespace NyoCoder
             float[] queryVector;
             try { queryVector = client.Embed(query); }
             catch (EmbeddingsException ex) { note = "Embedding the query failed: " + ex.Message; return null; }
+            if (queryVector == null) { note = "Embedding the query returned no vector."; return null; }
 
-            if (queryVector == null)
-            {
-                note = "Embedding the query returned no vector.";
-                return null;
-            }
+            List<ChunkHit> hits = index.SearchSemantic(queryVector, maxResults);
+            if (hits.Count == 0) { note = "No semantic matches."; return null; }
 
-            List<ChunkHit> hits = index.SearchSemantic(queryVector, MaxResults * 2);
-            if (hits.Count == 0)
-            {
-                note = "No semantic matches.";
-                return null;
-            }
-
-            StringBuilder sb = new StringBuilder();
-            int shown = 0;
-            int dropped = 0;
+            var sb = new StringBuilder();
+            var files = new List<string>();
+            int shown = 0, dropped = 0;
             foreach (ChunkHit hit in hits)
             {
-                if (shown >= MaxResults)
-                    break;
-                if (!File.Exists(hit.Chunk.File))
-                {
-                    dropped++;
-                    continue;
-                }
+                if (shown >= maxResults) break;
+                string file = hit.Chunk.File;
+                if (!File.Exists(file)) { dropped++; continue; }
+                if (IsExcluded(file, excludeFilePath)) continue;
+
                 sb.AppendLine(string.Format("{0}:{1}-{2}  (score {3:F3})",
-                    hit.Chunk.File, hit.Chunk.StartLine, hit.Chunk.EndLine, hit.Score));
-                string snippet = ReadSnippet(hit.Chunk.File, hit.Chunk.StartLine, hit.Chunk.EndLine);
+                    file, hit.Chunk.StartLine, hit.Chunk.EndLine, hit.Score));
+                string snippet = ReadSnippet(file, hit.Chunk.StartLine, hit.Chunk.EndLine);
                 if (!string.IsNullOrEmpty(snippet))
-                {
                     sb.AppendLine(snippet);
-                }
                 sb.AppendLine();
+                AddUniquePath(files, file);
                 shown++;
             }
 
-            if (shown == 0)
-            {
-                note = "All semantic matches pointed to files that no longer exist.";
-                return null;
-            }
+            if (shown == 0) { note = "No semantic matches."; return null; }
 
-            StringBuilder header = new StringBuilder();
+            var header = new StringBuilder();
             header.AppendLine("Semantic search results for: " + query);
             if (dropped > 0)
-                header.AppendLine("(" + dropped + " stale result(s) to missing files were dropped; consider re-indexing.)");
+                header.AppendLine(string.Format(StaleNote, dropped));
             header.AppendLine();
-            return header.ToString() + sb.ToString().TrimEnd();
+
+            return new IndexedHitSet
+            {
+                FormattedText = header.ToString() + sb.ToString().TrimEnd(),
+                FilePaths = files
+            };
         }
 
-        // ── Symbol ─────────────────────────────────────────────────────
-
-        /// <summary>Returns formatted results, or null to signal a fallback.</summary>
-        private static string TrySymbol(CodebaseIndex index, string query, string carriedNote = null)
+        /// <summary>Symbol-map search against the index. Returns null when there are no usable hits.</summary>
+        public static IndexedHitSet SearchSymbols(CodebaseIndex index, string query, int maxResults,
+            string excludeFilePath)
         {
             if (index == null || !index.HasIndex)
                 return null;
 
-            List<SymbolEntry> hits = index.SearchSymbols(query, MaxResults * 2);
+            List<SymbolEntry> hits = index.SearchSymbols(query, maxResults);
             if (hits.Count == 0)
                 return null;
 
-            StringBuilder sb = new StringBuilder();
-            if (!string.IsNullOrEmpty(carriedNote))
-                sb.AppendLine("[codebase_search] " + carriedNote + " Showing symbol-index results instead.").AppendLine();
+            var sb = new StringBuilder();
             sb.AppendLine("Symbol map search for: " + query);
             sb.AppendLine();
 
-            int shown = 0;
-            int dropped = 0;
+            var files = new List<string>();
+            int shown = 0, dropped = 0;
             foreach (SymbolEntry symbol in hits)
             {
-                if (shown >= MaxResults)
-                    break;
-                if (!File.Exists(symbol.File))
-                {
-                    dropped++;
-                    continue;
-                }
+                if (shown >= maxResults) break;
+                if (!File.Exists(symbol.File)) { dropped++; continue; }
+                if (IsExcluded(symbol.File, excludeFilePath)) continue;
+
                 sb.AppendLine(string.Format("{0} {1}  ->  {2}:{3}",
                     symbol.Kind, symbol.Name, index.ToDisplayPath(symbol.File), symbol.Line));
                 if (!string.IsNullOrEmpty(symbol.Signature))
                     sb.AppendLine("    " + symbol.Signature);
-
                 AppendCallers(sb, index, symbol);
+                AddUniquePath(files, symbol.File);
                 shown++;
             }
 
             if (shown == 0)
                 return null;
-
             if (dropped > 0)
-                sb.AppendLine().AppendLine("(" + dropped + " stale result(s) to missing files were dropped; consider re-indexing.)");
+                sb.AppendLine().AppendLine(string.Format(StaleNote, dropped));
 
-            return sb.ToString().TrimEnd();
+            return new IndexedHitSet { FormattedText = sb.ToString().TrimEnd(), FilePaths = files };
+        }
+
+        private static IndexedHitSet WithBanner(IndexedHitSet hits, string banner)
+        {
+            if (hits == null || string.IsNullOrEmpty(banner))
+                return hits;
+            hits.FormattedText = banner + hits.FormattedText;
+            return hits;
+        }
+
+        private static CodebaseIndex TryGetIndex()
+        {
+            try { return CodebaseIndex.GetCurrent(); }
+            catch { return null; }
         }
 
         private static void AppendCallers(StringBuilder sb, CodebaseIndex index, SymbolEntry symbol)
         {
-            if (symbol == null)
-                return;
-
             List<SymbolCaller> callers = index.GetDistinctCallers(symbol, MaxCallersShown);
             if (callers.Count == 0)
                 return;
@@ -205,12 +194,8 @@ namespace NyoCoder
             sb.Append("    called from: ");
             for (int i = 0; i < callers.Count; i++)
             {
-                if (i > 0)
-                    sb.Append(", ");
-                SymbolCaller caller = callers[i];
-                sb.Append(index.ToDisplayPath(caller.File));
-                sb.Append(':');
-                sb.Append(caller.Line);
+                if (i > 0) sb.Append(", ");
+                sb.Append(index.ToDisplayPath(callers[i].File)).Append(':').Append(callers[i].Line);
             }
 
             int total = symbol.Callers != null ? symbol.Callers.Count : 0;
@@ -219,23 +204,19 @@ namespace NyoCoder
             sb.AppendLine();
         }
 
-        // ── grep fallback ──────────────────────────────────────────────
-
-        private static string GrepFallback(CodebaseIndex index, string query, string note, ref int exitCode)
+        private static bool IsExcluded(string filePath, string excludeFilePath)
         {
-            string directory = index != null ? index.WorkspaceRoot : null;
-            int grepExit;
-            string grepOutput = GrepSearchTool.Search(query, directory, null, "true", out grepExit);
-            exitCode = grepExit;
-
-            StringBuilder sb = new StringBuilder();
-            sb.AppendLine(note);
-            sb.AppendLine();
-            sb.Append(grepOutput);
-            return sb.ToString();
+            return !string.IsNullOrEmpty(excludeFilePath)
+                && !string.IsNullOrEmpty(filePath)
+                && string.Equals(filePath, excludeFilePath, StringComparison.OrdinalIgnoreCase);
         }
 
-        // ── Snippet ────────────────────────────────────────────────────
+        private static void AddUniquePath(List<string> files, string path)
+        {
+            if (!string.IsNullOrEmpty(path)
+                && !files.Exists(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase)))
+                files.Add(path);
+        }
 
         private static string ReadSnippet(string file, int startLine, int endLine)
         {
@@ -243,20 +224,16 @@ namespace NyoCoder
             {
                 string[] lines = File.ReadAllLines(file);
                 int from = Math.Max(1, startLine);
-                int to = Math.Min(endLine, from + SnippetLines - 1);
-                to = Math.Min(to, lines.Length);
+                int to = Math.Min(Math.Min(endLine, from + SnippetLines - 1), lines.Length);
 
-                StringBuilder sb = new StringBuilder();
+                var sb = new StringBuilder();
                 for (int i = from; i <= to; i++)
                     sb.AppendLine("    " + lines[i - 1]);
                 if (endLine > to)
                     sb.AppendLine("    ...");
                 return sb.ToString().TrimEnd();
             }
-            catch
-            {
-                return null;
-            }
+            catch { return null; }
         }
     }
 }

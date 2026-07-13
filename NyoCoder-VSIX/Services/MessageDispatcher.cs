@@ -79,13 +79,31 @@ namespace NyoCoder
         }
 
         /// <summary>
+        /// Prompt text to send to the LLM, plus the raw user query for Auto-RAG search.
+        /// </summary>
+        internal sealed class BuiltUserMessage
+        {
+            public string Prompt;
+            public string Query;
+
+            public BuiltUserMessage(string prompt, string query)
+            {
+                Prompt = prompt ?? string.Empty;
+                Query = query ?? string.Empty;
+            }
+        }
+
+        /// <summary>
         /// Prepends editor context to the user's message for new sessions and accounts
         /// for the hidden extra characters in the token counter.
+        /// <see cref="BuiltUserMessage.Query"/> is always the raw user text (for Auto-RAG).
         /// </summary>
-        internal string BuildUserMessage(string rawMessage, bool isNewSession)
+        internal BuiltUserMessage BuildUserMessage(string rawMessage, bool isNewSession)
         {
+            string query = rawMessage ?? string.Empty;
+
             if (!isNewSession)
-                return rawMessage;
+                return new BuiltUserMessage(query, query);
 
             EnvDTE80.DTE2 dte = EditorService.GetDte();
             ContextEngine contextEngine = new ContextEngine(dte);
@@ -93,21 +111,50 @@ namespace NyoCoder
 
             if (!string.IsNullOrWhiteSpace(context))
             {
-                string full = context + "\n\n---\n\n" + rawMessage;
-                int hiddenDelta = full.Length - rawMessage.Length;
+                string prompt = context + "\n\n---\n\n" + query;
+                int hiddenDelta = prompt.Length - query.Length;
                 if (hiddenDelta > 0)
                     _addToCharacterCount(hiddenDelta);
-                return full;
+                return new BuiltUserMessage(prompt, query);
             }
 
-            return rawMessage;
+            return new BuiltUserMessage(query, query);
+        }
+
+        /// <summary>
+        /// Runs Auto-RAG when enabled: may notify the user and/or inject a retrieved block into the prompt.
+        /// </summary>
+        private string ApplyAutoRag(string prompt, string query)
+        {
+            AutoRagContext.Result rag = AutoRagContext.TryRetrieve(query);
+            if (rag == null || rag.Outcome == AutoRagContext.Status.Skipped
+                || rag.Outcome == AutoRagContext.Status.NoHits)
+                return prompt;
+
+            if (!string.IsNullOrEmpty(rag.UserStatusLine))
+            {
+                _startBlock();
+                _appendText(rag.UserStatusLine + "\n");
+            }
+
+            if (rag.Outcome == AutoRagContext.Status.Success
+                && !string.IsNullOrWhiteSpace(rag.PromptBlock))
+            {
+                string merged = AutoRagContext.MergeIntoPrompt(prompt, rag.PromptBlock);
+                int delta = merged.Length - (prompt != null ? prompt.Length : 0);
+                if (delta > 0)
+                    _addToCharacterCount(delta);
+                return merged;
+            }
+
+            return prompt;
         }
 
         /// <summary>
         /// Queues the conversation on a background thread. Returns immediately.
         /// </summary>
         internal void RunConversation(
-            string userMessage,
+            BuiltUserMessage builtMessage,
             string attachedImage,
             LLMClient llmClient,
             ChatMode chatMode,
@@ -119,6 +166,9 @@ namespace NyoCoder
                 ToolApprovalService.Bind(_interactionManager.RequestToolApproval);
                 try
                 {
+                    string userMessage = builtMessage != null ? builtMessage.Prompt : string.Empty;
+                    string autoRagQuery = builtMessage != null ? builtMessage.Query : string.Empty;
+
                     if (isNewSession)
                     {
                         StepPlanner.Initialize();
@@ -127,6 +177,8 @@ namespace NyoCoder
                             StepPlanner.Instance.StepsChanged += _onStepsChanged;
                             _stepsChangedSubscribed = true;
                         }
+
+                        userMessage = ApplyAutoRag(userMessage, autoRagQuery);
                     }
 
                     llmClient.ProcessConversation(

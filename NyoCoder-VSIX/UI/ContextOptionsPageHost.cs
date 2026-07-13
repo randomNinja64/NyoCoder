@@ -5,6 +5,7 @@ namespace NyoCoder
 {
     public class ContextOptionsPageHost : OptionsPageHostBase
     {
+        private CheckBox chkAutoRag;
         private Label lblContextWindowSize;
         private TextBox txtContextWindowSize;
         private Label lblMaxReadLines;
@@ -20,7 +21,11 @@ namespace NyoCoder
         private void InitializeComponent()
         {
             this.SuspendLayout();
-            InitLayout(320);
+            InitLayout(380);
+
+            this.chkAutoRag = new CheckBox();
+            this.chkAutoRag.AutoSize = true;
+            this.chkAutoRag.Text = "Automatically Retrieve Context from Codebase (Auto-RAG)";
 
             this.lblContextWindowSize = new Label();
             this.lblContextWindowSize.AutoSize = true;
@@ -49,11 +54,18 @@ namespace NyoCoder
             AddRow(this.lblMaxReadLines, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtMaxReadLines, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblMaxOpenFilesInContext, new Padding(0, 0, 0, 4), true);
-            AddRow(this.txtMaxOpenFilesInContext, new Padding(0, 0, 0, 0), false);
+            AddRow(this.txtMaxOpenFilesInContext, new Padding(0, 0, 0, 12), false);
+            AddRow(this.chkAutoRag, new Padding(0, 0, 0, 0), true);
 
             this.ResumeLayout(false);
             this.PerformLayout();
             UpdateWrappingWidths();
+        }
+
+        public bool AutoRagEnabled
+        {
+            get { return chkAutoRag.Checked; }
+            set { chkAutoRag.Checked = value; }
         }
 
         public int? ContextWindowSize

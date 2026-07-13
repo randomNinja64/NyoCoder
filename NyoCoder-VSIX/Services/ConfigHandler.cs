@@ -17,6 +17,7 @@ namespace NyoCoder
 		private static int _maxReadLines = 500;
 		private static int _maxOpenFilesInContext = 20;
 		private static int? _contextWindowSize;
+		private static bool _autoRagEnabled = false;
 
 		// -------------------------------------------------------------------------
 		// Init / Load / Save
@@ -131,6 +132,17 @@ namespace NyoCoder
 		public static int? ContextWindowSize
 		{
 			get { return _contextWindowSize; }
+		}
+
+		public static bool GetAutoRagEnabled()
+		{
+			return _autoRagEnabled;
+		}
+
+		public static void SetAutoRagEnabled(bool value)
+		{
+			_autoRagEnabled = value;
+			SetConfigValue("autoRag", value ? "1" : "0");
 		}
 
 		public static void SetApiKey(string value)
@@ -496,6 +508,7 @@ namespace NyoCoder
 			_maxOpenFilesInContext   = GetConfigInt("maxOpenFilesInContext", 20);
 			int cws                  = GetConfigInt("contextWindowSize", 0);
 			_contextWindowSize       = cws > 0 ? (int?)cws : null;
+			_autoRagEnabled          = GetConfigValue("autoRag", "0") == "1";
 		}
 
 		private static Dictionary<string, string> LoadIni(string filename)
@@ -568,7 +581,7 @@ namespace NyoCoder
 				AppendSection(lines, ref firstSection, "General", config, written,
 					"apiKey", "llmserver", "model", "reasoningeffort");
 				AppendSection(lines, ref firstSection, "Context", config, written,
-					"contextWindowSize", "maxReadLines", "maxOpenFilesInContext");
+					"autoRag", "contextWindowSize", "maxOpenFilesInContext", "maxReadLines");
 				AppendSection(lines, ref firstSection, "Appearance", config, written,
 					"markdownparsing", "showreasoningoutput", "showtooloutput");
 				AppendSection(lines, ref firstSection, "Indexing", config, written,

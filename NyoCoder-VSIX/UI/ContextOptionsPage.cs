@@ -15,6 +15,7 @@ namespace NyoCoder
         protected override void UpdateHostFromConfig()
         {
             if (Host == null) return;
+            Host.AutoRagEnabled = ConfigHandler.GetAutoRagEnabled();
             Host.ContextWindowSize = ConfigHandler.ContextWindowSize;
             Host.MaxReadLines = ConfigHandler.MaxReadLines;
             Host.MaxOpenFilesInContext = ConfigHandler.MaxOpenFilesInContext;
@@ -22,6 +23,7 @@ namespace NyoCoder
 
         protected override void SaveHostToConfig()
         {
+            ConfigHandler.SetAutoRagEnabled(Host.AutoRagEnabled);
             ConfigHandler.SetContextWindowSize(Host.ContextWindowSize);
             ConfigHandler.SetMaxReadLines(Host.MaxReadLines);
             ConfigHandler.SetMaxOpenFilesInContext(Host.MaxOpenFilesInContext);

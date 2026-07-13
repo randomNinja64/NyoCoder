@@ -30,6 +30,9 @@ namespace NyoCoder
         // Tracks trailing newlines so blocks are separated by exactly one blank line
         private ChatOutputWriter _outputWriter;
 
+        // Block index in the output document already processed by MarkdownHandler
+        private int _markdownProcessedBlockCount;
+
         private const string SteerInputTooltip =
             "Queue a message to steer the conversation after the current tool call or response";
 
@@ -217,7 +220,7 @@ namespace NyoCoder
 
             EditorService.InvokeOnUIThread(() =>
             {
-                MarkdownHandler.ProcessMarkdown(OutputTextBox);
+                MarkdownHandler.ProcessMarkdown(OutputTextBox, ref _markdownProcessedBlockCount);
             }, Dispatcher);
         }
 
@@ -229,6 +232,7 @@ namespace NyoCoder
             EditorService.InvokeOnUIThread(() =>
             {
                 OutputTextBox.Document.Blocks.Clear();
+                _markdownProcessedBlockCount = 0;
                 _tokenTracker.Reset();
                 _outputWriter.Reset();
 
@@ -281,6 +285,7 @@ namespace NyoCoder
             EditorService.InvokeOnUIThread(() =>
             {
                 OutputTextBox.Document.Blocks.Clear();
+                _markdownProcessedBlockCount = 0;
                 _tokenTracker.ResetCharacterCount(text != null ? text.Length : 0);
                 _outputWriter.Reset();
                 var paragraph = new Paragraph(new Run(text)) { Margin = new Thickness(0), Padding = new Thickness(0) };
@@ -545,8 +550,8 @@ namespace NyoCoder
             // Save all open files
             try { package.SaveAllOpenFiles(); } catch { }
 
-            string userMessage = _dispatcher.BuildUserMessage(message, isNewSession);
-            _dispatcher.RunConversation(userMessage, attachedImage, llmClient, chatMode, isNewSession, package);
+            var builtMessage = _dispatcher.BuildUserMessage(message, isNewSession);
+            _dispatcher.RunConversation(builtMessage, attachedImage, llmClient, chatMode, isNewSession, package);
         }
     }
 }

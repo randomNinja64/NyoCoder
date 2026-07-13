@@ -15,6 +15,7 @@ namespace NyoCoder
 		private static string _llmServer;
 		private static string _model;
 		private static int _maxReadLines = 500;
+		private static int _maxOpenFilesInContext = 20;
 		private static int? _contextWindowSize;
 
 		// -------------------------------------------------------------------------
@@ -122,6 +123,11 @@ namespace NyoCoder
 			get { return _maxReadLines; }
 		}
 
+		public static int MaxOpenFilesInContext
+		{
+			get { return _maxOpenFilesInContext; }
+		}
+
 		public static int? ContextWindowSize
 		{
 			get { return _contextWindowSize; }
@@ -150,6 +156,13 @@ namespace NyoCoder
 			if (value <= 0) return;
 			_maxReadLines = value;
 			SetConfigValue("maxReadLines", value.ToString());
+		}
+
+		public static void SetMaxOpenFilesInContext(int value)
+		{
+			if (value <= 0) return;
+			_maxOpenFilesInContext = value;
+			SetConfigValue("maxOpenFilesInContext", value.ToString());
 		}
 
 		public static void SetContextWindowSize(int? value)
@@ -479,9 +492,10 @@ namespace NyoCoder
 			_apiKey    = GetConfigValue("apiKey");
 			_llmServer = GetConfigValue("llmserver");
 			_model     = GetConfigValue("model");
-			_maxReadLines      = GetConfigInt("maxReadLines", 500);
-			int cws            = GetConfigInt("contextWindowSize", 0);
-			_contextWindowSize = cws > 0 ? (int?)cws : null;
+			_maxReadLines            = GetConfigInt("maxReadLines", 500);
+			_maxOpenFilesInContext   = GetConfigInt("maxOpenFilesInContext", 20);
+			int cws                  = GetConfigInt("contextWindowSize", 0);
+			_contextWindowSize       = cws > 0 ? (int?)cws : null;
 		}
 
 		private static Dictionary<string, string> LoadIni(string filename)
@@ -554,7 +568,7 @@ namespace NyoCoder
 				AppendSection(lines, ref firstSection, "General", config, written,
 					"apiKey", "llmserver", "model", "reasoningeffort");
 				AppendSection(lines, ref firstSection, "Context", config, written,
-					"maxReadLines", "contextWindowSize");
+					"contextWindowSize", "maxReadLines", "maxOpenFilesInContext");
 				AppendSection(lines, ref firstSection, "Appearance", config, written,
 					"markdownparsing", "showreasoningoutput", "showtooloutput");
 				AppendSection(lines, ref firstSection, "Indexing", config, written,

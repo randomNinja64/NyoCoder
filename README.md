@@ -12,8 +12,9 @@ An extension targeting Visual Studio 2010-2015 that enables AI-assisted coding w
   - **Model** - Model to use
   - **Reasoning Effort** - Amount of reasoning performed by a model (sent as `reasoning_effort` in API requests). Leave blank to use the API default. Supported values: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`.
 - **Context**
-  - **Max File Lines to Read** - Max number of lines that the AI can read from a file at a time (default: `500`)
   - **Context Window Size** - If known, can be set here to enable automatic context summarization when context fills.
+  - **Max File Lines to Read** - Max number of lines that the AI can read from a file at a time (default: `500`)
+  - **Max Open Files in Context** - Maximum number of open editor tabs to note in prompt context (default: `20`)
 - **Appearance**
   - **Render Markdown in Chat Output** - Renders Markdown formatting in chat (default: enabled)
   - **Show Model Reasoning Output** - Displays model reasoning in chat (default: enabled)

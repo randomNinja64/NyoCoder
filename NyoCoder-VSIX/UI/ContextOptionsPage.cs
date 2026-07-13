@@ -15,14 +15,16 @@ namespace NyoCoder
         protected override void UpdateHostFromConfig()
         {
             if (Host == null) return;
-            Host.MaxReadLines = ConfigHandler.MaxReadLines;
             Host.ContextWindowSize = ConfigHandler.ContextWindowSize;
+            Host.MaxReadLines = ConfigHandler.MaxReadLines;
+            Host.MaxOpenFilesInContext = ConfigHandler.MaxOpenFilesInContext;
         }
 
         protected override void SaveHostToConfig()
         {
-            ConfigHandler.SetMaxReadLines(Host.MaxReadLines);
             ConfigHandler.SetContextWindowSize(Host.ContextWindowSize);
+            ConfigHandler.SetMaxReadLines(Host.MaxReadLines);
+            ConfigHandler.SetMaxOpenFilesInContext(Host.MaxOpenFilesInContext);
         }
     }
 }

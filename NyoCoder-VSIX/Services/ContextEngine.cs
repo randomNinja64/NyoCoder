@@ -450,21 +450,30 @@ namespace NyoCoder
 
             try
             {
-                // List all currently open files in the editor
+                // List currently open files in the editor (capped)
                 if (_dte != null && _dte.Documents != null && _dte.Documents.Count > 0)
                 {
+                    int maxOpen = ConfigHandler.MaxOpenFilesInContext;
+                    if (maxOpen <= 0)
+                        maxOpen = 20;
+
                     context.AppendLine("Open files in editor:");
+                    int listed = 0;
                     foreach (Document doc in _dte.Documents)
                     {
+                        if (listed >= maxOpen)
+                            break;
+
                         try
                         {
                             if (doc != null && !string.IsNullOrWhiteSpace(doc.FullName))
                             {
                                 // Mark the active document with an asterisk
-                                string marker = (_dte.ActiveDocument != null && 
-                                               string.Equals(doc.FullName, _dte.ActiveDocument.FullName, StringComparison.OrdinalIgnoreCase)) 
+                                string marker = (_dte.ActiveDocument != null &&
+                                               string.Equals(doc.FullName, _dte.ActiveDocument.FullName, StringComparison.OrdinalIgnoreCase))
                                                ? " *" : "";
                                 context.AppendLine("  - " + doc.FullName + marker);
+                                listed++;
                                 hasContext = true;
                             }
                         }

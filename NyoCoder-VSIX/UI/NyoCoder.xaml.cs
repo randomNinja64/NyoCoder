@@ -542,8 +542,6 @@ namespace NyoCoder
 
             _outputWriter.StartBlock();
             AppendLine("User: " + userMessageDisplay);
-            _outputWriter.StartBlock();
-            AppendLine("Assistant: ");
 
             StopRequested = false;
 

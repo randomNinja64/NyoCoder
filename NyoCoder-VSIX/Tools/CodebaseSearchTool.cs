@@ -13,7 +13,7 @@ namespace NyoCoder
     {
         private const int MaxResults = 10;
         private const int MaxCallersShown = 6;
-        private const int SnippetLines = 6;
+        private const int SnippetLines = 10;
         private const string StaleNote = "({0} stale result(s) to missing files were dropped; consider re-indexing.)";
 
         /// <summary>Result of an index search (semantic or symbol). Null fields mean no hits.</summary>

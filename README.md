@@ -15,7 +15,7 @@ An extension targeting Visual Studio 2010-2015 that enables AI-assisted coding w
   - **Context Window Size** - If known, can be set here to enable automatic context summarization when context fills.
   - **Max File Lines to Read** - Max number of lines that the AI can read from a file at a time (default: `500`)
   - **Max Open Files in Context** - Maximum number of open editor tabs to note in prompt context (default: `20`)
-  - **Automatically Retrieve Context from Codebase (Auto-RAG)** - When enabled, retrieves up to 5 indexed codebase snippets for new chats and plan steps (default: off; requires a codebase index; active file hits are skipped; user sees `[reading …]` or a no-index failure note)
+  - **Automatically Retrieve Context from Codebase (Auto-RAG)** - When enabled, retrieves up to 5 indexed codebase snippets for new chats and plan steps (default: on; requires a codebase index)
 - **Appearance**
   - **Render Markdown in Chat Output** - Renders Markdown formatting in chat (default: enabled)
   - **Show Model Reasoning Output** - Displays model reasoning in chat (default: enabled)

@@ -39,8 +39,8 @@ namespace NyoCoder
 
             AddRow(MakeSectionTitle("Appearance:"), new Padding(0, 0, 0, 12), false);
             AddRow(chkMarkdownParsing, new Padding(0, 0, 0, 8), true);
-            AddRow(chkShowReasoning, new Padding(0, 0, 0, 8), true);
-            AddRow(chkShowToolOutput, new Padding(0, 0, 0, 0), true);
+            AddRow(chkShowToolOutput, new Padding(0, 0, 0, 8), true);
+            AddRow(chkShowReasoning, new Padding(0, 0, 0, 0), true);
 
             this.ResumeLayout(false);
             this.PerformLayout();

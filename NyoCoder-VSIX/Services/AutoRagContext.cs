@@ -5,8 +5,8 @@ using System.IO;
 namespace NyoCoder
 {
     /// <summary>
-    /// Opt-in automatic retrieval of semantic (embeddings) snippets for new sessions and plan steps.
-    /// Calls <see cref="CodebaseSearchTool.SearchSemantic"/> only — no symbol or grep fallback.
+    /// Opt-in automatic retrieval of indexed snippets for new sessions and plan steps.
+    /// Prefers the configured indexing mode, then the other indexed backend — no grep.
     /// </summary>
     internal static class AutoRagContext
     {
@@ -16,9 +16,9 @@ namespace NyoCoder
         {
             /// <summary>Feature disabled or query unusable — no UI, no prompt injection.</summary>
             Skipped,
-            /// <summary>Enabled but no semantic index — notify user, no prompt injection.</summary>
+            /// <summary>Enabled but indexing off / no usable index — notify user, no prompt injection.</summary>
             NoIndex,
-            /// <summary>Semantic search ran but nothing useful to inject — silent omit.</summary>
+            /// <summary>Index search ran but nothing useful to inject — silent omit.</summary>
             NoHits,
             /// <summary>Hits ready for LLM + user "reading …" line.</summary>
             Success
@@ -45,7 +45,8 @@ namespace NyoCoder
             if (string.IsNullOrWhiteSpace(query))
                 return result;
 
-            if (ConfigHandler.GetIndexingMode() != IndexingMode.Semantic)
+            IndexingMode mode = ConfigHandler.GetIndexingMode();
+            if (mode == IndexingMode.Off)
             {
                 result.Outcome = Status.NoIndex;
                 result.UserStatusLine = "[Auto-RAG failed: no codebase index]";
@@ -56,7 +57,7 @@ namespace NyoCoder
             try { index = CodebaseIndex.GetCurrent(); }
             catch { index = null; }
 
-            if (index == null || !index.HasIndex || index.Vectors == null || index.Vectors.Count == 0)
+            if (index == null || !index.HasIndex)
             {
                 result.Outcome = Status.NoIndex;
                 result.UserStatusLine = "[Auto-RAG failed: no codebase index]";
@@ -76,8 +77,7 @@ namespace NyoCoder
             CodebaseSearchTool.IndexedHitSet hits;
             try
             {
-                string unusedNote;
-                hits = CodebaseSearchTool.SearchSemantic(index, query.Trim(), MaxResults, activePath, out unusedNote);
+                hits = SearchPreferringMode(index, query.Trim(), mode, activePath);
             }
             catch
             {
@@ -98,6 +98,30 @@ namespace NyoCoder
                 + "\n---End Retrieved Context---";
             result.UserStatusLine = "[reading " + FormatDisplayNames(hits.FilePaths) + "]";
             return result;
+        }
+
+        /// <summary>
+        /// Prefers the configured mode, then the other indexed backend. No grep fallback.
+        /// </summary>
+        private static CodebaseSearchTool.IndexedHitSet SearchPreferringMode(
+            CodebaseIndex index, string query, IndexingMode mode, string excludeFilePath)
+        {
+            string note;
+            if (mode == IndexingMode.Semantic)
+            {
+                CodebaseSearchTool.IndexedHitSet semantic =
+                    CodebaseSearchTool.SearchSemantic(index, query, MaxResults, excludeFilePath, out note);
+                if (semantic != null)
+                    return semantic;
+                return CodebaseSearchTool.SearchSymbols(index, query, MaxResults, excludeFilePath);
+            }
+
+            // Symbol (default) or any non-Semantic indexed mode: prefer symbols, then embeddings.
+            CodebaseSearchTool.IndexedHitSet symbols =
+                CodebaseSearchTool.SearchSymbols(index, query, MaxResults, excludeFilePath);
+            if (symbols != null)
+                return symbols;
+            return CodebaseSearchTool.SearchSemantic(index, query, MaxResults, excludeFilePath, out note);
         }
 
         /// <summary>

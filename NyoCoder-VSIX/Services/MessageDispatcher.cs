@@ -96,7 +96,6 @@ namespace NyoCoder
         /// <summary>
         /// Prepends editor context to the user's message for new sessions and accounts
         /// for the hidden extra characters in the token counter.
-        /// <see cref="BuiltUserMessage.Query"/> is always the raw user text (for Auto-RAG).
         /// </summary>
         internal BuiltUserMessage BuildUserMessage(string rawMessage, bool isNewSession)
         {
@@ -180,6 +179,10 @@ namespace NyoCoder
 
                         userMessage = ApplyAutoRag(userMessage, autoRagQuery);
                     }
+
+                    // After any Auto-RAG status line, start the assistant block cleanly
+                    _startBlock();
+                    _appendText("Assistant: \n");
 
                     llmClient.ProcessConversation(
                         userMessage,

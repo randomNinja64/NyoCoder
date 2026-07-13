@@ -17,7 +17,7 @@ namespace NyoCoder
 		private static int _maxReadLines = 500;
 		private static int _maxOpenFilesInContext = 20;
 		private static int? _contextWindowSize;
-		private static bool _autoRagEnabled = false;
+		private static bool _autoRagEnabled = true;
 
 		// -------------------------------------------------------------------------
 		// Init / Load / Save
@@ -508,7 +508,7 @@ namespace NyoCoder
 			_maxOpenFilesInContext   = GetConfigInt("maxOpenFilesInContext", 20);
 			int cws                  = GetConfigInt("contextWindowSize", 0);
 			_contextWindowSize       = cws > 0 ? (int?)cws : null;
-			_autoRagEnabled          = GetConfigValue("autoRag", "0") == "1";
+			_autoRagEnabled          = GetConfigValue("autoRag", "1") == "1";
 		}
 
 		private static Dictionary<string, string> LoadIni(string filename)

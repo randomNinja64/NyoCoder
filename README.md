@@ -45,10 +45,11 @@ An extension targeting Visual Studio 2010-2015 that enables AI-assisted coding w
   - **Tools Requiring Approval** - List of tools and whether or not they require approval to run
   - **External Tool Settings** - If SimpleLLMChat tools are installed, their configuration options will be available here.
 - **Web Search**
+  - **Maximum Links from Webpage** - Maximum number of unique links to include at the end of a webpage read (default: `40`)
+  - **Maximum Search Results** - Maximum number of search results to retrieve (default: `20`)
+  - **Maximum Web Content Length** - Maximum number of characters to return when reading a webpage (default: `10000`; `0` = no limit)
   - **SearXNG Instance** - SearXNG instance to use for running web searches (must support JSON API) (default: none)
   - **User Agent** - User agent to use when making web requests (default: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36`)
-  - **Maximum Search Results** - Maximum number of search results to retrieve (default: `20`)
-  - **Maximum Web Content Length** - Maximum number of characters to return when reading a webpage (in characters) (default: `8000`)
 
 ## Installation
 
@@ -74,7 +75,7 @@ The extension can be triggered through its tool window, the right-click menu wit
 - **list_directory** - lists all files and subdirectories in a directory
 - **move_file** - moves or renames a file
 - **read_file** - reads the contents of a local file and returns it as a string
-- **read_website** - reads the contents of a webpage
+- **read_website** - reads a webpage as Title/Desc, readable text (headings, lists, images), and a capped Links section
 - **run_shell_command** - executes a shell command on the host system and return its output
 - **run_web_search** - runs a web search (uses SearXNG if available, DuckDuckGo and Wiby if not) (Relies on curl.exe in the extension's directory, included with the release but not with source)
 - **manage_plan** - tracks progress on multi-step tasks; supports `read` (view plan) and `write` (write/overwrite plan)

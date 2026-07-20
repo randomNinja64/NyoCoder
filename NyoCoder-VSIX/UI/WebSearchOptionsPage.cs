@@ -15,22 +15,26 @@ namespace NyoCoder
         protected override void UpdateHostFromConfig()
         {
             if (Host == null) return;
+            Host.MaxLinks = ConfigHandler.GetConfigInt("maxLinks", 40);
+            Host.MaxSearchResults = ConfigHandler.GetConfigInt("maxSearchResults", 20);
+            Host.MaxWebContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 10000);
             Host.SearXNGInstance = ConfigHandler.GetConfigValue("searxngInstance", "");
             Host.UserAgent = ConfigHandler.GetConfigValue("webUserAgent", WebSearchTool.DefaultUserAgent);
-            Host.MaxSearchResults = ConfigHandler.GetConfigInt("maxSearchResults", 20);
-            Host.MaxWebContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 8000);
         }
 
         protected override void SaveHostToConfig()
         {
-            ConfigHandler.SetConfigValue("searxngInstance", Host.SearXNGInstance);
-            ConfigHandler.SetConfigValue("webUserAgent", Host.UserAgent);
+            int maxLinks = Host.MaxLinks;
+            ConfigHandler.SetConfigValue("maxLinks", maxLinks >= 0 ? maxLinks.ToString() : null);
 
             int maxSearchResults = Host.MaxSearchResults;
             ConfigHandler.SetConfigValue("maxSearchResults", maxSearchResults > 0 ? maxSearchResults.ToString() : null);
 
             int maxWebContentLength = Host.MaxWebContentLength;
-            ConfigHandler.SetConfigValue("maxWebContentLength", maxWebContentLength > 0 ? maxWebContentLength.ToString() : null);
+            ConfigHandler.SetConfigValue("maxWebContentLength", maxWebContentLength >= 0 ? maxWebContentLength.ToString() : null);
+
+            ConfigHandler.SetConfigValue("searxngInstance", Host.SearXNGInstance);
+            ConfigHandler.SetConfigValue("webUserAgent", Host.UserAgent);
         }
     }
 }

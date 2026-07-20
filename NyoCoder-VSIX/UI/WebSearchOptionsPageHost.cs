@@ -5,15 +5,17 @@ namespace NyoCoder
 {
     public class WebSearchOptionsPageHost : OptionsPageHostBase
     {
+        private Label lblMaxLinks;
+        private TextBox txtMaxLinks;
+        private Label lblMaxSearchResults;
+        private TextBox txtMaxSearchResults;
+        private Label lblMaxWebContentLength;
+        private TextBox txtMaxWebContentLength;
         private Label lblSearXNG;
         private TextBox txtSearXNG;
         private Label lblSearXNGHint;
         private Label lblUserAgent;
         private TextBox txtUserAgent;
-        private Label lblMaxSearchResults;
-        private TextBox txtMaxSearchResults;
-        private Label lblMaxWebContentLength;
-        private TextBox txtMaxWebContentLength;
 
         public WebSearchOptionsPageHost()
         {
@@ -23,7 +25,28 @@ namespace NyoCoder
         private void InitializeComponent()
         {
             this.SuspendLayout();
-            InitLayout(320);
+            InitLayout(380);
+
+            this.lblMaxLinks = new Label();
+            this.lblMaxLinks.AutoSize = true;
+            this.lblMaxLinks.Text = "Maximum Links from Webpage:";
+
+            this.txtMaxLinks = new TextBox();
+            this.txtMaxLinks.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+
+            this.lblMaxSearchResults = new Label();
+            this.lblMaxSearchResults.AutoSize = true;
+            this.lblMaxSearchResults.Text = "Maximum Search Results:";
+
+            this.txtMaxSearchResults = new TextBox();
+            this.txtMaxSearchResults.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+
+            this.lblMaxWebContentLength = new Label();
+            this.lblMaxWebContentLength.AutoSize = true;
+            this.lblMaxWebContentLength.Text = "Maximum Web Content Length (0 = no limit):";
+
+            this.txtMaxWebContentLength = new TextBox();
+            this.txtMaxWebContentLength.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
             this.lblSearXNG = new Label();
             this.lblSearXNG.AutoSize = true;
@@ -44,46 +67,34 @@ namespace NyoCoder
             this.txtUserAgent = new TextBox();
             this.txtUserAgent.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
-            this.lblMaxSearchResults = new Label();
-            this.lblMaxSearchResults.AutoSize = true;
-            this.lblMaxSearchResults.Text = "Maximum Search Results:";
-
-            this.txtMaxSearchResults = new TextBox();
-            this.txtMaxSearchResults.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-
-            this.lblMaxWebContentLength = new Label();
-            this.lblMaxWebContentLength.AutoSize = true;
-            this.lblMaxWebContentLength.Text = "Maximum Web Content Length (characters):";
-
-            this.txtMaxWebContentLength = new TextBox();
-            this.txtMaxWebContentLength.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-
             AddRow(MakeSectionTitle("Web Search:"), new Padding(0, 0, 0, 12), false);
+            AddRow(this.lblMaxLinks, new Padding(0, 0, 0, 4), true);
+            AddRow(this.txtMaxLinks, new Padding(0, 0, 0, 12), false);
+            AddRow(this.lblMaxSearchResults, new Padding(0, 0, 0, 4), true);
+            AddRow(this.txtMaxSearchResults, new Padding(0, 0, 0, 12), false);
+            AddRow(this.lblMaxWebContentLength, new Padding(0, 0, 0, 4), true);
+            AddRow(this.txtMaxWebContentLength, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblSearXNG, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtSearXNG, new Padding(0, 0, 0, 4), false);
             AddRow(this.lblSearXNGHint, new Padding(0, 0, 0, 12), true);
             AddRow(this.lblUserAgent, new Padding(0, 0, 0, 4), true);
-            AddRow(this.txtUserAgent, new Padding(0, 0, 0, 12), false);
-            AddRow(this.lblMaxSearchResults, new Padding(0, 0, 0, 4), true);
-            AddRow(this.txtMaxSearchResults, new Padding(0, 0, 0, 12), false);
-            AddRow(this.lblMaxWebContentLength, new Padding(0, 0, 0, 4), true);
-            AddRow(this.txtMaxWebContentLength, new Padding(0, 0, 0, 0), false);
+            AddRow(this.txtUserAgent, new Padding(0, 0, 0, 0), false);
 
             this.ResumeLayout(false);
             this.PerformLayout();
             UpdateWrappingWidths();
         }
 
-        public string SearXNGInstance
+        public int MaxLinks
         {
-            get { return txtSearXNG.Text != null ? txtSearXNG.Text.Trim() : string.Empty; }
-            set { txtSearXNG.Text = value ?? string.Empty; }
-        }
-
-        public string UserAgent
-        {
-            get { return txtUserAgent.Text != null ? txtUserAgent.Text.Trim() : WebSearchTool.DefaultUserAgent; }
-            set { txtUserAgent.Text = value ?? WebSearchTool.DefaultUserAgent; }
+            get
+            {
+                int result;
+                if (int.TryParse(txtMaxLinks.Text, out result) && result >= 0)
+                    return result;
+                return 40;
+            }
+            set { txtMaxLinks.Text = value.ToString(); }
         }
 
         public int MaxSearchResults
@@ -103,11 +114,23 @@ namespace NyoCoder
             get
             {
                 int result;
-                if (int.TryParse(txtMaxWebContentLength.Text, out result) && result > 0)
+                if (int.TryParse(txtMaxWebContentLength.Text, out result) && result >= 0)
                     return result;
-                return 8000;
+                return 10000;
             }
             set { txtMaxWebContentLength.Text = value.ToString(); }
+        }
+
+        public string SearXNGInstance
+        {
+            get { return txtSearXNG.Text != null ? txtSearXNG.Text.Trim() : string.Empty; }
+            set { txtSearXNG.Text = value ?? string.Empty; }
+        }
+
+        public string UserAgent
+        {
+            get { return txtUserAgent.Text != null ? txtUserAgent.Text.Trim() : WebSearchTool.DefaultUserAgent; }
+            set { txtUserAgent.Text = value ?? WebSearchTool.DefaultUserAgent; }
         }
     }
 }

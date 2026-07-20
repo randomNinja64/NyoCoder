@@ -268,7 +268,7 @@ namespace NyoCoder
                 ),
                 new ToolEntry(
                     "read_website",
-                    "Fetch the content of a specific URL to read current information from the web. Useful for reading documentation, articles, or any web page in full. Returns up to " + ConfigHandler.GetConfigInt("maxWebContentLength", 8000) + " characters of page content.",
+                    "Browse to a URL and return Title/Desc, page text and images (alts+srcs), and a Links section. Useful for reading documentation, articles, or any web page. Output is capped at " + ConfigHandler.GetConfigInt("maxWebContentLength", 10000) + " characters; truncating body as needed.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "url", new PropertyInfo("string", "The URL of the web page to fetch.") }

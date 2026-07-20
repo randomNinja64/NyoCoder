@@ -151,8 +151,9 @@ public static class ToolHandler
                 case "read_website":
                     {
                         string url = GetRequiredArg(args, "url");
-                        int maxContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 8000);
-                        string output = WebSearchTool.ReadWebsite(url, maxContentLength, out exitCode);
+                        int maxContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 10000);
+                        int maxLinks = ConfigHandler.GetConfigInt("maxLinks", 40);
+                        string output = WebSearchTool.ReadWebsite(url, maxContentLength, maxLinks, out exitCode);
                         toolContent = FormatCommandResult("read website: " + url, output, exitCode);
                         return true;
                     }

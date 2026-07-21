@@ -31,12 +31,12 @@ namespace NyoCoder
         /// Renders markdown in blocks at or after <paramref name="startBlockIndex"/>, then
         /// advances that index to the document's block count so later passes skip already-handled content.
         /// </summary>
-        public static void ProcessMarkdown(RichTextBox chatOutput, ref int startBlockIndex)
+        public static void ProcessMarkdown(FlowDocument document, ref int startBlockIndex)
         {
-            if (chatOutput == null)
+            if (document == null)
                 return;
 
-            List<Block> blocks = chatOutput.Document.Blocks.ToList();
+            List<Block> blocks = document.Blocks.ToList();
             if (startBlockIndex < 0)
                 startBlockIndex = 0;
             if (startBlockIndex > blocks.Count)
@@ -44,7 +44,7 @@ namespace NyoCoder
 
             int activeBacktickFenceLength = 0;
             bool insideThinkTag = false;
-            Brush codeBlockBrush = chatOutput.TryFindResource(VsBrushes.ToolWindowBackgroundKey) as Brush;
+            Brush codeBlockBrush = document.TryFindResource(VsBrushes.ToolWindowBackgroundKey) as Brush;
             FontFamily codeFont = new FontFamily("Courier New");
 
             for (int i = startBlockIndex; i < blocks.Count; i++)
@@ -108,7 +108,7 @@ namespace NyoCoder
                 ConsolidateRuns(paragraph);
                 trimmedText = new TextRange(paragraph.ContentStart, paragraph.ContentEnd).Text.Trim();
 
-                ProcessHeaders(paragraph, trimmedText, chatOutput);
+                ProcessHeaders(paragraph, trimmedText, document);
 
                 ReplaceInRuns(paragraph, InlineCodePattern, match =>
                 {
@@ -119,9 +119,9 @@ namespace NyoCoder
                 });
 
                 ReplaceInRuns(paragraph, LinkPattern, match =>
-                    (Inline)CreateHyperlink(match.Groups[1].Value, match.Groups[2].Value.Trim(), chatOutput) ?? new Run(match.Value));
+                    (Inline)CreateHyperlink(match.Groups[1].Value, match.Groups[2].Value.Trim(), document) ?? new Run(match.Value));
                 ReplaceInRuns(paragraph, BareUrlPattern, match =>
-                    (Inline)CreateHyperlink(match.Value, match.Value, chatOutput) ?? new Run(match.Value));
+                    (Inline)CreateHyperlink(match.Value, match.Value, document) ?? new Run(match.Value));
 
                 ReplaceInRuns(paragraph, BoldItalicPattern, match => new Run(match.Groups[2].Value) { FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
                 ReplaceInRuns(paragraph, BoldPattern, match => new Run(FirstCapturedGroup(match)) { FontWeight = FontWeights.Bold });
@@ -146,7 +146,7 @@ namespace NyoCoder
             paragraph.Inlines.Add(new Run(sb.ToString()));
         }
 
-        private static void ProcessHeaders(Paragraph paragraph, string trimmedText, RichTextBox chatOutput)
+        private static void ProcessHeaders(Paragraph paragraph, string trimmedText, FlowDocument document)
         {
             Match headerMatch = HeaderPattern.Match(trimmedText);
             if (!headerMatch.Success)
@@ -155,7 +155,7 @@ namespace NyoCoder
             int headerLevel = headerMatch.Groups[1].Value.Length;
             string headerText = headerMatch.Groups[2].Value.Trim();
 
-            double baseFontSize = chatOutput.FontSize > 0 ? chatOutput.FontSize : 12;
+            double baseFontSize = document.FontSize > 0 ? document.FontSize : 12;
             double[] headerMultipliers = { 2.0, 1.667, 1.5, 1.333, 1.167, 1.0 };
             double fontSize = baseFontSize * headerMultipliers[Math.Min(headerLevel, 6) - 1];
 
@@ -181,7 +181,7 @@ namespace NyoCoder
             }
         }
 
-        private static Hyperlink CreateHyperlink(string displayText, string url, RichTextBox chatOutput)
+        private static Hyperlink CreateHyperlink(string displayText, string url, FlowDocument document)
         {
             Uri uri;
             if (!Uri.TryCreate(url, UriKind.Absolute, out uri) ||
@@ -191,7 +191,7 @@ namespace NyoCoder
             var hyperlink = new Hyperlink(new Run(displayText))
             {
                 NavigateUri = uri,
-                Foreground = chatOutput.Foreground ?? SystemColors.ControlTextBrush,
+                Foreground = document.Foreground ?? SystemColors.ControlTextBrush,
                 Cursor = Cursors.Hand
             };
             AttachTooltip(hyperlink, uri.AbsoluteUri);

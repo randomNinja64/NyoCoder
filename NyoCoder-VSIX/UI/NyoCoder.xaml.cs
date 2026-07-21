@@ -1,10 +1,12 @@
 using System;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace NyoCoder
 {
@@ -27,24 +29,22 @@ namespace NyoCoder
         // Owns background conversation loop, plan execution, and plan review
         private MessageDispatcher _dispatcher;
 
-        // Tracks trailing newlines so blocks are separated by exactly one blank line
-        private ChatOutputWriter _outputWriter;
-
-        // Block index in the output document already processed by MarkdownHandler
-        private int _markdownProcessedBlockCount;
+        private readonly ObservableCollection<ChatTurn> _chatTurns = new ObservableCollection<ChatTurn>();
+        private ChatTurn _currentTurn;
+        private ScrollViewer _chatScrollViewer;
 
         private const string SteerInputTooltip =
             "Queue a message to steer the conversation after the current tool call or response";
+
+        private const string WelcomeMessage =
+            "NyoCoder is ready. Type a message below, or press Ctrl+Alt+N from anywhere in Visual Studio.";
 
         public NyoCoderControl()
         {
             InitializeComponent();
 
-            OutputTextBox.AddHandler(
-                ScrollViewer.ScrollChangedEvent,
-                new ScrollChangedEventHandler(OutputTextBox_ScrollChanged));
-
-            _outputWriter = new ChatOutputWriter(AppendTextDirect);
+            ChatList.ItemsSource = _chatTurns;
+            ShowWelcomeTurn();
 
             _interactionManager = new InteractionManager(
                 ButtonPanel,
@@ -52,12 +52,12 @@ namespace NyoCoder
                 ScrollToBottom,
                 hideInputBar: () => InputBar.Visibility = Visibility.Collapsed,
                 showInputBar: () => InputBar.Visibility = Visibility.Visible,
-                startBlock: _outputWriter.StartBlock);
+                startBlock: StartOutputBlock);
             _interactionManager.StopRequested += () => { StopRequested = true; };
             _tokenTracker = new TokenTracker(TokenStatusText, StepTokenStatusText, SubagentStatusRow, Dispatcher);
             _dispatcher = new MessageDispatcher(
                 AppendText,
-                _outputWriter.StartBlock,
+                StartOutputBlock,
                 AppendLine,
                 ApplyMarkdown,
                 () => StopRequested,
@@ -145,60 +145,42 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Appends text to the output pane. Routes through the output writer so
-        /// block spacing stays accurate — all chat output must use this method.
+        /// Appends text to the output pane. All chat output must use this method.
         /// </summary>
         public void AppendText(string text)
-        {
-            _outputWriter.Write(text);
-        }
-
-        /// <summary>
-        /// Raw sink used exclusively by the ChatOutputWriter.
-        /// </summary>
-        private void AppendTextDirect(string text)
-        {
-            EditorService.InvokeOnUIThread(() => AppendTextInternal(text), Dispatcher);
-        }
-
-        private void AppendTextInternal(string text)
         {
             if (string.IsNullOrEmpty(text))
                 return;
 
-            // Track character count for token estimation
+            EditorService.InvokeOnUIThread(() => AppendTextInternal(text), Dispatcher);
+        }
+
+        /// <summary>
+        /// Ends the current list turn so the next write opens a fresh ChatTurn.
+        /// </summary>
+        private void StartOutputBlock()
+        {
+            EditorService.InvokeOnUIThread(StartOutputBlockInternal, Dispatcher);
+        }
+
+        private void StartOutputBlockInternal()
+        {
+            if (_currentTurn == null)
+                return;
+
+            _currentTurn.TrimTrailingBlankParagraphs();
+            _currentTurn = null;
+        }
+
+        private void AppendTextInternal(string text)
+        {
             _tokenTracker.OnTextAppended(text.Length);
 
-            // Get the last paragraph, or create one if none exists
-            Paragraph lastParagraph = null;
-            if (OutputTextBox.Document.Blocks.Count > 0)
-            {
-                lastParagraph = OutputTextBox.Document.Blocks.LastBlock as Paragraph;
-            }
+            if (_currentTurn == null)
+                _currentTurn = AddTurn();
 
-            // If no paragraph exists or last block is not a paragraph, create a new one
-            if (lastParagraph == null)
-            {
-                lastParagraph = new Paragraph { Margin = new Thickness(0), Padding = new Thickness(0) };
-                OutputTextBox.Document.Blocks.Add(lastParagraph);
-            }
-
-            // Split by newlines and handle each part
-            string[] parts = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
-
-            for (int i = 0; i < parts.Length; i++)
-            {
-                if (i > 0)
-                {
-                    lastParagraph = new Paragraph();
-                    OutputTextBox.Document.Blocks.Add(lastParagraph);
-                }
-
-                if (!string.IsNullOrEmpty(parts[i]))
-                {
-                    lastParagraph.Inlines.Add(new Run(parts[i]));
-                }
-            }
+            _currentTurn.AppendText(text);
+            ScrollChatToEnd();
         }
 
         /// <summary>
@@ -210,7 +192,7 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Post-processes the output pane to render Markdown formatting.
+        /// Post-processes each turn's document to render Markdown formatting.
         /// Called after each assistant generation turn completes.
         /// </summary>
         public void ApplyMarkdown()
@@ -220,7 +202,12 @@ namespace NyoCoder
 
             EditorService.InvokeOnUIThread(() =>
             {
-                MarkdownHandler.ProcessMarkdown(OutputTextBox, ref _markdownProcessedBlockCount);
+                foreach (ChatTurn turn in _chatTurns)
+                {
+                    MarkdownHandler.ProcessMarkdown(
+                        turn.Document,
+                        ref turn.MarkdownProcessedBlockCount);
+                }
             }, Dispatcher);
         }
 
@@ -231,10 +218,9 @@ namespace NyoCoder
         {
             EditorService.InvokeOnUIThread(() =>
             {
-                OutputTextBox.Document.Blocks.Clear();
-                _markdownProcessedBlockCount = 0;
+                _chatTurns.Clear();
+                _currentTurn = null;
                 _tokenTracker.Reset();
-                _outputWriter.Reset();
 
                 // Reset step planner display
                 if (StepPlanner.Instance != null)
@@ -284,38 +270,91 @@ namespace NyoCoder
         {
             EditorService.InvokeOnUIThread(() =>
             {
-                OutputTextBox.Document.Blocks.Clear();
-                _markdownProcessedBlockCount = 0;
+                _chatTurns.Clear();
+                _currentTurn = null;
                 _tokenTracker.ResetCharacterCount(text != null ? text.Length : 0);
-                _outputWriter.Reset();
-                var paragraph = new Paragraph(new Run(text)) { Margin = new Thickness(0), Padding = new Thickness(0) };
-                OutputTextBox.Document.Blocks.Add(paragraph);
+
+                if (!string.IsNullOrEmpty(text))
+                {
+                    ChatTurn turn = AddTurn();
+                    turn.AppendText(text);
+                    _currentTurn = turn;
+                }
             }, Dispatcher);
         }
 
-        private ScrollViewer _outputScrollViewer;
-
-        private void OutputTextBox_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        private ChatTurn AddTurn()
         {
-            if (_outputScrollViewer == null)
-                _outputScrollViewer = e.OriginalSource as ScrollViewer;
+            ChatTurn turn = new ChatTurn(_chatTurns.Count > 0);
+            if (ChatList.FontSize > 0)
+                turn.Document.FontSize = ChatList.FontSize;
+            if (ChatList.Foreground != null)
+                turn.Document.Foreground = ChatList.Foreground;
+            ApplyDocumentPageWidth(turn);
+            _chatTurns.Add(turn);
+            return turn;
+        }
 
-            if (e.ExtentHeightChange > 0 && _outputScrollViewer != null)
-                _outputScrollViewer.ScrollToBottom();
+        private void ShowWelcomeTurn()
+        {
+            ChatTurn welcome = AddTurn();
+            welcome.AppendText(WelcomeMessage);
+            // Welcome is not an open streaming turn — next StartBlock/Write opens a fresh one.
+            _currentTurn = null;
+        }
+
+        private void ChatList_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            foreach (ChatTurn turn in _chatTurns)
+                ApplyDocumentPageWidth(turn);
+        }
+
+        private void ApplyDocumentPageWidth(ChatTurn turn)
+        {
+            if (turn == null || ChatList == null)
+                return;
+
+            double width = ChatList.ActualWidth
+                - SystemParameters.VerticalScrollBarWidth
+                - 16;
+            if (width > 50)
+                turn.Document.PageWidth = width;
+        }
+
+        private void ScrollChatToEnd()
+        {
+            if (_chatTurns.Count == 0)
+                return;
+
+            ChatList.ScrollIntoView(_chatTurns[_chatTurns.Count - 1]);
+
+            if (_chatScrollViewer == null)
+                _chatScrollViewer = FindScrollViewer(ChatList);
+            if (_chatScrollViewer != null)
+                _chatScrollViewer.ScrollToEnd();
+        }
+
+        private static ScrollViewer FindScrollViewer(DependencyObject root)
+        {
+            ScrollViewer viewer = root as ScrollViewer;
+            if (viewer != null)
+                return viewer;
+
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                ScrollViewer child = FindScrollViewer(VisualTreeHelper.GetChild(root, i));
+                if (child != null)
+                    return child;
+            }
+            return null;
         }
 
         /// <summary>
-        /// Scrolls the output box to the bottom.
+        /// Scrolls the output list to the bottom.
         /// </summary>
         public void ScrollToBottom()
         {
-            EditorService.BeginInvokeOnUIThread(() =>
-            {
-                if (_outputScrollViewer != null)
-                    _outputScrollViewer.ScrollToBottom();
-                else
-                    OutputTextBox.ScrollToEnd();
-            }, Dispatcher);
+            EditorService.BeginInvokeOnUIThread(ScrollChatToEnd, Dispatcher);
         }
 
         public bool StopRequested
@@ -540,7 +579,7 @@ namespace NyoCoder
             if (!string.IsNullOrEmpty(attachedImage))
                 userMessageDisplay += " [Image attached]";
 
-            _outputWriter.StartBlock();
+            StartOutputBlock();
             AppendLine("User: " + userMessageDisplay);
 
             StopRequested = false;

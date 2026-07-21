@@ -62,6 +62,11 @@ namespace NyoCoder
             "search_replace",
             "run_web_search",
             "read_website",
+            "view_skill",
+            "create_skill",
+            "edit_skill",
+            "edit_skill_file",
+            "remove_skill",
             "ask_user_question",
             "manage_plan"
         };
@@ -111,6 +116,7 @@ namespace NyoCoder
             "grep_search",
             "run_web_search",
             "read_website",
+            "view_skill",
             "ask_user_question"
         };
 
@@ -274,6 +280,58 @@ namespace NyoCoder
                         { "url", new PropertyInfo("string", "The URL of the web page to fetch.") }
                     },
                     new[] { "url" }
+                ),
+                new ToolEntry(
+                    "view_skill",
+                    "Load a skill's SKILL.md, absolute skill root, and relative linked-file listing. With relative_path, reads that file (Skill root / File headers; no listing).",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "name", new PropertyInfo("string", "The skill name.") },
+                        { "relative_path", new PropertyInfo("string", "Optional relative path within the skill to read (e.g. 'references/api.md'). Omit to get SKILL.md plus the linked-files listing.") }
+                    },
+                    new[] { "name" }
+                ),
+                new ToolEntry(
+                    "create_skill",
+                    "Create a new skill directory with SKILL.md only (YAML frontmatter + markdown instructions). Errors if the skill already exists.",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "name", new PropertyInfo("string", "Skill name: lowercase letters, numbers, and hyphens only (e.g. 'code-review'). Becomes the folder name.") },
+                        { "description", new PropertyInfo("string", "What the skill does and when to use it (third person). Truncated to 1024 characters.") },
+                        { "instructions", new PropertyInfo("string", "Markdown body of SKILL.md (procedure, when to load supporting files, examples).") }
+                    },
+                    new[] { "name", "description", "instructions" }
+                ),
+                new ToolEntry(
+                    "edit_skill",
+                    "Update an existing skill's SKILL.md (description and/or instructions; omitted fields unchanged). Errors if the skill does not exist.",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "name", new PropertyInfo("string", "The existing skill name.") },
+                        { "description", new PropertyInfo("string", "Optional. New description (third person). Truncated to 1024 characters. Omit to leave the current description unchanged.") },
+                        { "instructions", new PropertyInfo("string", "Optional. New markdown body for SKILL.md. Omit to leave current instructions unchanged.") }
+                    },
+                    new[] { "name" }
+                ),
+                new ToolEntry(
+                    "edit_skill_file",
+                    "Create or overwrite a supporting file under an existing skill. Errors if the skill does not exist. Creates parent directories as needed.",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "name", new PropertyInfo("string", "The existing skill name.") },
+                        { "relative_path", new PropertyInfo("string", "Relative path within the skill (e.g. 'scripts/helper.py' or 'references/api.md').") },
+                        { "content", new PropertyInfo("string", "Full file contents to write.") }
+                    },
+                    new[] { "name", "relative_path", "content" }
+                ),
+                new ToolEntry(
+                    "remove_skill",
+                    "Delete an agent skill directory (SKILL.md and all supporting files) by skill name.",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "name", new PropertyInfo("string", "The skill name to remove.") }
+                    },
+                    new[] { "name" }
                 ),
                 new ToolEntry(
                     "ask_user_question",

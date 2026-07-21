@@ -38,6 +38,7 @@ namespace NyoCoder
             Dictionary<int, ToolHandler.ToolCall> partialToolCalls = new Dictionary<int, ToolHandler.ToolCall>();
             Dictionary<int, int> toolCallArgumentLength = new Dictionary<int, int>();
             bool inReasoning = false;
+            bool reasoningEndedWithNewline = true;
             string lastEvent = null;
             string line;
 
@@ -103,6 +104,7 @@ namespace NyoCoder
                                     inReasoning = true;
                                 }
                                 onReasoningChunk(reasoningChunk);
+                                reasoningEndedWithNewline = reasoningChunk.EndsWith("\n");
                             }
                             else if (!inReasoning)
                             {
@@ -117,7 +119,10 @@ namespace NyoCoder
                             {
                                 if (onReasoningChunk != null)
                                 {
-                                    onReasoningChunk("[/thinking]\n");
+                                    // If the last reasoning chunk didn't end with a newline, the
+                                    // closing tag needs one of its own so it doesn't glue onto
+                                    // the trailing sentence.
+                                    onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
                                     // Blank line between the thinking block and the text that follows
                                     if (startBlock != null) startBlock();
                                 }
@@ -195,7 +200,7 @@ namespace NyoCoder
 
             // Close any open reasoning block if the stream ended while still in reasoning
             if (inReasoning && onReasoningChunk != null)
-                onReasoningChunk("[/thinking]\n");
+                onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
 
             response.ToolCalls.AddRange(partialToolCalls.Values);
             response.Content = output.ToString();

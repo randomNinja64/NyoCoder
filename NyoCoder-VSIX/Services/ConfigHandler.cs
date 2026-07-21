@@ -216,7 +216,11 @@ namespace NyoCoder
 		"delete_file",
 		"copy_file",
 		"write_file",
-		"search_replace"
+		"search_replace",
+		"create_skill",
+		"edit_skill",
+		"edit_skill_file",
+		"remove_skill"
 	};
 
 	/// <summary>

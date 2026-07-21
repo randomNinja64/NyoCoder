@@ -84,6 +84,8 @@ namespace NyoCoder
             if (!System.IO.Directory.Exists(ExternalToolRegistry.ToolsDirectory))
                 System.IO.Directory.CreateDirectory(ExternalToolRegistry.ToolsDirectory);
 
+            SkillHandler.EnsureSkillsDirectory();
+
             OleMenuCommandService mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
             if (null != mcs)
             {

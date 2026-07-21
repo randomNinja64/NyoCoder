@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:NyoCoder"
              xmlns:vsfx="clr-namespace:Microsoft.VisualStudio.Shell;assembly=Microsoft.VisualStudio.Shell.10.0"
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="300"
@@ -47,28 +48,58 @@
             </StackPanel>
         </Border>
         
-        <!-- Output text box -->
-        <RichTextBox x:Name="OutputTextBox"
-                     Grid.Row="1"
-                     IsReadOnly="True"
-                     VerticalScrollBarVisibility="Auto"
-                     HorizontalScrollBarVisibility="Auto"
-                     Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
-                     Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
-                     Padding="4"
-                     BorderThickness="0">
-            <FlowDocument Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}" LineHeight="14" LineStackingStrategy="BlockLineHeight">
-                <FlowDocument.Resources>
-                    <Style TargetType="{x:Type Paragraph}">
-                        <Setter Property="Margin" Value="0"/>
-                        <Setter Property="Padding" Value="0"/>
-                    </Style>
-                </FlowDocument.Resources>
-                <Paragraph>
-                    <Run Text="NyoCoder is ready. Type a message below, or press Ctrl+Alt+N from anywhere in Visual Studio."/>
-                </Paragraph>
-            </FlowDocument>
-        </RichTextBox>
+        <!-- Chat history: one ListBox item per output block -->
+        <ListBox x:Name="ChatList"
+                 Grid.Row="1"
+                 BorderThickness="0"
+                 Padding="4"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.CanContentScroll="False"
+                 HorizontalContentAlignment="Stretch"
+                 Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                 Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
+                 SizeChanged="ChatList_SizeChanged">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Padding" Value="0,1"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border Background="{TemplateBinding Background}"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type local:ChatTurn}">
+                    <RichTextBox IsReadOnly="True"
+                                 IsUndoEnabled="False"
+                                 IsDocumentEnabled="True"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                                 VerticalScrollBarVisibility="Disabled"
+                                 HorizontalScrollBarVisibility="Disabled"
+                                 local:ChatMessageDocumentBehavior.Document="{Binding Document}">
+                        <RichTextBox.Resources>
+                            <Style TargetType="Paragraph">
+                                <Setter Property="Margin" Value="0"/>
+                                <Setter Property="Padding" Value="0"/>
+                            </Style>
+                        </RichTextBox.Resources>
+                    </RichTextBox>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
         
         <!-- Button panel -->
         <ScrollViewer Grid.Row="2"

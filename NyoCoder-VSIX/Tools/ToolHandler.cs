@@ -158,6 +158,53 @@ public static class ToolHandler
                         return true;
                     }
 
+                case "view_skill":
+                    {
+                        string name = GetRequiredArg(args, "name");
+                        string relativePath = JsonExtractString(args, "relative_path");
+                        string output = SkillHandler.ViewSkill(name, relativePath);
+                        toolContent = FormatCommandResult("view_skill: " + name, output, exitCode);
+                        return true;
+                    }
+
+                case "create_skill":
+                    {
+                        string name = GetRequiredArg(args, "name");
+                        string description = GetRequiredArg(args, "description");
+                        string instructions = GetRequiredArg(args, "instructions");
+                        string output = SkillHandler.CreateSkill(name, description, instructions);
+                        toolContent = FormatCommandResult("create_skill: " + name, output, exitCode);
+                        return true;
+                    }
+
+                case "edit_skill":
+                    {
+                        string name = GetRequiredArg(args, "name");
+                        string description = JsonExtractString(args, "description");
+                        string instructions = JsonExtractString(args, "instructions");
+                        string output = SkillHandler.EditSkill(name, description, instructions);
+                        toolContent = FormatCommandResult("edit_skill: " + name, output, exitCode);
+                        return true;
+                    }
+
+                case "edit_skill_file":
+                    {
+                        string name = GetRequiredArg(args, "name");
+                        string relativePath = GetRequiredArg(args, "relative_path");
+                        string content = JsonExtractString(args, "content");
+                        string output = SkillHandler.EditSkillFile(name, relativePath, content);
+                        toolContent = FormatCommandResult("edit_skill_file: " + name, output, exitCode);
+                        return true;
+                    }
+
+                case "remove_skill":
+                    {
+                        string name = GetRequiredArg(args, "name");
+                        string output = SkillHandler.RemoveSkill(name);
+                        toolContent = FormatCommandResult("remove_skill: " + name, output, exitCode);
+                        return true;
+                    }
+
                 case "ask_user_question":
                     {
                         string question = GetRequiredArg(args, "question");

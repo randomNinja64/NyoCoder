@@ -80,6 +80,11 @@ The extension can be triggered through its tool window, the right-click menu wit
 - **run_web_search** - runs a web search (uses SearXNG if available, DuckDuckGo and Wiby if not) (Relies on curl.exe in the extension's directory, included with the release but not with source)
 - **manage_plan** - tracks progress on multi-step tasks; supports `read` (view plan) and `write` (write/overwrite plan)
 - **search_replace** - makes targeted changes to files using SEARCH/REPLACE blocks
+- **view_skill** - loads a skill's `SKILL.md` (and optional linked files) from `%APPDATA%\NyoCoder\Skills`
+- **create_skill** - creates a new skill folder with `SKILL.md`
+- **edit_skill** - updates an existing skill's description and/or instructions
+- **edit_skill_file** - creates or overwrites a supporting file under a skill
+- **remove_skill** - deletes a skill directory
 - **write_file** - writes content to a local file
 
 In addition to the listed tools, SimpleLLMChat-compatible tools can be used by extracting them to %appdata%\NyoCoder\Tools.

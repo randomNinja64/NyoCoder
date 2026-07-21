@@ -154,7 +154,6 @@
     <Compile Include="Editor\DiffHighlightTagger.cs" />
     <!-- Services -->
     <Compile Include="Services\BuildErrorFixLoop.cs" />
-    <Compile Include="Services\ChatOutputWriter.cs" />
     <Compile Include="Services\AutoRagContext.cs" />
     <Compile Include="Services\CodebaseIndex.cs" />
     <Compile Include="Services\CodebaseIndexer.cs" />
@@ -187,6 +186,7 @@
     <Compile Include="Tools\AskUserQuestionTool.cs" />
     <Compile Include="Tools\ManagePlanTool.cs" />
     <Compile Include="Tools\WebSearchTool.cs" />
+    <Compile Include="Tools\SkillHandler.cs" />
     <Compile Include="Tools\WriteFileTool.cs" />
     <Compile Include="Tools\ToolDefinitions.cs" />
     <Compile Include="Tools\ToolHandler.cs" />
@@ -227,6 +227,8 @@
     <Compile Include="UI\WebSearchOptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\ChatTurn.cs" />
+    <Compile Include="UI\ChatMessageDocumentBehavior.cs" />
     <Compile Include="UI\MarkdownHandler.cs" />
     <Compile Include="UI\BuildErrorHandlingOptionsPage.cs">
       <SubType>Component</SubType>

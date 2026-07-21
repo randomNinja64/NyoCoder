@@ -487,7 +487,10 @@ public class LLMClient
 
         // System message — includes mode-specific instructions and injected tool context
         string systemPrompt = ContextEngine.GetSystemPrompt(mode);
-        foreach (string injection in ExternalToolRegistry.GetContextInjections(ToolDefinitions.GetEnabledToolNames(mode)))
+        List<string> enabledTools = ToolDefinitions.GetEnabledToolNames(mode);
+        if (SkillHandler.AnySkillToolEnabled(enabledTools))
+            systemPrompt += "\n\n" + SkillHandler.GetContext();
+        foreach (string injection in ExternalToolRegistry.GetContextInjections(enabledTools))
             systemPrompt += "\n\n" + injection;
 
         JObject systemMsg = new JObject();

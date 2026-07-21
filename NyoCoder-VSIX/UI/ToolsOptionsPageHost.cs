@@ -116,6 +116,7 @@ namespace NyoCoder
             foreach (ExternalToolRegistry.PackageInfo pkg in packages)
                 foreach (string toolName in pkg.ToolNames)
                     allTools.Add(toolName);
+            allTools.Sort(StringComparer.OrdinalIgnoreCase);
             return allTools;
         }
 

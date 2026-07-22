@@ -130,12 +130,12 @@
                                 Margin="0,0,4,0">
                         <Button x:Name="NewChatButton"
                                 Content="New Chat"
-                                MinWidth="60"
+                                MinWidth="72"
                                 Padding="8,1"
                                 Margin="0,0,0,4"
                                 Click="NewChatButton_Click"/>
                         <ComboBox x:Name="ModeSelector"
-                                  MinWidth="60"/>
+                                  MinWidth="72"/>
                     </StackPanel>
                     <TextBox x:Name="InputBox"
                              Grid.Column="1"

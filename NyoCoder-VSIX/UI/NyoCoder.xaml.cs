@@ -36,6 +36,9 @@ namespace NyoCoder
         private const string SteerInputTooltip =
             "Queue a message to steer the conversation after the current tool call or response";
 
+        private const string StopGenerationTooltip =
+            "Stop the current generation";
+
         private const string WelcomeMessage =
             "NyoCoder is ready. Type a message below, or press Ctrl+Alt+N from anywhere in Visual Studio.";
 
@@ -381,7 +384,7 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Switches the input bar between idle (Send) and generation (Steer) modes.
+        /// Switches the input bar between idle (Send / New Chat) and generation (Steer / Stop) modes.
         /// </summary>
         private void SetInputBarGenerationMode(bool generating)
         {
@@ -391,7 +394,8 @@ namespace NyoCoder
                 InputSendButton.Content = generating ? "Steer" : "Send";
                 InputSendButton.ToolTip = generating ? SteerInputTooltip : null;
                 InputBox.ToolTip = generating ? SteerInputTooltip : null;
-                NewChatButton.IsEnabled = !generating;
+                NewChatButton.Content = generating ? "Stop" : "New Chat";
+                NewChatButton.ToolTip = generating ? StopGenerationTooltip : null;
                 ModeSelector.IsEnabled = !generating;
                 AttachImageButton.IsEnabled = !generating;
 
@@ -413,22 +417,23 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Handles the New Chat button click — clears the session and resets the input bar.
+        /// Handles the New Chat / Stop button click.
+        /// While generating, requests a stop; otherwise starts a fresh session.
         /// </summary>
         private void NewChatButton_Click(object sender, RoutedEventArgs e)
         {
             NyoCoder_VSIXPackage package = NyoCoder_VSIXPackage.Instance;
             if (package == null) return;
 
-            if (Interlocked.CompareExchange(ref package._isAiRunning, 1, 0) != 0)
+            // Stop button while a generation is running
+            if (Interlocked.CompareExchange(ref package._isAiRunning, 0, 0) != 0)
             {
-                MessageBox.Show(
-                    "An AI request is already in progress. Please wait for it to complete.",
-                    "NyoCoder",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                StopRequested = true;
                 return;
             }
+
+            if (Interlocked.CompareExchange(ref package._isAiRunning, 1, 0) != 0)
+                return;
 
             LLMClient newClient = LLMClient.CreateFromConfig();
             if (newClient == null)

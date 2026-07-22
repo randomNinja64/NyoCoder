@@ -142,6 +142,18 @@ namespace NyoCoder
                         JArray toolCalls = delta != null ? (JArray)delta["tool_calls"] : null;
                         if (toolCalls != null)
                         {
+                            // Close thinking before tool-call UI streams, otherwise the
+                            // trailing ")" lands after [/thinking] at end-of-stream.
+                            if (inReasoning)
+                            {
+                                if (onReasoningChunk != null)
+                                {
+                                    onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
+                                    if (startBlock != null) startBlock();
+                                }
+                                inReasoning = false;
+                            }
+
                             foreach (JObject call in toolCalls)
                             {
                                 int index = call["index"] != null ? call["index"].Value<int>() : 0;

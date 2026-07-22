@@ -266,26 +266,6 @@ namespace NyoCoder
             StepStatusText.ToolTip = null;
         }
 
-        /// <summary>
-        /// Sets the output text, replacing any existing content.
-        /// </summary>
-        public void SetOutput(string text)
-        {
-            EditorService.InvokeOnUIThread(() =>
-            {
-                _chatTurns.Clear();
-                _currentTurn = null;
-                _tokenTracker.ResetCharacterCount(text != null ? text.Length : 0);
-
-                if (!string.IsNullOrEmpty(text))
-                {
-                    ChatTurn turn = AddTurn();
-                    turn.AppendText(text);
-                    _currentTurn = turn;
-                }
-            }, Dispatcher);
-        }
-
         private ChatTurn AddTurn()
         {
             ChatTurn turn = new ChatTurn(_chatTurns.Count > 0);

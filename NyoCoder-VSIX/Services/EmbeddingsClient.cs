@@ -58,11 +58,6 @@ namespace NyoCoder
             return new EmbeddingsClient(endpoint, ConfigHandler.GetEmbeddingsApiKey(), model);
         }
 
-        public bool IsConfigured
-        {
-            get { return !string.IsNullOrWhiteSpace(_endpoint) && !string.IsNullOrWhiteSpace(_model); }
-        }
-
         /// <summary>Embeds a single text, returning its vector (or null on failure).</summary>
         public float[] Embed(string text)
         {

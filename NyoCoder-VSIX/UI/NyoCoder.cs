@@ -13,7 +13,7 @@ namespace NyoCoder
     /// <summary>
     /// Tool window that hosts the NyoCoder user control.
     /// </summary>
-    [Guid("5a58e5c5-1385-41dc-953e-a1b84efe50db")]
+    [Guid(GuidList.guidToolWindowPersistanceString)]
     public class NyoCoderToolWindow : ToolWindowPane
     {
         private NyoCoderControl _control;

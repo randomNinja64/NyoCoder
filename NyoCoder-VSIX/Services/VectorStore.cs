@@ -39,8 +39,7 @@ namespace NyoCoder
 
     /// <summary>
     /// In-memory store of chunk embeddings with compact binary persistence and brute-force
-    /// cosine top-K search. Fast enough for legacy solutions (a few thousand chunks scan in
-    /// well under a second).
+    /// cosine search that retains only the top-K hits while scanning (no full-result sort).
     /// </summary>
     internal class VectorStore
     {
@@ -78,7 +77,10 @@ namespace NyoCoder
             return removed;
         }
 
-        /// <summary>Returns the top-K chunks by cosine similarity to <paramref name="query"/>.</summary>
+        /// <summary>
+        /// Returns the top-K chunks by cosine similarity to <paramref name="query"/>.
+        /// When <paramref name="topK"/> is &lt;= 0, all scored chunks are returned (sorted).
+        /// </summary>
         public List<ChunkHit> Search(float[] query, int topK)
         {
             List<ChunkHit> hits = new List<ChunkHit>();
@@ -92,19 +94,57 @@ namespace NyoCoder
             if (queryNorm == 0)
                 return hits;
 
+            // Bounded top-K: keep at most topK candidates while scanning (min-of-K eviction).
+            // topK <= 0 keeps the legacy "score everything" path for callers that want all hits.
+            bool limit = topK > 0;
+            int worstIndex = -1;
+            double worstScore = 0;
+
             foreach (ChunkVector v in _vectors)
             {
                 if (v.Norm == 0)
                     continue;
                 double dot = Dot(query, v.Embedding);
                 double score = dot / (queryNorm * v.Norm);
-                hits.Add(new ChunkHit { Chunk = v, Score = score });
+
+                if (!limit)
+                {
+                    hits.Add(new ChunkHit { Chunk = v, Score = score });
+                    continue;
+                }
+
+                if (hits.Count < topK)
+                {
+                    hits.Add(new ChunkHit { Chunk = v, Score = score });
+                    if (worstIndex < 0 || score < worstScore)
+                    {
+                        worstIndex = hits.Count - 1;
+                        worstScore = score;
+                    }
+                    continue;
+                }
+
+                if (score <= worstScore)
+                    continue;
+
+                hits[worstIndex] = new ChunkHit { Chunk = v, Score = score };
+                worstIndex = IndexOfLowestScore(hits);
+                worstScore = hits[worstIndex].Score;
             }
 
             hits.Sort((a, b) => b.Score.CompareTo(a.Score));
-            if (topK > 0 && hits.Count > topK)
-                hits = hits.GetRange(0, topK);
             return hits;
+        }
+
+        private static int IndexOfLowestScore(List<ChunkHit> hits)
+        {
+            int worst = 0;
+            for (int i = 1; i < hits.Count; i++)
+            {
+                if (hits[i].Score < hits[worst].Score)
+                    worst = i;
+            }
+            return worst;
         }
 
         private static double Dot(float[] a, float[] b)

@@ -7,7 +7,9 @@ using System.Text;
 
 namespace NyoCoder
 {
-    /// <summary>Per-file bookkeeping stored in the manifest for incremental re-indexing.</summary>
+    /// <summary>Per-file bookkeeping stored in the manifest for incremental re-indexing.
+    /// <see cref="Mtime"/> is used to skip disk reads on reconcile; <see cref="Hash"/>
+    /// confirms content when a file is actually read.</summary>
     public class IndexFileEntry
     {
         public string Hash;

@@ -139,6 +139,9 @@ namespace NyoCoder
             List<string> embedTexts = new List<string>();
             List<ChunkVector> embedChunks = new List<ChunkVector>();
             HashSet<string> currentSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Content of files re-indexed this run — reused for the reference pass (no second disk read).
+            Dictionary<string, string> changedContents =
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             int chunkBudget = ConfigHandler.GetIndexMaxChunksTotal();
 
             foreach (string rawFile in files)
@@ -149,21 +152,36 @@ namespace NyoCoder
                 if (done % ProgressInterval == 0)
                     IndexingStatusReporter.ReportProgress(done, total, "Indexing");
 
+                IndexFileEntry existing = null;
+                long mtime = SafeMtime(file);
+                // Skip unchanged files without reading: mtime match is sufficient to avoid I/O.
+                // Hash is still the content fingerprint once we do read (mtime can lie).
+                if (!rebuildAll
+                    && mtime != 0
+                    && index.Manifest.Files.TryGetValue(file, out existing)
+                    && existing != null
+                    && existing.Mtime == mtime)
+                {
+                    continue;
+                }
+
                 string content = TryReadText(file);
                 if (content == null)
                     continue;
 
-                long mtime = SafeMtime(file);
                 string hash = CodebaseIndex.HashMd5Hex(content, lowercase: false);
-
-                IndexFileEntry existing;
                 bool changed = rebuildAll
                     || !index.Manifest.Files.TryGetValue(file, out existing)
                     || existing == null
                     || !string.Equals(existing.Hash, hash, StringComparison.Ordinal);
 
                 if (!changed)
+                {
+                    // Content identical; refresh stored mtime so the next reconcile can skip the read.
+                    if (existing != null && existing.Mtime != mtime)
+                        existing.Mtime = mtime;
                     continue;
+                }
 
                 int symbolCount = AddFileSymbols(index, file, content, removeExisting: !rebuildAll);
 
@@ -173,6 +191,7 @@ namespace NyoCoder
                         ref chunkBudget, embedChunks, embedTexts);
 
                 index.Manifest.Files[file] = BuildManifestEntry(hash, mtime, symbolCount, chunkCount);
+                changedContents[file] = content;
             }
 
             // Prune files that no longer exist on disk.
@@ -183,8 +202,24 @@ namespace NyoCoder
             foreach (string key in toRemove)
                 index.RemoveFileData(key);
 
-            IndexingStatusReporter.ReportProgress(total, total, "References");
-            ScanReferences(index, index.Manifest.Files.Keys, clearAllCallers: true);
+            // Reference pass: only rescans files that were re-indexed (same model as RunIndexFile).
+            // Full rebuild still scans every indexed file, but uses preloaded content — no second read.
+            if (rebuildAll || changedContents.Count > 0)
+            {
+                IndexingStatusReporter.ReportProgress(total, total, "References");
+                if (rebuildAll)
+                {
+                    ScanReferences(index, index.Manifest.Files.Keys, clearAllCallers: true,
+                        preloaded: changedContents);
+                }
+                else
+                {
+                    foreach (string file in changedContents.Keys)
+                        index.RemoveCallersFromFile(file);
+                    ScanReferences(index, changedContents.Keys, clearAllCallers: false,
+                        preloaded: changedContents);
+                }
+            }
 
             // Embed all collected chunks in one pass.
             if (semantic)

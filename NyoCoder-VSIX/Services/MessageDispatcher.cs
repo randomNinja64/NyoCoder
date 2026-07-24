@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
@@ -296,13 +297,24 @@ namespace NyoCoder
                 {
                     _setMode(ChatMode.Agent);
 
+                    string planText = ExtractApprovedPlan(llmClient.Conversation);
+
+                    // Drop planning transcript; agent starts with a fresh context seeded by the plan.
+                    llmClient.Conversation.Clear();
+                    _resetCharacterCount(0);
+                    if (StepPlanner.Instance != null)
+                        StepPlanner.Instance.Reset();
+
+                    string handoffBody = BuildPlanHandoffMessage(planText);
+                    BuiltUserMessage built = BuildUserMessage(handoffBody, isNewSession: true);
+
                     _startBlock();
                     _appendLine("[Handing off to Agent for implementation...]");
                     _startBlock();
                     _appendLine("Assistant: ");
 
                     llmClient.ProcessConversation(
-                        "The plan above has been approved. Please implement it now. Use manage_plan to track your progress through the steps if the tool is available.",
+                        built.Prompt,
                         null,
                         ConfigHandler.GetShowToolOutput(),
                         _appendText,
@@ -348,6 +360,53 @@ namespace NyoCoder
                     break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Builds the user message that seeds the Agent after plan approval.
+        /// </summary>
+        private static string BuildPlanHandoffMessage(string planText)
+        {
+            if (string.IsNullOrWhiteSpace(planText))
+            {
+                return "The approved plan could not be recovered from the planning conversation. "
+                    + "Ask the user to restate the plan, then implement it. "
+                    + "Use manage_plan to track your progress through the steps if the tool is available.";
+            }
+
+            return "The following plan has been approved. Implement it now. "
+                + "Use manage_plan to track your progress through the steps if the tool is available.\n\n"
+                + planText.Trim();
+        }
+
+        /// <summary>
+        /// Pulls the approved plan out of the planning transcript: prefers the latest
+        /// assistant message that contains a "## Plan:" heading, otherwise the latest
+        /// non-empty assistant text.
+        /// </summary>
+        private static string ExtractApprovedPlan(List<LLMClient.ChatMessage> conversation)
+        {
+            if (conversation == null || conversation.Count == 0)
+                return string.Empty;
+
+            string lastAssistant = null;
+
+            for (int i = conversation.Count - 1; i >= 0; i--)
+            {
+                LLMClient.ChatMessage msg = conversation[i];
+                if (!string.Equals(msg.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (string.IsNullOrWhiteSpace(msg.Content))
+                    continue;
+
+                if (lastAssistant == null)
+                    lastAssistant = msg.Content.Trim();
+
+                if (msg.Content.IndexOf("## Plan:", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return msg.Content.Trim();
+            }
+
+            return lastAssistant ?? string.Empty;
         }
     }
 }

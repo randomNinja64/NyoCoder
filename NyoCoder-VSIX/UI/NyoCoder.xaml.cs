@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace NyoCoder
 {
@@ -337,7 +338,7 @@ namespace NyoCoder
         /// </summary>
         public void ScrollToBottom()
         {
-            EditorService.BeginInvokeOnUIThread(ScrollChatToEnd, Dispatcher);
+            EditorService.BeginInvokeOnUIThread(ScrollChatToEnd, Dispatcher, DispatcherPriority.Background);
         }
 
         public bool StopRequested

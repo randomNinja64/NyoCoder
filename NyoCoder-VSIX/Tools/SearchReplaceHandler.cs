@@ -1,3 +1,4 @@
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -6,12 +7,13 @@ namespace NyoCoder
 {
     internal static class SearchReplaceHandler
     {
-        internal static string Apply(string filePath, string content, out int exitCode)
+        internal static string Apply(string filePath, JArray edits, out int exitCode)
         {
             try
             {
                 // 1) Preview only (no changes applied yet)
-                SearchReplaceTool.ApplyResult preview = SearchReplaceTool.Preview(filePath, content);
+                List<SearchReplaceTool.Block> blocks = SearchReplaceTool.ParseEdits(edits);
+                SearchReplaceTool.ApplyResult preview = SearchReplaceTool.Preview(filePath, blocks);
 
                 exitCode = preview.Errors.Count > 0 ? 1 : 0;
 
@@ -44,7 +46,7 @@ namespace NyoCoder
                     }
 
                     exitCode = 0;
-                    sb.AppendLine("Applied " + preview.Changes.Count + " block(s).");
+                    sb.AppendLine("Applied " + preview.Changes.Count + " edit(s).");
                     return sb.ToString();
                 }
 
@@ -74,7 +76,7 @@ namespace NyoCoder
                 }
 
                 exitCode = 0;
-                sb.AppendLine("Approved and applied " + preview.Changes.Count + " block(s).");
+                sb.AppendLine("Approved and applied " + preview.Changes.Count + " edit(s).");
                 return sb.ToString();
             }
             catch (Exception ex)

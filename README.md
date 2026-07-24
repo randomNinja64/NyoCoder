@@ -79,7 +79,7 @@ The extension can be triggered through its tool window, the right-click menu wit
 - **run_shell_command** - executes a shell command on the host system and return its output
 - **run_web_search** - runs a web search (uses SearXNG if available, DuckDuckGo and Wiby if not) (Relies on curl.exe in the extension's directory, included with the release but not with source)
 - **manage_plan** - tracks progress on multi-step tasks; supports `read` (view plan) and `write` (write/overwrite plan)
-- **search_replace** - makes targeted changes to files using SEARCH/REPLACE blocks
+- **search_replace** - makes targeted changes to a file via a list of exact old_string/new_string edits
 - **view_skill** - loads a skill's `SKILL.md` (and optional linked files) from `%APPDATA%\NyoCoder\Skills`
 - **create_skill** - creates a new skill folder with `SKILL.md`
 - **edit_skill** - updates an existing skill's description and/or instructions
@@ -93,7 +93,6 @@ For more information on these tools, please see [SimpleLLMChat](https://github.c
 
 ## Credits
 
-- Tool definitions are loosely inspired by [Mistral's Vibe CLI](https://github.com/mistralai/mistral-vibe)
 - cURL builds (for TLS on legacy systems) are provided by [LoRd_MuldeR](https://github.com/lordmulder)
 
 ## Licensing

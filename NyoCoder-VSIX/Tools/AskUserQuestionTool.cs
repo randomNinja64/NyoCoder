@@ -5,8 +5,7 @@ namespace NyoCoder
 {
     /// <summary>
     /// Presents the user with a question and a set of preset choices, plus a
-    /// free-form "Other" text field. Inspired by mistral-vibe's
-    /// ask_user_question built-in tool.
+    /// free-form "Other" text field.
     /// </summary>
     internal static class AskUserQuestionTool
     {

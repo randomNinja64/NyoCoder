@@ -255,13 +255,19 @@ namespace NyoCoder
                 ),
                 new ToolEntry(
                     "search_replace",
-                    "Replace sections of a file using SEARCH/REPLACE blocks. The SEARCH text must match exactly (including whitespace, indentation, and line endings) and must be unique in the file. Multiple blocks can be provided to make multiple changes to the same file. Format: <<<<<<< SEARCH\n[exact text to find]\n=======\n[replacement text]\n>>>>>>> REPLACE. If the file is part of the project, it will be opened in Visual Studio with changes highlighted.",
+                    "Replace exact text in a file. Provide one or more edits; each edit's old_string must match exactly (including whitespace, indentation, and line endings) and occur exactly once in the file. Multiple edits can be provided to make multiple changes to the same file in one call. If the file is part of the project, it will be opened in Visual Studio with changes highlighted.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "file_path", new PropertyInfo("string", "The full path of the file to modify. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                        { "content", new PropertyInfo("string", "The SEARCH/REPLACE blocks defining the changes. Format: <<<<<<< SEARCH\n[exact text to find]\n=======\n[exact text to replace with]\n>>>>>>> REPLACE. Multiple blocks can be included for multiple changes.") }
+                        { "edits", new PropertyInfo("array", "One or more edits to apply. Each edit's old_string must be unique in the file.", "object",
+                            new Dictionary<string, PropertyInfo>
+                            {
+                                { "old_string", new PropertyInfo("string", "The exact text to find, including whitespace and indentation. Must occur exactly once in the file.") },
+                                { "new_string", new PropertyInfo("string", "The text to replace old_string with.") }
+                            },
+                            new[] { "old_string", "new_string" }) }
                     },
-                    new[] { "file_path", "content" }
+                    new[] { "file_path", "edits" }
                 ),
                 new ToolEntry(
                     "run_web_search",

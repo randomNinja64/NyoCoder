@@ -130,8 +130,10 @@ public static class ToolHandler
                 case "search_replace":
                     {
                         string filePath = GetRequiredArg(args, "file_path");
-                        string content = GetRequiredArg(args, "content");
-                        string output = SearchReplaceHandler.Apply(filePath, content, out exitCode);
+                        JArray edits = args != null ? args["edits"] as JArray : null;
+                        if (edits == null || edits.Count == 0)
+                            throw new ArgumentException("missing 'edits' argument.");
+                        string output = SearchReplaceHandler.Apply(filePath, edits, out exitCode);
                         if (exitCode == 0)
                             CodebaseIndexer.RequestIndexFile(filePath);
                         toolContent = FormatCommandResult("search_replace: " + filePath, output, exitCode);

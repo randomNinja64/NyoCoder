@@ -1,8 +1,8 @@
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using System.Text.RegularExpressions;
 using EnvDTE;
 using EnvDTE80;
 
@@ -10,14 +10,6 @@ namespace NyoCoder
 {
     public static class SearchReplaceTool
     {
-        private static readonly Regex BlockWithFenceRegex = new Regex(
-            @"```[\s\S]*?\n<{5,} SEARCH\r?\n(.*?)\r?\n?={5,}\r?\n(.*?)\r?\n?>{5,} REPLACE\s*\n```",
-            RegexOptions.Singleline | RegexOptions.Compiled);
-
-        private static readonly Regex BlockRegex = new Regex(
-            @"<{5,} SEARCH\r?\n(.*?)\r?\n?={5,}\r?\n(.*?)\r?\n?>{5,} REPLACE",
-            RegexOptions.Singleline | RegexOptions.Compiled);
-
         internal struct Block
         {
             public string Search;
@@ -83,7 +75,7 @@ namespace NyoCoder
             }
         }
 
-        internal static ApplyResult Preview(string filePath, string content)
+        internal static ApplyResult Preview(string filePath, List<Block> blocks)
         {
             ApplyResult res = new ApplyResult();
 
@@ -100,27 +92,14 @@ namespace NyoCoder
                 return res;
             }
 
-            if (string.IsNullOrEmpty(content))
+            if (blocks == null || blocks.Count == 0)
             {
-                res.Errors.Add("Empty content provided");
+                res.Errors.Add("No edits provided. Provide at least one edit with old_string and new_string.");
                 return res;
             }
 
             res.NormalizedFilePath = expandedPath;
-
-            res.Blocks = ParseBlocks(content);
-            if (res.Blocks.Count == 0)
-            {
-                res.Errors.Add(
-                    "No valid SEARCH/REPLACE blocks found in content.\n" +
-                    "Expected format:\n" +
-                    "<<<<<<< SEARCH\n" +
-                    "[exact content to find]\n" +
-                    "=======\n" +
-                    "[exact text to replace it with]\n" +
-                    ">>>>>>> REPLACE");
-                return res;
-            }
+            res.Blocks = blocks;
 
             // Open the file in the editor first so the user sees the changes
             EditorService.TryOpenFileInVisualStudio(expandedPath);
@@ -185,19 +164,36 @@ namespace NyoCoder
                 int oldLen = Math.Max(0, c.OldLength);
                 if (start + oldLen > current.Length) oldLen = current.Length - start;
 
-                string oldText = c.OldText ?? string.Empty;
-                string newText = c.NewText ?? string.Empty;
+                // old_string/new_string often start mid-line (e.g. after leading
+                // indentation that wasn't part of the match). The interleaved
+                // preview below joins the old and new text with a synthetic '\n',
+                // so without the same-line prefix the "new" side would render
+                // flush-left instead of lining up under the "old" side. Pull that
+                // shared prefix in on both sides so they render consistently; this
+                // is a preview-only concern — the real applied content never goes
+                // through this synthetic line join.
+                int lineStart = start;
+                if (start > 0)
+                {
+                    int newlineIndex = current.LastIndexOf('\n', start - 1);
+                    lineStart = newlineIndex < 0 ? 0 : newlineIndex + 1;
+                }
+                string linePrefix = current.Substring(lineStart, start - lineStart);
+
+                string oldText = linePrefix + (c.OldText ?? string.Empty);
+                string newText = linePrefix + (c.NewText ?? string.Empty);
 
                 // Compute interleaved line-level diff
                 string interleaved;
                 List<InlineSpan> localSpans;
                 BuildInterleavedDiff(oldText, newText, out interleaved, out localSpans);
 
-                // Replace the old text region with the interleaved content
-                current = current.Substring(0, start) + interleaved + current.Substring(start + oldLen);
+                // Replace the old text region (extended back to the line start) with the interleaved content
+                int regionLength = (start - lineStart) + oldLen;
+                current = current.Substring(0, lineStart) + interleaved + current.Substring(start + oldLen);
 
                 // Shift existing spans that sit after this region
-                int delta = interleaved.Length - oldLen;
+                int delta = interleaved.Length - regionLength;
                 if (delta != 0)
                 {
                     for (int j = 0; j < spans.Count; j++)
@@ -216,7 +212,7 @@ namespace NyoCoder
                 {
                     spans.Add(new InlineSpan
                     {
-                        Start = start + ls.Start,
+                        Start = lineStart + ls.Start,
                         Length = ls.Length,
                         Type = ls.Type
                     });
@@ -395,8 +391,8 @@ namespace NyoCoder
                 if (occurrences != 1)
                 {
                     res.Errors.Add(
-                        "SEARCH/REPLACE block " + blockNum + " failed: SEARCH text appears " + occurrences + " times.\n" +
-                        "Your SEARCH text must match EXACTLY once. Make it more specific.");
+                        "Edit " + blockNum + " failed: old_string appears " + occurrences + " times.\n" +
+                        "old_string must match EXACTLY once. Add more surrounding context to make it unique.");
                     continue;
                 }
 
@@ -475,31 +471,27 @@ namespace NyoCoder
             return ChangeType.Modification;
         }
 
-        internal static List<Block> ParseBlocks(string content)
+        /// <summary>
+        /// Converts the "edits" tool argument (an array of { old_string, new_string }
+        /// objects) into Blocks. Malformed entries (not an object) are skipped.
+        /// </summary>
+        internal static List<Block> ParseEdits(JArray edits)
         {
             List<Block> blocks = new List<Block>();
+            if (edits == null) return blocks;
 
-            MatchCollection fenceMatches = BlockWithFenceRegex.Matches(content);
-            if (fenceMatches.Count > 0)
+            foreach (JToken token in edits)
             {
-                foreach (Match match in fenceMatches)
-                {
-                    blocks.Add(new Block
-                    {
-                        Search = TextNormalization.NormalizeLineEndings((match.Groups[1].Value ?? string.Empty).TrimEnd('\r', '\n')),
-                        Replace = TextNormalization.NormalizeLineEndings((match.Groups[2].Value ?? string.Empty).TrimEnd('\r', '\n'))
-                    });
-                }
-                return blocks;
-            }
+                JObject obj = token as JObject;
+                if (obj == null) continue;
 
-            MatchCollection matches = BlockRegex.Matches(content);
-            foreach (Match match in matches)
-            {
+                string search = (string)obj["old_string"] ?? string.Empty;
+                string replace = (string)obj["new_string"] ?? string.Empty;
+
                 blocks.Add(new Block
                 {
-                    Search = TextNormalization.NormalizeLineEndings((match.Groups[1].Value ?? string.Empty).TrimEnd('\r', '\n')),
-                    Replace = TextNormalization.NormalizeLineEndings((match.Groups[2].Value ?? string.Empty).TrimEnd('\r', '\n'))
+                    Search = TextNormalization.NormalizeLineEndings(search),
+                    Replace = TextNormalization.NormalizeLineEndings(replace)
                 });
             }
 
@@ -525,11 +517,11 @@ namespace NyoCoder
         private static string BuildNotFoundError(string currentContent, string searchText, int blockNum)
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("SEARCH/REPLACE block " + blockNum + " failed: Search text not found.");
-            sb.AppendLine("Search text was:");
+            sb.AppendLine("Edit " + blockNum + " failed: old_string not found.");
+            sb.AppendLine("old_string was:");
             sb.AppendLine(searchText);
             sb.AppendLine();
-            sb.AppendLine("Tip: SEARCH must match EXACTLY including whitespace + line endings.");
+            sb.AppendLine("old_string must match EXACTLY, including whitespace, indentation, and line endings.");
             return sb.ToString();
         }
 

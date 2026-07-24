@@ -56,13 +56,21 @@ namespace NyoCoder
         /// </summary>
         /// <param name="action">The action to invoke.</param>
         /// <param name="dispatcher">Optional dispatcher to use. If null, uses Application.Current.Dispatcher.</param>
-        internal static void BeginInvokeOnUIThread(Action action, System.Windows.Threading.Dispatcher dispatcher = null)
+        /// <param name="priority">
+        /// Dispatcher priority for the queued invocation. Defaults to Normal. Pass a priority
+        /// below Render (e.g. Background) when the action depends on a pending layout pass,
+        /// since Normal-priority callbacks run before queued Render-priority layout work.
+        /// </param>
+        internal static void BeginInvokeOnUIThread(
+            Action action,
+            System.Windows.Threading.Dispatcher dispatcher = null,
+            System.Windows.Threading.DispatcherPriority priority = System.Windows.Threading.DispatcherPriority.Normal)
         {
             dispatcher = dispatcher ?? (System.Windows.Application.Current != null ? System.Windows.Application.Current.Dispatcher : null);
             
             if (dispatcher != null && !dispatcher.CheckAccess())
             {
-                dispatcher.BeginInvoke(action);
+                dispatcher.BeginInvoke(action, priority);
             }
             else
             {

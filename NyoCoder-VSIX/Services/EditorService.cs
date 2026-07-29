@@ -52,7 +52,9 @@ namespace NyoCoder
 
         /// <summary>
         /// Begins invoking an action on the UI thread asynchronously (non-blocking).
-        /// If already on the UI thread, executes directly; otherwise dispatches to the UI thread.
+        /// At the default (Normal) priority: if already on the UI thread, executes directly;
+        /// otherwise dispatches to the UI thread. Priorities below Normal are always queued
+        /// through the dispatcher, even if already on the UI thread — see <paramref name="priority"/>.
         /// </summary>
         /// <param name="action">The action to invoke.</param>
         /// <param name="dispatcher">Optional dispatcher to use. If null, uses Application.Current.Dispatcher.</param>
@@ -67,8 +69,27 @@ namespace NyoCoder
             System.Windows.Threading.DispatcherPriority priority = System.Windows.Threading.DispatcherPriority.Normal)
         {
             dispatcher = dispatcher ?? (System.Windows.Application.Current != null ? System.Windows.Application.Current.Dispatcher : null);
-            
-            if (dispatcher != null && !dispatcher.CheckAccess())
+
+            if (dispatcher == null)
+            {
+                action();
+                return;
+            }
+
+            // A below-Normal priority (e.g. Background) means the caller wants this to run
+            // after any already-queued layout/render work. Callers that are themselves
+            // marshalled onto the UI thread via a *synchronous* Invoke (e.g. interaction
+            // prompts triggered from a background thread) are technically "on" the UI thread
+            // by the time they call this, so the CheckAccess fast path below would otherwise
+            // run the action inline — ahead of that pending layout — defeating the priority
+            // entirely. Route anything below Normal through the dispatcher queue unconditionally.
+            if (priority < System.Windows.Threading.DispatcherPriority.Normal)
+            {
+                dispatcher.BeginInvoke(action, priority);
+                return;
+            }
+
+            if (!dispatcher.CheckAccess())
             {
                 dispatcher.BeginInvoke(action, priority);
             }

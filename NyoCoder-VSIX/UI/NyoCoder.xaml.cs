@@ -108,6 +108,14 @@ namespace NyoCoder
                 try { CodebaseIndex.PublishStatus(); }
                 catch { }
             });
+
+            // VS re-fires Loaded (rebuilding the visual tree, including the ScrollViewer) far
+            // more often than the control is actually destroyed — e.g. tab switches, docking
+            // changes, and reattaching after a debug session. A freshly generated ScrollViewer
+            // always starts at VerticalOffset 0, so re-sync to the bottom of the existing chat
+            // history whenever the control (re)loads.
+            _chatScrollViewer = null;
+            ScrollToBottom();
         }
 
         private void OnIndexingStatusChanged()

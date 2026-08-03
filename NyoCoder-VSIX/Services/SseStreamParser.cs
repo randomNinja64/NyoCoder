@@ -217,9 +217,6 @@ namespace NyoCoder
             response.ToolCalls.AddRange(partialToolCalls.Values);
             response.Content = output.ToString();
 
-            if (toolCallCallback != null && partialToolCalls.Count > 0 && outputCallback != null)
-                outputCallback(")\n");
-
             return response;
         }
     }

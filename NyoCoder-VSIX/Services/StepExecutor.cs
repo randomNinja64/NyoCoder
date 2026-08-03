@@ -144,6 +144,8 @@ namespace NyoCoder
                         {
                             _startBlock();
                             _appendText(rag.UserStatusLine + "\n");
+                            // Close the status turn so assistant stream starts on a fresh block.
+                            _startBlock();
                         }
                         if (rag != null && rag.Outcome == AutoRagContext.Status.Success
                             && !string.IsNullOrWhiteSpace(rag.PromptBlock))

@@ -9,6 +9,7 @@ namespace NyoCoder
         private CheckBox chkShowReasoning;
         private CheckBox chkCollapseThinking;
         private CheckBox chkShowToolOutput;
+        private CheckBox chkCollapseToolCalls;
 
         public AppearanceOptionsPageHost()
         {
@@ -18,7 +19,7 @@ namespace NyoCoder
         private void InitializeComponent()
         {
             this.SuspendLayout();
-            InitLayout(250);
+            InitLayout(300);
 
             chkMarkdownParsing = new CheckBox
             {
@@ -44,13 +45,22 @@ namespace NyoCoder
                 Text = "Show full tool execution output"
             };
 
+            chkCollapseToolCalls = new CheckBox
+            {
+                AutoSize = true,
+                Text = "Collapse tool calls by default"
+            };
+
             AddRow(MakeSectionTitle("Chat:"), new Padding(0, 0, 0, 8), false);
-            AddRow(chkMarkdownParsing, new Padding(0, 0, 0, 8), true);
-            AddRow(chkShowToolOutput, new Padding(0, 0, 0, 12), true);
+            AddRow(chkMarkdownParsing, new Padding(0, 0, 0, 12), true);
 
             AddRow(MakeSectionTitle("Thinking:"), new Padding(0, 0, 0, 8), false);
             AddRow(chkShowReasoning, new Padding(0, 0, 0, 8), true);
-            AddRow(chkCollapseThinking, new Padding(0, 0, 0, 0), true);
+            AddRow(chkCollapseThinking, new Padding(0, 0, 0, 12), true);
+
+            AddRow(MakeSectionTitle("Tools:"), new Padding(0, 0, 0, 8), false);
+            AddRow(chkShowToolOutput, new Padding(0, 0, 0, 8), true);
+            AddRow(chkCollapseToolCalls, new Padding(0, 0, 0, 0), true);
 
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -81,12 +91,19 @@ namespace NyoCoder
             set { chkShowToolOutput.Checked = value; }
         }
 
+        public bool CollapseToolCalls
+        {
+            get { return chkCollapseToolCalls.Checked; }
+            set { chkCollapseToolCalls.Checked = value; }
+        }
+
         public void LoadFromConfig()
         {
             MarkdownParsing = ConfigHandler.GetMarkdownParsing();
             ShowReasoningOutput = ConfigHandler.GetShowReasoningOutput();
             CollapseThinkingBlocks = ConfigHandler.GetCollapseThinkingBlocks();
             ShowToolOutput = ConfigHandler.GetShowToolOutput();
+            CollapseToolCalls = ConfigHandler.GetCollapseToolCalls();
         }
 
         public void SaveToConfig()
@@ -95,6 +112,7 @@ namespace NyoCoder
             ConfigHandler.SetShowReasoningOutput(ShowReasoningOutput);
             ConfigHandler.SetCollapseThinkingBlocks(CollapseThinkingBlocks);
             ConfigHandler.SetShowToolOutput(ShowToolOutput);
+            ConfigHandler.SetCollapseToolCalls(CollapseToolCalls);
         }
     }
 }

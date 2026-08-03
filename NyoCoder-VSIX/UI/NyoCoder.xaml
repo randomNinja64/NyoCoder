@@ -139,8 +139,8 @@
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                    <Setter Property="Padding" Value="0,1"/>
-                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0,0,0,14"/>
                     <Setter Property="Focusable" Value="False"/>
                     <Setter Property="Background" Value="Transparent"/>
                     <Setter Property="Template">

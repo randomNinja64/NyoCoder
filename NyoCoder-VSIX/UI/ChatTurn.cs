@@ -1,7 +1,9 @@
 using System;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.VisualStudio.Shell;
 
@@ -17,18 +19,32 @@ namespace NyoCoder
         /// </summary>
         public static Style ThinkingExpanderStyle { get; set; }
 
-        private static readonly string[] OpenTags = { "[thinking]", "<think>" };
-        private static readonly string[] CloseTags = { "[/thinking]", "</think>" };
+        private static readonly string[] CollapsibleOpenTags =
+        {
+            "[thinking]", "<think>", "[tool call]"
+        };
+        private static readonly string[] CollapsibleCloseTags =
+        {
+            "[/thinking]", "</think>", "[/tool call]"
+        };
+
+        internal enum CollapsibleBlockKind
+        {
+            Thinking,
+            ToolCall
+        }
 
         /// <summary>
-        /// Per-block UI state stored on the thinking expander's Tag.
+        /// Shared UI state for thinking / tool-call expanders.
         /// </summary>
-        internal sealed class ThinkingBlockState
+        internal sealed class CollapsibleBlockState
         {
             public bool Active;
+            public string Name;
+            public CollapsibleBlockKind Kind;
             public Expander Expander;
             public TextBlock HeaderLabel;
-            public TextBlock BodyText;
+            public TextBox BodyText;
             public DispatcherTimer Timer;
             public int EllipsisCount = 1;
             public DateTime StartedUtc;
@@ -50,23 +66,17 @@ namespace NyoCoder
         // False until visible text is appended; used to drop leading padding newlines.
         private bool _hasContent;
 
-        private ThinkingBlockState _activeThinking;
+        private CollapsibleBlockState _activeBlock;
 
-        /// <param name="leadingSeparator">
-        /// When true, starts with a blank paragraph so this turn renders with a blank
-        /// line above it (every turn except the first in the conversation).
-        /// </param>
-        public ChatTurn(bool leadingSeparator = false)
+        /// <summary>
+        /// One chat output block (user, assistant, tool, etc.) backed by its own FlowDocument.
+        /// </summary>
+        public ChatTurn()
         {
             Document = new FlowDocument
             {
-                PagePadding = new Thickness(0),
-                LineHeight = 14,
-                LineStackingStrategy = LineStackingStrategy.BlockLineHeight
+                PagePadding = new Thickness(0)
             };
-
-            if (leadingSeparator)
-                Document.Blocks.Add(new Paragraph());
         }
 
         public void AppendText(string text)
@@ -81,44 +91,54 @@ namespace NyoCoder
                     return;
                 _hasContent = true;
 
-                // Always start real content in a fresh paragraph, so a leading
-                // separator paragraph (if any) is never overwritten.
+                // Start real content in a fresh paragraph.
                 Document.Blocks.Add(new Paragraph());
             }
 
             string remaining = text;
             while (!string.IsNullOrEmpty(remaining))
             {
-                if (_activeThinking == null)
+                if (_activeBlock == null)
                 {
                     int openIndex;
                     int openLength;
-                    if (!TryFindEarliest(remaining, OpenTags, out openIndex, out openLength))
+                    if (!TryFindTag(remaining, CollapsibleOpenTags, out openIndex, out openLength))
                     {
                         AppendPlain(remaining);
                         break;
                     }
 
+                    string openTag = remaining.Substring(openIndex, openLength);
                     if (openIndex > 0)
                         AppendPlain(remaining.Substring(0, openIndex));
 
-                    StartThinking();
-                    remaining = remaining.Substring(openIndex + openLength).TrimStart('\r', '\n');
+                    remaining = remaining.Substring(openIndex + openLength);
+                    if (IsToolCallOpenTag(openTag))
+                    {
+                        string name;
+                        remaining = TakeToolCallName(remaining, out name);
+                        StartCollapsibleBlock(name, CollapsibleBlockKind.ToolCall);
+                    }
+                    else
+                    {
+                        remaining = remaining.TrimStart('\r', '\n');
+                        StartCollapsibleBlock(null, CollapsibleBlockKind.Thinking);
+                    }
                 }
                 else
                 {
                     int closeIndex;
                     int closeLength;
-                    if (!TryFindEarliest(remaining, CloseTags, out closeIndex, out closeLength))
+                    if (!TryFindTag(remaining, CollapsibleCloseTags, out closeIndex, out closeLength))
                     {
-                        _activeThinking.BodyText.Text += remaining;
+                        _activeBlock.BodyText.Text += remaining;
                         break;
                     }
 
                     if (closeIndex > 0)
-                        _activeThinking.BodyText.Text += remaining.Substring(0, closeIndex);
+                        _activeBlock.BodyText.Text += remaining.Substring(0, closeIndex);
 
-                    EndThinking();
+                    EndCollapsibleBlock();
                     remaining = remaining.Substring(closeIndex + closeLength).TrimStart('\r', '\n');
                 }
             }
@@ -129,8 +149,8 @@ namespace NyoCoder
         /// </summary>
         public void TrimTrailingBlankParagraphs()
         {
-            if (_activeThinking != null)
-                EndThinking();
+            if (_activeBlock != null)
+                EndCollapsibleBlock();
 
             while (Document.Blocks.Count > 1)
             {
@@ -154,10 +174,10 @@ namespace NyoCoder
             new TextRange(Document.ContentEnd, Document.ContentEnd).Text = text;
         }
 
-        private void StartThinking()
+        private void StartCollapsibleBlock(string name, CollapsibleBlockKind kind)
         {
-            // Drop an empty trailing paragraph left by a prior newline so the
-            // expander becomes the next visible block.
+            // Drop an empty trailing paragraph left by content setup so the
+            // expander is the next visible block (no blank line above it).
             Paragraph last = Document.Blocks.LastBlock as Paragraph;
             if (last != null
                 && string.IsNullOrWhiteSpace(new TextRange(last.ContentStart, last.ContentEnd).Text))
@@ -165,9 +185,15 @@ namespace NyoCoder
                 Document.Blocks.Remove(last);
             }
 
-            var state = new ThinkingBlockState
+            bool collapseByDefault = kind == CollapsibleBlockKind.ToolCall
+                ? ConfigHandler.GetCollapseToolCalls()
+                : ConfigHandler.GetCollapseThinkingBlocks();
+
+            var state = new CollapsibleBlockState
             {
                 Active = true,
+                Name = name,
+                Kind = kind,
                 EllipsisCount = 1,
                 StartedUtc = DateTime.UtcNow
             };
@@ -175,70 +201,116 @@ namespace NyoCoder
             state.HeaderLabel = new TextBlock();
             state.HeaderLabel.SetResourceReference(TextBlock.ForegroundProperty, VsBrushes.WindowTextKey);
 
-            state.BodyText = new TextBlock
+            state.BodyText = new TextBox
             {
-                TextWrapping = TextWrapping.Wrap,
+                IsReadOnly = true,
+                BorderThickness = new Thickness(0),
+                Background = Brushes.Transparent,
                 Padding = new Thickness(0),
-                Margin = new Thickness(0)
+                Margin = new Thickness(0),
+                TextWrapping = TextWrapping.Wrap,
+                AcceptsReturn = true,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled
             };
-            state.BodyText.SetResourceReference(TextBlock.ForegroundProperty, VsBrushes.WindowTextKey);
+            state.BodyText.SetResourceReference(Control.ForegroundProperty, VsBrushes.WindowTextKey);
+            state.BodyText.TextChanged += OnBodyTextChanged;
+            state.BodyText.SizeChanged += OnBodySizeChanged;
 
             state.Expander = new Expander
             {
                 Header = state.HeaderLabel,
                 Content = state.BodyText,
-                IsExpanded = !ConfigHandler.GetCollapseThinkingBlocks(),
+                IsExpanded = !collapseByDefault,
                 Style = ThinkingExpanderStyle,
                 Tag = state
             };
             state.Expander.SetResourceReference(Control.ForegroundProperty, VsBrushes.WindowTextKey);
-            state.Expander.Expanded += OnThinkingExpanded;
-            state.Expander.Collapsed += OnThinkingCollapsed;
+            state.Expander.Expanded += OnBlockExpanded;
+            state.Expander.Collapsed += OnBlockCollapsed;
 
             Document.Blocks.Add(new BlockUIContainer(state.Expander)
             {
                 Margin = new Thickness(0)
             });
 
-            _activeThinking = state;
+            _activeBlock = state;
             state.HeaderLabel.Text = BuildLabelText(state);
 
             if (state.Collapsed)
                 StartEllipsisTimer(state);
         }
 
-        private void EndThinking()
+        private void EndCollapsibleBlock()
         {
-            ThinkingBlockState state = _activeThinking;
+            CollapsibleBlockState state = _activeBlock;
             if (state == null)
                 return;
 
             state.Active = false;
             state.DurationSeconds = Math.Max(0, (int)Math.Round((DateTime.UtcNow - state.StartedUtc).TotalSeconds));
-            _activeThinking = null;
+            _activeBlock = null;
             StopEllipsisTimer(state);
             state.HeaderLabel.Text = BuildLabelText(state);
 
-            // Drop trailing newlines so the expander doesn't sit on empty line height.
             if (state.BodyText.Text != null)
+            {
                 state.BodyText.Text = state.BodyText.Text.TrimEnd('\r', '\n');
+                FitBodyHeight(state.BodyText);
+            }
         }
 
-        private void OnThinkingExpanded(object sender, RoutedEventArgs e)
+        private static void OnBodyTextChanged(object sender, TextChangedEventArgs e)
+        {
+            FitBodyHeight(sender as TextBox);
+        }
+
+        private static void OnBodySizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (e.WidthChanged)
+                FitBodyHeight(sender as TextBox);
+        }
+
+        private static void FitBodyHeight(TextBox box)
+        {
+            if (box == null)
+                return;
+
+            double width = box.ActualWidth;
+            FrameworkElement parent = box.Parent as FrameworkElement;
+            if (width <= 0 && parent != null && parent.ActualWidth > 0)
+                width = parent.ActualWidth;
+            if (width <= 0)
+                return;
+
+            string text = string.IsNullOrEmpty(box.Text) ? " " : box.Text;
+            var formatted = new FormattedText(
+                text,
+                CultureInfo.CurrentCulture,
+                box.FlowDirection,
+                new Typeface(box.FontFamily, box.FontStyle, box.FontWeight, box.FontStretch),
+                box.FontSize > 0 ? box.FontSize : 12,
+                box.Foreground ?? Brushes.Black);
+            formatted.MaxTextWidth = Math.Max(1, width - box.Padding.Left - box.Padding.Right);
+            box.Height = Math.Ceiling(formatted.Height) + 2;
+        }
+
+        private void OnBlockExpanded(object sender, RoutedEventArgs e)
         {
             Expander expander = sender as Expander;
-            ThinkingBlockState state = expander != null ? expander.Tag as ThinkingBlockState : null;
+            CollapsibleBlockState state = expander != null ? expander.Tag as CollapsibleBlockState : null;
             if (state == null)
                 return;
 
             StopEllipsisTimer(state);
             state.HeaderLabel.Text = BuildLabelText(state);
+            FitBodyHeight(state.BodyText);
         }
 
-        private void OnThinkingCollapsed(object sender, RoutedEventArgs e)
+        private void OnBlockCollapsed(object sender, RoutedEventArgs e)
         {
             Expander expander = sender as Expander;
-            ThinkingBlockState state = expander != null ? expander.Tag as ThinkingBlockState : null;
+            CollapsibleBlockState state = expander != null ? expander.Tag as CollapsibleBlockState : null;
             if (state == null)
                 return;
 
@@ -248,7 +320,7 @@ namespace NyoCoder
                 state.HeaderLabel.Text = BuildLabelText(state);
         }
 
-        private static void StartEllipsisTimer(ThinkingBlockState state)
+        private static void StartEllipsisTimer(CollapsibleBlockState state)
         {
             if (state.Timer == null)
             {
@@ -264,7 +336,7 @@ namespace NyoCoder
                 state.Timer.Start();
         }
 
-        private static void StopEllipsisTimer(ThinkingBlockState state)
+        private static void StopEllipsisTimer(CollapsibleBlockState state)
         {
             if (state.Timer == null)
                 return;
@@ -272,7 +344,7 @@ namespace NyoCoder
             state.Timer.Stop();
         }
 
-        private static void OnEllipsisTick(ThinkingBlockState state)
+        private static void OnEllipsisTick(CollapsibleBlockState state)
         {
             if (!state.Active || !state.Collapsed)
             {
@@ -285,8 +357,16 @@ namespace NyoCoder
             state.HeaderLabel.Text = BuildLabelText(state);
         }
 
-        private static string BuildLabelText(ThinkingBlockState state)
+        private static string BuildLabelText(CollapsibleBlockState state)
         {
+            if (state.Kind == CollapsibleBlockKind.ToolCall)
+            {
+                string baseLabel = "tool call: " + (state.Name ?? "tool");
+                if (state.Collapsed && state.Active)
+                    return baseLabel + new string('.', state.EllipsisCount);
+                return baseLabel;
+            }
+
             if (state.Collapsed && state.Active)
                 return "thinking" + new string('.', state.EllipsisCount);
 
@@ -299,21 +379,67 @@ namespace NyoCoder
             return "thinking";
         }
 
-        private static bool TryFindEarliest(string text, string[] tags, out int index, out int length)
+        /// <summary>
+        /// After <c>[tool call]</c>, take the tool name from the rest of the line.
+        /// </summary>
+        private static string TakeToolCallName(string text, out string name)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                name = "tool";
+                return text;
+            }
+
+            int newline = text.IndexOf('\n');
+            if (newline < 0)
+            {
+                name = text.Trim();
+                if (name.Length == 0)
+                    name = "tool";
+                return string.Empty;
+            }
+
+            name = text.Substring(0, newline).Trim();
+            if (name.Length == 0)
+                name = "tool";
+
+            string rest = text.Substring(newline + 1);
+            if (rest.Length > 0 && rest[0] == '\r')
+                rest = rest.Substring(1);
+            return rest;
+        }
+
+        private static bool IsToolCallOpenTag(string openTag)
+        {
+            return openTag.Equals(CollapsibleOpenTags[2], StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryFindTag(string text, string[] tags, out int index, out int length)
         {
             index = -1;
             length = 0;
 
             foreach (string tag in tags)
             {
-                int found = text.IndexOf(tag, StringComparison.OrdinalIgnoreCase);
-                if (found < 0)
-                    continue;
-
-                if (index < 0 || found < index)
+                int start = 0;
+                while (true)
                 {
-                    index = found;
-                    length = tag.Length;
+                    int found = text.IndexOf(tag, start, StringComparison.OrdinalIgnoreCase);
+                    if (found < 0)
+                        break;
+
+                    // Avoid matching an open tag inside its close tag (e.g. "[tool call]" in "[/tool call]").
+                    if (found == 0 || text[found - 1] != '/')
+                    {
+                        if (index < 0 || found < index)
+                        {
+                            index = found;
+                            length = tag.Length;
+                        }
+                        break;
+                    }
+
+                    start = found + 1;
                 }
             }
 

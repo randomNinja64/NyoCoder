@@ -475,6 +475,16 @@ namespace NyoCoder
 			SetConfigValue("showtooloutput", value ? "1" : "0");
 		}
 
+		public static bool GetCollapseToolCalls()
+		{
+			return GetConfigValue("collapsetoolcalls", "1") == "1";
+		}
+
+		public static void SetCollapseToolCalls(bool value)
+		{
+			SetConfigValue("collapsetoolcalls", value ? "1" : "0");
+		}
+
 		// -------------------------------------------------------------------------
 		// Build error handling
 		// -------------------------------------------------------------------------
@@ -628,7 +638,7 @@ namespace NyoCoder
 				AppendSection(lines, ref firstSection, "Context", config, written,
 					"autoRag", "contextWindowSize", "maxOpenFilesInContext", "maxReadLines");
 				AppendSection(lines, ref firstSection, "Appearance", config, written,
-					"markdownparsing", "showreasoningoutput", "collapsethinking", "showtooloutput");
+					"markdownparsing", "showreasoningoutput", "collapsethinking", "showtooloutput", "collapsetoolcalls");
 				AppendSection(lines, ref firstSection, "Indexing", config, written,
 					"indexingMode", "embeddingsEndpoint", "embeddingsModel", "embeddingsApiKey",
 					"embeddingsMaxChars",

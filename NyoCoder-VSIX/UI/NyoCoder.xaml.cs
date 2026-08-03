@@ -279,7 +279,7 @@ namespace NyoCoder
 
         private ChatTurn AddTurn()
         {
-            ChatTurn turn = new ChatTurn(_chatTurns.Count > 0);
+            ChatTurn turn = new ChatTurn();
             if (ChatList.FontSize > 0)
                 turn.Document.FontSize = ChatList.FontSize;
             if (ChatList.Foreground != null)

@@ -153,27 +153,33 @@ public class LLMClient
                 return;
             }
 
-            // Simple callback to stream tool calls as they're generated
+            // Stream tool calls with explicit open/close markers for the chat UI.
             Action<ToolHandler.ToolCall> toolCallStreamCallback = null;
+            bool toolCallUiOpen = false;
             if (outputCallback != null)
             {
                 toolCallStreamCallback = (toolCall) =>
                 {
                     if (!string.IsNullOrEmpty(toolCall.Name) && string.IsNullOrEmpty(toolCall.Arguments))
                     {
-                        // Show tool name when we first see it
+                        if (toolCallUiOpen)
+                            outputCallback("[/tool call]\n");
+
                         if (startBlock != null) startBlock();
-                        outputCallback("[tool call] " + toolCall.Name + "(");
+                        outputCallback("[tool call] " + toolCall.Name + "\n");
+                        toolCallUiOpen = true;
                     }
                     else if (!string.IsNullOrEmpty(toolCall.Arguments))
                     {
-                        // Stream argument chunks as they come in
                         outputCallback(toolCall.Arguments);
                     }
                 };
             }
 
             LLMCompletionResponse response = sendMessages(this.Conversation, outputCallback, toolCallStreamCallback, stopRequested, mode, startBlock);
+
+            if (toolCallUiOpen)
+                outputCallback("[/tool call]\n");
 
             if ((stopRequested != null && stopRequested()) || response.FinishReason == "stopped")
             {
@@ -293,7 +299,7 @@ public class LLMClient
                     if (outputCallback != null && showToolOutput)
                     {
                         if (startBlock != null) startBlock();
-                        outputCallback("[tool output]\n" + (toolContent ?? "").TrimEnd() + "\n");
+                        outputCallback("[tool output]\n" + (toolContent ?? "").TrimEnd());
                     }
 
                 }

@@ -16,6 +16,8 @@ namespace NyoCoder
         private TextBox txtEndpoint;
         private TextBox txtModel;
         private TextBox txtApiKey;
+        private NumericUpDown numChunkLines;
+        private NumericUpDown numMaxChars;
         private NumericUpDown numMaxChunksTotal;
 
         private Label lblStatusBrief;
@@ -68,6 +70,24 @@ namespace NyoCoder
             Label lblApiKey = new Label { AutoSize = true, Text = "Embeddings API key (optional; blank = use default API key):" };
             txtApiKey = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, UseSystemPasswordChar = true };
 
+            Label lblChunkLines = new Label { AutoSize = true, Text = "Chunk size (lines per embedding chunk):" };
+            numChunkLines = new NumericUpDown
+            {
+                Minimum = 1,
+                Maximum = 500,
+                Increment = 5,
+                Width = 120
+            };
+
+            Label lblMaxChars = new Label { AutoSize = true, Text = "Max characters per embedding (longer text is truncated):" };
+            numMaxChars = new NumericUpDown
+            {
+                Minimum = 256,
+                Maximum = 100000,
+                Increment = 256,
+                Width = 120
+            };
+
             Label lblMaxChunksTotal = new Label { AutoSize = true, Text = "Max embedding chunks per full index (semantic mode):" };
             numMaxChunksTotal = new NumericUpDown
             {
@@ -111,6 +131,10 @@ namespace NyoCoder
             AddRow(txtModel, new Padding(0, 0, 0, 8), false);
             AddRow(lblApiKey, new Padding(0, 0, 0, 4), true);
             AddRow(txtApiKey, new Padding(0, 0, 0, 8), false);
+            AddRow(lblChunkLines, new Padding(0, 0, 0, 4), true);
+            AddRow(numChunkLines, new Padding(0, 0, 0, 8), false);
+            AddRow(lblMaxChars, new Padding(0, 0, 0, 4), true);
+            AddRow(numMaxChars, new Padding(0, 0, 0, 8), false);
             AddRow(lblMaxChunksTotal, new Padding(0, 0, 0, 4), true);
             AddRow(numMaxChunksTotal, new Padding(0, 0, 0, 12), false);
 
@@ -165,6 +189,18 @@ namespace NyoCoder
         {
             get { return txtApiKey.Text != null ? txtApiKey.Text.Trim() : string.Empty; }
             set { txtApiKey.Text = value ?? string.Empty; }
+        }
+
+        public int ChunkLines
+        {
+            get { return (int)numChunkLines.Value; }
+            set { numChunkLines.Value = Math.Max(numChunkLines.Minimum, Math.Min(numChunkLines.Maximum, value)); }
+        }
+
+        public int MaxEmbedChars
+        {
+            get { return (int)numMaxChars.Value; }
+            set { numMaxChars.Value = Math.Max(numMaxChars.Minimum, Math.Min(numMaxChars.Maximum, value)); }
         }
 
         public int MaxChunksTotal

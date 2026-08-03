@@ -24,6 +24,8 @@ namespace NyoCoder
             Host.ApiKey = ConfigHandler.GetEmbeddingsApiKeyRaw();
             Host.IndexOnSolutionOpen = ConfigHandler.GetIndexOnSolutionOpen();
             Host.IndexOnSave = ConfigHandler.GetIndexOnSave();
+            Host.ChunkLines = ConfigHandler.GetIndexChunkLines();
+            Host.MaxEmbedChars = ConfigHandler.GetEmbeddingsMaxChars();
             Host.MaxChunksTotal = ConfigHandler.GetIndexMaxChunksTotal();
             Host.Mode = ConfigHandler.GetIndexingMode();
 
@@ -41,6 +43,8 @@ namespace NyoCoder
             ConfigHandler.SetConfigValue("embeddingsApiKey", Host.ApiKey);
             ConfigHandler.SetConfigValue("indexOnSolutionOpen", Host.IndexOnSolutionOpen ? "1" : "0");
             ConfigHandler.SetConfigValue("indexOnSave", Host.IndexOnSave ? "1" : "0");
+            ConfigHandler.SetIndexChunkLines(Host.ChunkLines);
+            ConfigHandler.SetEmbeddingsMaxChars(Host.MaxEmbedChars);
             ConfigHandler.SetIndexMaxChunksTotal(Host.MaxChunksTotal);
         }
 

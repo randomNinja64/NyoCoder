@@ -382,6 +382,12 @@ namespace NyoCoder
 			return value > 0 ? value : 60;
 		}
 
+		public static void SetIndexChunkLines(int value)
+		{
+			if (value <= 0) value = 60;
+			SetConfigValue("indexChunkLines", value.ToString());
+		}
+
 		public static int GetIndexChunkOverlap()
 		{
 			int value = GetConfigInt("indexChunkOverlap", 10);
@@ -398,6 +404,23 @@ namespace NyoCoder
 		{
 			if (value <= 0) value = 20000;
 			SetConfigValue("indexMaxChunksTotal", value.ToString());
+		}
+
+		/// <summary>
+		/// Max characters per embeddings input. Longer text is truncated before the request.
+		/// Keeps llama.cpp / embeddinggemma servers with a limited physical batch size from
+		/// returning HTTP 500. Default 2048; raise only if the server batch/ctx can hold it.
+		/// </summary>
+		public static int GetEmbeddingsMaxChars()
+		{
+			int value = GetConfigInt("embeddingsMaxChars", 2048);
+			return value > 0 ? value : 2048;
+		}
+
+		public static void SetEmbeddingsMaxChars(int value)
+		{
+			if (value <= 0) value = 2048;
+			SetConfigValue("embeddingsMaxChars", value.ToString());
 		}
 
 		// -------------------------------------------------------------------------
@@ -590,6 +613,7 @@ namespace NyoCoder
 					"markdownparsing", "showreasoningoutput", "showtooloutput");
 				AppendSection(lines, ref firstSection, "Indexing", config, written,
 					"indexingMode", "embeddingsEndpoint", "embeddingsModel", "embeddingsApiKey",
+					"embeddingsMaxChars",
 					"indexOnSolutionOpen", "indexOnSave", "indexChunkLines", "indexChunkOverlap",
 					"indexMaxChunksTotal");
 				AppendSection(lines, ref firstSection, "Web Search", config, written,

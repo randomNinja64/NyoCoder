@@ -30,12 +30,19 @@ namespace NyoCoder
         private readonly string _endpoint;
         private readonly string _apiKey;
         private readonly string _model;
+        private readonly int _maxChars;
 
         public EmbeddingsClient(string endpoint, string apiKey, string model)
+            : this(endpoint, apiKey, model, ConfigHandler.GetEmbeddingsMaxChars())
+        {
+        }
+
+        public EmbeddingsClient(string endpoint, string apiKey, string model, int maxChars)
         {
             _endpoint = (endpoint ?? string.Empty).Trim();
             _apiKey = apiKey ?? string.Empty;
             _model = (model ?? string.Empty).Trim();
+            _maxChars = maxChars > 0 ? maxChars : 2048;
 
             try
             {
@@ -55,7 +62,11 @@ namespace NyoCoder
             string model = ConfigHandler.GetEmbeddingsModel();
             if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(model))
                 return null;
-            return new EmbeddingsClient(endpoint, ConfigHandler.GetEmbeddingsApiKey(), model);
+            return new EmbeddingsClient(
+                endpoint,
+                ConfigHandler.GetEmbeddingsApiKey(),
+                model,
+                ConfigHandler.GetEmbeddingsMaxChars());
         }
 
         /// <summary>Embeds a single text, returning its vector (or null on failure).</summary>
@@ -68,6 +79,7 @@ namespace NyoCoder
         /// <summary>
         /// Embeds a list of texts, preserving input order. Sends requests in batches of
         /// <see cref="BatchSize"/>. Throws <see cref="EmbeddingsException"/> on failure.
+        /// Oversized inputs are truncated to the configured max character length.
         /// </summary>
         public List<float[]> EmbedBatch(IList<string> texts)
         {
@@ -81,7 +93,7 @@ namespace NyoCoder
 
                 JArray input = new JArray();
                 for (int i = 0; i < count; i++)
-                    input.Add(texts[start + i] ?? string.Empty);
+                    input.Add(TruncateForEmbed(texts[start + i]));
 
                 JObject payload = new JObject();
                 payload["model"] = _model;
@@ -98,6 +110,15 @@ namespace NyoCoder
             }
 
             return results;
+        }
+
+        private string TruncateForEmbed(string text)
+        {
+            if (text == null)
+                return string.Empty;
+            if (text.Length <= _maxChars)
+                return text;
+            return text.Substring(0, _maxChars);
         }
 
         private static float[][] ParseBatch(string json, int expectedCount)
@@ -180,6 +201,8 @@ namespace NyoCoder
             }
             catch (Exception ex)
             {
+                string httpBody = TryReadWebExceptionBody(ex);
+
                 // curl fallback for HTTPS/TLS failures on legacy .NET 4.0
                 string curlPath = CurlClient.GetCurlPath();
                 if (url.StartsWith("https:", StringComparison.OrdinalIgnoreCase) && File.Exists(curlPath))
@@ -188,11 +211,43 @@ namespace NyoCoder
                     string body = CurlClient.PostJson(url, _apiKey, payload, out exitCode);
                     if (exitCode == 0 && !string.IsNullOrEmpty(body))
                         return body;
-                    error = "Embeddings request failed (curl): " + (body ?? ex.Message);
+                    error = "Embeddings request failed (curl): " + (body ?? httpBody ?? ex.Message);
                     return null;
                 }
 
-                error = "Embeddings request failed: " + ex.Message;
+                if (!string.IsNullOrEmpty(httpBody))
+                    error = "Embeddings request failed: " + ex.Message + " — " + httpBody;
+                else
+                    error = "Embeddings request failed: " + ex.Message;
+                return null;
+            }
+        }
+
+        private static string TryReadWebExceptionBody(Exception ex)
+        {
+            WebException webEx = ex as WebException;
+            if (webEx == null || webEx.Response == null)
+                return null;
+
+            try
+            {
+                using (Stream stream = webEx.Response.GetResponseStream())
+                {
+                    if (stream == null)
+                        return null;
+                    using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
+                    {
+                        string body = reader.ReadToEnd();
+                        if (string.IsNullOrWhiteSpace(body))
+                            return null;
+                        if (body.Length > 500)
+                            return body.Substring(0, 500) + "...";
+                        return body;
+                    }
+                }
+            }
+            catch
+            {
                 return null;
             }
         }

@@ -93,23 +93,16 @@ namespace NyoCoder
                         string reasoningChunk = delta != null
                             ? ((string)delta["reasoning_content"] ?? (string)delta["reasoning"])
                             : null;
-                        if (!string.IsNullOrEmpty(reasoningChunk))
+                        if (!string.IsNullOrEmpty(reasoningChunk) && onReasoningChunk != null)
                         {
-                            if (onReasoningChunk != null)
+                            if (!inReasoning)
                             {
-                                if (!inReasoning)
-                                {
-                                    if (startBlock != null) startBlock();
-                                    onReasoningChunk("[thinking]\n");
-                                    inReasoning = true;
-                                }
-                                onReasoningChunk(reasoningChunk);
-                                reasoningEndedWithNewline = reasoningChunk.EndsWith("\n");
-                            }
-                            else if (!inReasoning)
-                            {
+                                if (startBlock != null) startBlock();
+                                onReasoningChunk("[thinking]\n");
                                 inReasoning = true;
                             }
+                            onReasoningChunk(reasoningChunk);
+                            reasoningEndedWithNewline = reasoningChunk.EndsWith("\n");
                         }
 
                         string content = delta != null ? (string)delta["content"] : null;
@@ -117,15 +110,12 @@ namespace NyoCoder
                         {
                             if (inReasoning)
                             {
-                                if (onReasoningChunk != null)
-                                {
-                                    // If the last reasoning chunk didn't end with a newline, the
-                                    // closing tag needs one of its own so it doesn't glue onto
-                                    // the trailing sentence.
-                                    onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
-                                    // Blank line between the thinking block and the text that follows
-                                    if (startBlock != null) startBlock();
-                                }
+                                // If the last reasoning chunk didn't end with a newline, the
+                                // closing tag needs one of its own so it doesn't glue onto
+                                // the trailing sentence.
+                                onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
+                                // Blank line between the thinking block and the text that follows
+                                if (startBlock != null) startBlock();
                                 inReasoning = false;
                             }
                             if (outputCallback != null)
@@ -142,15 +132,11 @@ namespace NyoCoder
                         JArray toolCalls = delta != null ? (JArray)delta["tool_calls"] : null;
                         if (toolCalls != null)
                         {
-                            // Close thinking before tool-call UI streams, otherwise the
-                            // trailing ")" lands after [/thinking] at end-of-stream.
+                            // Close thinking before tool-call UI streams.
                             if (inReasoning)
                             {
-                                if (onReasoningChunk != null)
-                                {
-                                    onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
-                                    if (startBlock != null) startBlock();
-                                }
+                                onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
+                                if (startBlock != null) startBlock();
                                 inReasoning = false;
                             }
 
@@ -211,7 +197,7 @@ namespace NyoCoder
             }
 
             // Close any open reasoning block if the stream ended while still in reasoning
-            if (inReasoning && onReasoningChunk != null)
+            if (inReasoning)
                 onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
 
             response.ToolCalls.AddRange(partialToolCalls.Values);

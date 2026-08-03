@@ -68,9 +68,6 @@ namespace NyoCoder
 
         private CollapsibleBlockState _activeBlock;
 
-        /// <summary>
-        /// One chat output block (user, assistant, tool, etc.) backed by its own FlowDocument.
-        /// </summary>
         public ChatTurn()
         {
             Document = new FlowDocument

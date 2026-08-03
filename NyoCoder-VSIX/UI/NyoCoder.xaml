@@ -10,7 +10,7 @@
              Name="NyoCoderWindow"
              Background="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowBackgroundKey}}">
     <UserControl.Resources>
-        <!-- TreeView-like +/- toggle for thinking blocks -->
+        <!-- +/- toggle for collapsible thinking / tool-call blocks -->
         <Style x:Key="ThinkingExpandToggleStyle" TargetType="ToggleButton">
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Background" Value="Transparent"/>

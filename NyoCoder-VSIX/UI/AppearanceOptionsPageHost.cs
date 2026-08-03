@@ -7,6 +7,7 @@ namespace NyoCoder
     {
         private CheckBox chkMarkdownParsing;
         private CheckBox chkShowReasoning;
+        private CheckBox chkCollapseThinking;
         private CheckBox chkShowToolOutput;
 
         public AppearanceOptionsPageHost()
@@ -17,7 +18,7 @@ namespace NyoCoder
         private void InitializeComponent()
         {
             this.SuspendLayout();
-            InitLayout(220);
+            InitLayout(250);
 
             chkMarkdownParsing = new CheckBox
             {
@@ -31,16 +32,25 @@ namespace NyoCoder
                 Text = "Show model reasoning output"
             };
 
+            chkCollapseThinking = new CheckBox
+            {
+                AutoSize = true,
+                Text = "Collapse thinking blocks by default"
+            };
+
             chkShowToolOutput = new CheckBox
             {
                 AutoSize = true,
                 Text = "Show full tool execution output"
             };
 
-            AddRow(MakeSectionTitle("Appearance:"), new Padding(0, 0, 0, 12), false);
+            AddRow(MakeSectionTitle("Chat:"), new Padding(0, 0, 0, 8), false);
             AddRow(chkMarkdownParsing, new Padding(0, 0, 0, 8), true);
-            AddRow(chkShowToolOutput, new Padding(0, 0, 0, 8), true);
-            AddRow(chkShowReasoning, new Padding(0, 0, 0, 0), true);
+            AddRow(chkShowToolOutput, new Padding(0, 0, 0, 12), true);
+
+            AddRow(MakeSectionTitle("Thinking:"), new Padding(0, 0, 0, 8), false);
+            AddRow(chkShowReasoning, new Padding(0, 0, 0, 8), true);
+            AddRow(chkCollapseThinking, new Padding(0, 0, 0, 0), true);
 
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -59,6 +69,12 @@ namespace NyoCoder
             set { chkShowReasoning.Checked = value; }
         }
 
+        public bool CollapseThinkingBlocks
+        {
+            get { return chkCollapseThinking.Checked; }
+            set { chkCollapseThinking.Checked = value; }
+        }
+
         public bool ShowToolOutput
         {
             get { return chkShowToolOutput.Checked; }
@@ -69,6 +85,7 @@ namespace NyoCoder
         {
             MarkdownParsing = ConfigHandler.GetMarkdownParsing();
             ShowReasoningOutput = ConfigHandler.GetShowReasoningOutput();
+            CollapseThinkingBlocks = ConfigHandler.GetCollapseThinkingBlocks();
             ShowToolOutput = ConfigHandler.GetShowToolOutput();
         }
 
@@ -76,6 +93,7 @@ namespace NyoCoder
         {
             ConfigHandler.SetMarkdownParsing(MarkdownParsing);
             ConfigHandler.SetShowReasoningOutput(ShowReasoningOutput);
+            ConfigHandler.SetCollapseThinkingBlocks(CollapseThinkingBlocks);
             ConfigHandler.SetShowToolOutput(ShowToolOutput);
         }
     }

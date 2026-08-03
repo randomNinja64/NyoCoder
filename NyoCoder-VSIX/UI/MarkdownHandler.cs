@@ -43,7 +43,6 @@ namespace NyoCoder
                 startBlockIndex = blocks.Count;
 
             int activeBacktickFenceLength = 0;
-            bool insideThinkTag = false;
             Brush codeBlockBrush = document.TryFindResource(VsBrushes.ToolWindowBackgroundKey) as Brush;
             FontFamily codeFont = new FontFamily("Courier New");
 
@@ -79,26 +78,10 @@ namespace NyoCoder
                     }
                 }
 
-                if (paragraphText.IndexOf("[/thinking]", StringComparison.OrdinalIgnoreCase) >= 0
-                    || paragraphText.IndexOf("</think>", StringComparison.OrdinalIgnoreCase) >= 0)
+                if (activeBacktickFenceLength > 0)
                 {
-                    insideThinkTag = false;
-                    continue;
-                }
-                if (paragraphText.IndexOf("[thinking]", StringComparison.OrdinalIgnoreCase) >= 0
-                    || paragraphText.IndexOf("<think>", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    insideThinkTag = true;
-                    continue;
-                }
-
-                if (activeBacktickFenceLength > 0 || insideThinkTag)
-                {
-                    if (activeBacktickFenceLength > 0)
-                    {
-                        paragraph.Background = codeBlockBrush;
-                        paragraph.FontFamily = codeFont;
-                    }
+                    paragraph.Background = codeBlockBrush;
+                    paragraph.FontFamily = codeFont;
                     continue;
                 }
 

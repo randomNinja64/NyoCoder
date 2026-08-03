@@ -47,6 +47,8 @@ namespace NyoCoder
         {
             InitializeComponent();
 
+            ChatTurn.ThinkingExpanderStyle = TryFindResource("ThinkingExpanderStyle") as Style;
+
             ChatList.ItemsSource = _chatTurns;
             ShowWelcomeTurn();
 

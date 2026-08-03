@@ -14,19 +14,14 @@ namespace NyoCoder
 
         protected override void UpdateHostFromConfig()
         {
-            if (Host == null) return;
-            Host.AutoRagEnabled = ConfigHandler.GetAutoRagEnabled();
-            Host.ContextWindowSize = ConfigHandler.ContextWindowSize;
-            Host.MaxReadLines = ConfigHandler.MaxReadLines;
-            Host.MaxOpenFilesInContext = ConfigHandler.MaxOpenFilesInContext;
+            if (Host != null)
+                Host.LoadFromConfig();
         }
 
         protected override void SaveHostToConfig()
         {
-            ConfigHandler.SetAutoRagEnabled(Host.AutoRagEnabled);
-            ConfigHandler.SetContextWindowSize(Host.ContextWindowSize);
-            ConfigHandler.SetMaxReadLines(Host.MaxReadLines);
-            ConfigHandler.SetMaxOpenFilesInContext(Host.MaxOpenFilesInContext);
+            if (Host != null)
+                Host.SaveToConfig();
         }
     }
 }

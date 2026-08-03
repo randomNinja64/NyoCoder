@@ -187,5 +187,24 @@ namespace NyoCoder
                 if (cb != null) cb.Checked = value == "1";
             }
         }
+
+        public void LoadFromConfig()
+        {
+            ApplyFromConfig(ConfigHandler.GetDisabledTools(), ConfigHandler.GetToolsRequiringApproval());
+            var toolOpts = new Dictionary<string, string>(ExternalToolRegistry.GetOptionDefaults(), StringComparer.OrdinalIgnoreCase);
+            foreach (var kvp in ConfigHandler.GetAllValues())
+                toolOpts[kvp.Key] = kvp.Value;
+            SetToolOptions(toolOpts);
+        }
+
+        public void SaveToConfig()
+        {
+            List<string> disabled, approval;
+            ReadToConfig(out disabled, out approval);
+            ConfigHandler.SetDisabledTools(disabled);
+            ConfigHandler.SetToolsRequiringApproval(approval);
+            foreach (var kvp in GetToolOptions())
+                ConfigHandler.SetConfigValue(kvp.Key, kvp.Value);
+        }
     }
 }

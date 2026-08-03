@@ -14,18 +14,14 @@ namespace NyoCoder
 
         protected override void UpdateHostFromConfig()
         {
-            if (Host == null) return;
-            Host.Mode = ConfigHandler.GetBuildErrorCheckMode();
-            Host.WaitSeconds = ConfigHandler.GetBuildErrorCheckWaitSeconds();
-            Host.MaxAttempts = ConfigHandler.GetBuildErrorFixMaxAttempts();
+            if (Host != null)
+                Host.LoadFromConfig();
         }
 
         protected override void SaveHostToConfig()
         {
-            if (Host == null) return;
-            ConfigHandler.SetBuildErrorCheckMode(Host.Mode);
-            ConfigHandler.SetBuildErrorCheckWaitSeconds(Host.WaitSeconds);
-            ConfigHandler.SetBuildErrorFixMaxAttempts(Host.MaxAttempts);
+            if (Host != null)
+                Host.SaveToConfig();
         }
     }
 }

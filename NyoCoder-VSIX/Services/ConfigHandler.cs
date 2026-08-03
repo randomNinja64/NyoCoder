@@ -19,6 +19,11 @@ namespace NyoCoder
 		private static int? _contextWindowSize;
 		private static bool _autoRagEnabled = true;
 
+		/// <summary>
+		/// True when NyoCoder.ini was missing at init; cleared after the onboarding wizard saves.
+		/// </summary>
+		public static bool NeedsOnboarding { get; private set; }
+
 		// -------------------------------------------------------------------------
 		// Init / Load / Save
 		// -------------------------------------------------------------------------
@@ -36,7 +41,8 @@ namespace NyoCoder
 				Directory.CreateDirectory(configFolder);
 
 			configFilePath = Path.Combine(configFolder, "NyoCoder.ini");
-			LoadFromDisk(createIfMissing: true);
+			NeedsOnboarding = !File.Exists(configFilePath);
+			LoadFromDisk();
 		}
 
 		/// <summary>
@@ -44,22 +50,24 @@ namespace NyoCoder
 		/// </summary>
 		public static void ReloadConfig()
 		{
-			LoadFromDisk(createIfMissing: false);
+			LoadFromDisk();
 		}
 
-		private static void LoadFromDisk(bool createIfMissing)
+		private static void LoadFromDisk()
 		{
 			configMap = LoadIni(configFilePath);
-
-			if (createIfMissing && configMap.Count == 0 && !File.Exists(configFilePath))
-				SaveConfig();
-
 			RefreshCachedValues();
 		}
 
 		public static void SaveConfig()
 		{
 			SaveIni(configFilePath, configMap);
+		}
+
+		/// <summary>Marks onboarding complete after the setup wizard has written the INI.</summary>
+		public static void CompleteOnboarding()
+		{
+			NeedsOnboarding = false;
 		}
 
 		// -------------------------------------------------------------------------

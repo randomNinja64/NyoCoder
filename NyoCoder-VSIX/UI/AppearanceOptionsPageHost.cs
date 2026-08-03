@@ -64,5 +64,19 @@ namespace NyoCoder
             get { return chkShowToolOutput.Checked; }
             set { chkShowToolOutput.Checked = value; }
         }
+
+        public void LoadFromConfig()
+        {
+            MarkdownParsing = ConfigHandler.GetMarkdownParsing();
+            ShowReasoningOutput = ConfigHandler.GetShowReasoningOutput();
+            ShowToolOutput = ConfigHandler.GetShowToolOutput();
+        }
+
+        public void SaveToConfig()
+        {
+            ConfigHandler.SetMarkdownParsing(MarkdownParsing);
+            ConfigHandler.SetShowReasoningOutput(ShowReasoningOutput);
+            ConfigHandler.SetShowToolOutput(ShowToolOutput);
+        }
     }
 }

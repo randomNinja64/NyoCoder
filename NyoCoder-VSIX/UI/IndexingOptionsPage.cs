@@ -17,35 +17,14 @@ namespace NyoCoder
 
         protected override void UpdateHostFromConfig()
         {
-            if (Host == null) return;
-
-            Host.Endpoint = ConfigHandler.GetEmbeddingsEndpointRaw();
-            Host.Model = ConfigHandler.GetEmbeddingsModel();
-            Host.ApiKey = ConfigHandler.GetEmbeddingsApiKeyRaw();
-            Host.IndexOnSolutionOpen = ConfigHandler.GetIndexOnSolutionOpen();
-            Host.IndexOnSave = ConfigHandler.GetIndexOnSave();
-            Host.ChunkLines = ConfigHandler.GetIndexChunkLines();
-            Host.MaxEmbedChars = ConfigHandler.GetEmbeddingsMaxChars();
-            Host.MaxChunksTotal = ConfigHandler.GetIndexMaxChunksTotal();
-            Host.Mode = ConfigHandler.GetIndexingMode();
-
-            CodebaseIndex.PublishStatus();
-            Host.RefreshStatus();
+            if (Host != null)
+                Host.LoadFromConfig();
         }
 
         protected override void SaveHostToConfig()
         {
-            if (Host == null) return;
-
-            ConfigHandler.SetIndexingMode(Host.Mode);
-            ConfigHandler.SetConfigValue("embeddingsEndpoint", Host.Endpoint);
-            ConfigHandler.SetConfigValue("embeddingsModel", Host.Model);
-            ConfigHandler.SetConfigValue("embeddingsApiKey", Host.ApiKey);
-            ConfigHandler.SetConfigValue("indexOnSolutionOpen", Host.IndexOnSolutionOpen ? "1" : "0");
-            ConfigHandler.SetConfigValue("indexOnSave", Host.IndexOnSave ? "1" : "0");
-            ConfigHandler.SetIndexChunkLines(Host.ChunkLines);
-            ConfigHandler.SetEmbeddingsMaxChars(Host.MaxEmbedChars);
-            ConfigHandler.SetIndexMaxChunksTotal(Host.MaxChunksTotal);
+            if (Host != null)
+                Host.SaveToConfig();
         }
 
         private void OnIndexNow()

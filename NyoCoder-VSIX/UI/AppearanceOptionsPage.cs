@@ -14,17 +14,14 @@ namespace NyoCoder
 
         protected override void UpdateHostFromConfig()
         {
-            if (Host == null) return;
-            Host.MarkdownParsing = ConfigHandler.GetMarkdownParsing();
-            Host.ShowReasoningOutput = ConfigHandler.GetShowReasoningOutput();
-            Host.ShowToolOutput = ConfigHandler.GetShowToolOutput();
+            if (Host != null)
+                Host.LoadFromConfig();
         }
 
         protected override void SaveHostToConfig()
         {
-            ConfigHandler.SetMarkdownParsing(Host.MarkdownParsing);
-            ConfigHandler.SetShowReasoningOutput(Host.ShowReasoningOutput);
-            ConfigHandler.SetShowToolOutput(Host.ShowToolOutput);
+            if (Host != null)
+                Host.SaveToConfig();
         }
     }
 }

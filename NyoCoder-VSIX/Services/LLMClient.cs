@@ -53,6 +53,8 @@ public class LLMClient
     /// <returns>New LLMClient instance if configuration is valid, null otherwise.</returns>
     public static LLMClient CreateFromConfig()
     {
+        OnboardingWizardForm.ShowIfNeeded();
+
         // Get configuration
         string apiKey = ConfigHandler.GetApiKey();
         string llmServer = ConfigHandler.GetLlmServer();

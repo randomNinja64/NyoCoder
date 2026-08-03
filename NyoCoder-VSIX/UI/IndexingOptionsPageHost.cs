@@ -221,6 +221,35 @@ namespace NyoCoder
             set { chkOnSave.Checked = value; }
         }
 
+        public void LoadFromConfig()
+        {
+            Endpoint = ConfigHandler.GetEmbeddingsEndpointRaw();
+            Model = ConfigHandler.GetEmbeddingsModel();
+            ApiKey = ConfigHandler.GetEmbeddingsApiKeyRaw();
+            IndexOnSolutionOpen = ConfigHandler.GetIndexOnSolutionOpen();
+            IndexOnSave = ConfigHandler.GetIndexOnSave();
+            ChunkLines = ConfigHandler.GetIndexChunkLines();
+            MaxEmbedChars = ConfigHandler.GetEmbeddingsMaxChars();
+            MaxChunksTotal = ConfigHandler.GetIndexMaxChunksTotal();
+            Mode = ConfigHandler.GetIndexingMode();
+
+            CodebaseIndex.PublishStatus();
+            RefreshStatus();
+        }
+
+        public void SaveToConfig()
+        {
+            ConfigHandler.SetIndexingMode(Mode);
+            ConfigHandler.SetConfigValue("embeddingsEndpoint", Endpoint);
+            ConfigHandler.SetConfigValue("embeddingsModel", Model);
+            ConfigHandler.SetConfigValue("embeddingsApiKey", ApiKey);
+            ConfigHandler.SetConfigValue("indexOnSolutionOpen", IndexOnSolutionOpen ? "1" : "0");
+            ConfigHandler.SetConfigValue("indexOnSave", IndexOnSave ? "1" : "0");
+            ConfigHandler.SetIndexChunkLines(ChunkLines);
+            ConfigHandler.SetEmbeddingsMaxChars(MaxEmbedChars);
+            ConfigHandler.SetIndexMaxChunksTotal(MaxChunksTotal);
+        }
+
         // ── Behavior ───────────────────────────────────────────────────
 
         private void RaiseIndexNow()

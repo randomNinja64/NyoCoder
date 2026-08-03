@@ -14,19 +14,14 @@ namespace NyoCoder
 
         protected override void UpdateHostFromConfig()
         {
-            if (Host == null) return;
-            Host.ApiKey = ConfigHandler.GetApiKey();
-            Host.LlmServer = ConfigHandler.GetLlmServer();
-            Host.Model = ConfigHandler.GetModel();
-            Host.ReasoningEffort = ConfigHandler.GetReasoningEffort();
+            if (Host != null)
+                Host.LoadFromConfig();
         }
 
         protected override void SaveHostToConfig()
         {
-            ConfigHandler.SetApiKey(Host.ApiKey);
-            ConfigHandler.SetLlmServer(Host.LlmServer);
-            ConfigHandler.SetModel(Host.Model);
-            ConfigHandler.SetReasoningEffort(Host.ReasoningEffort);
+            if (Host != null)
+                Host.SaveToConfig();
         }
     }
 }

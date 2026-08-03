@@ -63,6 +63,8 @@ namespace NyoCoder
 
         private void ShowToolWindow(object sender, EventArgs e)
         {
+            OnboardingWizardForm.ShowIfNeeded(isUserEntryPoint: true);
+
             ToolWindowPane window = this.FindToolWindow(typeof(NyoCoderToolWindow), 0, true);
             if ((null == window) || (null == window.Frame))
             {
@@ -319,6 +321,7 @@ namespace NyoCoder
 
         private void MenuItemCallback(object sender, EventArgs e)
         {
+            OnboardingWizardForm.ShowIfNeeded(isUserEntryPoint: true);
             ShowOptionPage(typeof(OptionsPage));
         }
 
@@ -353,6 +356,7 @@ namespace NyoCoder
                 return;
             }
 
+            // ShowToolWindow also runs onboarding when needed
             ShowToolWindow(null, EventArgs.Empty);
 
             NyoCoderControl toolWindowControl = ToolWindowControl;

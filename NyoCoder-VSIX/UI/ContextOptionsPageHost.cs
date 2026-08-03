@@ -107,5 +107,21 @@ namespace NyoCoder
             }
             set { txtMaxOpenFilesInContext.Text = value.ToString(); }
         }
+
+        public void LoadFromConfig()
+        {
+            AutoRagEnabled = ConfigHandler.GetAutoRagEnabled();
+            ContextWindowSize = ConfigHandler.ContextWindowSize;
+            MaxReadLines = ConfigHandler.MaxReadLines;
+            MaxOpenFilesInContext = ConfigHandler.MaxOpenFilesInContext;
+        }
+
+        public void SaveToConfig()
+        {
+            ConfigHandler.SetAutoRagEnabled(AutoRagEnabled);
+            ConfigHandler.SetContextWindowSize(ContextWindowSize);
+            ConfigHandler.SetMaxReadLines(MaxReadLines);
+            ConfigHandler.SetMaxOpenFilesInContext(MaxOpenFilesInContext);
+        }
     }
 }

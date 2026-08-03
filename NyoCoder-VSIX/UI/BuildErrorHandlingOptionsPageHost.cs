@@ -139,5 +139,19 @@ namespace NyoCoder
             lblWaitSeconds.Enabled = intelliSense;
             numWaitSeconds.Enabled = intelliSense;
         }
+
+        public void LoadFromConfig()
+        {
+            Mode = ConfigHandler.GetBuildErrorCheckMode();
+            WaitSeconds = ConfigHandler.GetBuildErrorCheckWaitSeconds();
+            MaxAttempts = ConfigHandler.GetBuildErrorFixMaxAttempts();
+        }
+
+        public void SaveToConfig()
+        {
+            ConfigHandler.SetBuildErrorCheckMode(Mode);
+            ConfigHandler.SetBuildErrorCheckWaitSeconds(WaitSeconds);
+            ConfigHandler.SetBuildErrorFixMaxAttempts(MaxAttempts);
+        }
     }
 }

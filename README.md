@@ -6,6 +6,8 @@ An extension targeting Visual Studio 2010-2015 that enables AI-assisted coding w
 
 ## Configuration (Options > NyoCoder Options...)
 
+On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizard walks through all options (defaults pre-selected). Settings can also be changed later via Tools → Options → NyoCoder.
+
 - **General**
   - **API Key** - API key (if required by model provider)
   - **LLM Server** (http(s)://ip:port or http(s)://url) - URL for your AI endpoint.

@@ -132,5 +132,23 @@ namespace NyoCoder
             get { return txtUserAgent.Text != null ? txtUserAgent.Text.Trim() : WebSearchTool.DefaultUserAgent; }
             set { txtUserAgent.Text = value ?? WebSearchTool.DefaultUserAgent; }
         }
+
+        public void LoadFromConfig()
+        {
+            MaxLinks = ConfigHandler.GetConfigInt("maxLinks", 40);
+            MaxSearchResults = ConfigHandler.GetConfigInt("maxSearchResults", 20);
+            MaxWebContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 10000);
+            SearXNGInstance = ConfigHandler.GetConfigValue("searxngInstance", "");
+            UserAgent = ConfigHandler.GetConfigValue("webUserAgent", WebSearchTool.DefaultUserAgent);
+        }
+
+        public void SaveToConfig()
+        {
+            ConfigHandler.SetConfigValue("maxLinks", MaxLinks >= 0 ? MaxLinks.ToString() : null);
+            ConfigHandler.SetConfigValue("maxSearchResults", MaxSearchResults > 0 ? MaxSearchResults.ToString() : null);
+            ConfigHandler.SetConfigValue("maxWebContentLength", MaxWebContentLength >= 0 ? MaxWebContentLength.ToString() : null);
+            ConfigHandler.SetConfigValue("searxngInstance", SearXNGInstance);
+            ConfigHandler.SetConfigValue("webUserAgent", UserAgent);
+        }
     }
 }

@@ -100,5 +100,21 @@ namespace NyoCoder
             get { return cboReasoningEffort.Text; }
             set { cboReasoningEffort.Text = value ?? string.Empty; }
         }
+
+        public void LoadFromConfig()
+        {
+            ApiKey = ConfigHandler.GetApiKey();
+            LlmServer = ConfigHandler.GetLlmServer();
+            Model = ConfigHandler.GetModel();
+            ReasoningEffort = ConfigHandler.GetReasoningEffort();
+        }
+
+        public void SaveToConfig()
+        {
+            ConfigHandler.SetApiKey(ApiKey);
+            ConfigHandler.SetLlmServer(LlmServer);
+            ConfigHandler.SetModel(Model);
+            ConfigHandler.SetReasoningEffort(ReasoningEffort);
+        }
     }
 }

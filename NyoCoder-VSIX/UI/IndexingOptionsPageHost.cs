@@ -15,6 +15,7 @@ namespace NyoCoder
 
         private TextBox txtEndpoint;
         private TextBox txtModel;
+        private Button btnModelList;
         private TextBox txtApiKey;
         private NumericUpDown numChunkLines;
         private NumericUpDown numMaxChars;
@@ -65,7 +66,36 @@ namespace NyoCoder
             txtEndpoint = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
 
             Label lblModel = new Label { AutoSize = true, Text = "Embeddings model:" };
-            txtModel = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
+            txtModel = new TextBox
+            {
+                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                Margin = new Padding(0, 0, 6, 0)
+            };
+            btnModelList = new Button
+            {
+                Text = "Model List",
+                AutoSize = true,
+                Anchor = AnchorStyles.Left,
+                Margin = new Padding(0),
+                FlatStyle = FlatStyle.System
+            };
+            btnModelList.Click += OnModelListClick;
+
+            TableLayoutPanel modelRow = new TableLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 2,
+                RowCount = 1,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            modelRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            modelRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            modelRow.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            modelRow.Controls.Add(txtModel, 0, 0);
+            modelRow.Controls.Add(btnModelList, 1, 0);
 
             Label lblApiKey = new Label { AutoSize = true, Text = "Embeddings API key (optional; blank = use default API key):" };
             txtApiKey = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, UseSystemPasswordChar = true };
@@ -128,7 +158,7 @@ namespace NyoCoder
             AddRow(lblEndpoint, new Padding(0, 0, 0, 4), true);
             AddRow(txtEndpoint, new Padding(0, 0, 0, 8), false);
             AddRow(lblModel, new Padding(0, 0, 0, 4), true);
-            AddRow(txtModel, new Padding(0, 0, 0, 8), false);
+            AddRow(modelRow, new Padding(0, 0, 0, 8), false);
             AddRow(lblApiKey, new Padding(0, 0, 0, 4), true);
             AddRow(txtApiKey, new Padding(0, 0, 0, 8), false);
             AddRow(lblChunkLines, new Padding(0, 0, 0, 4), true);
@@ -248,6 +278,36 @@ namespace NyoCoder
             ConfigHandler.SetIndexChunkLines(ChunkLines);
             ConfigHandler.SetEmbeddingsMaxChars(MaxEmbedChars);
             ConfigHandler.SetIndexMaxChunksTotal(MaxChunksTotal);
+        }
+
+        private void OnModelListClick(object sender, EventArgs e)
+        {
+            string baseUrl = Endpoint;
+            if (string.IsNullOrEmpty(baseUrl))
+                baseUrl = ConfigHandler.GetLlmServer();
+            if (baseUrl != null)
+                baseUrl = baseUrl.Trim();
+
+            if (string.IsNullOrEmpty(baseUrl))
+            {
+                MessageBox.Show(
+                    this,
+                    "Enter an embeddings endpoint (or configure an LLM server) before listing models.",
+                    "Model List",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            string apiKey = ApiKey;
+            if (string.IsNullOrEmpty(apiKey))
+                apiKey = ConfigHandler.GetApiKey();
+
+            using (ModelChooserDialog dialog = new ModelChooserDialog(baseUrl, apiKey, Model))
+            {
+                if (dialog.ShowDialog(this) == DialogResult.OK && !string.IsNullOrEmpty(dialog.SelectedModel))
+                    Model = dialog.SelectedModel;
+            }
         }
 
         // ── Behavior ───────────────────────────────────────────────────

@@ -23,6 +23,60 @@ namespace NyoCoder
         }
 
         /// <summary>
+        /// Sends a GET request using curl.exe and returns the response body. Used as an HTTPS/TLS
+        /// fallback for endpoints (e.g. /v1/models) where .NET's HttpWebRequest fails on legacy
+        /// .NET 4.0. On failure sets <paramref name="exitCode"/> non-zero and returns diagnostic text.
+        /// </summary>
+        public static string GetJson(string fullUrl, string apiKey, out int exitCode)
+        {
+            exitCode = -1;
+            try
+            {
+                string authHeader = string.IsNullOrEmpty(apiKey)
+                    ? ""
+                    : " -H \"Authorization: Bearer " + apiKey + "\"";
+
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = GetCurlPath(),
+                    Arguments = "-s -X GET"
+                        + " -H \"Accept: application/json\""
+                        + authHeader
+                        + " \"" + fullUrl + "\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+
+                using (Process process = Process.Start(psi))
+                {
+                    string output = "";
+                    string error = "";
+                    Thread errThread = new Thread(() => { try { error = process.StandardError.ReadToEnd(); } catch { } });
+                    errThread.IsBackground = true;
+                    errThread.Start();
+
+                    output = process.StandardOutput.ReadToEnd();
+                    errThread.Join(5000);
+                    process.WaitForExit();
+                    exitCode = process.ExitCode;
+
+                    if (exitCode != 0 && string.IsNullOrEmpty(output))
+                        return "cURL failed (exit " + exitCode + "): " + error;
+                    return output;
+                }
+            }
+            catch (Exception ex)
+            {
+                exitCode = -1;
+                return "cURL fallback failed: " + ex.Message;
+            }
+        }
+
+        /// <summary>
         /// Sends a non-streaming JSON POST using curl.exe via a Windows named pipe and returns
         /// the full response body. Used as an HTTPS/TLS fallback for endpoints (e.g. embeddings)
         /// where .NET's HttpWebRequest fails on legacy .NET 4.0. Returns the raw body on success;

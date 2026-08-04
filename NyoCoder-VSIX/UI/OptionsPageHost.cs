@@ -17,6 +17,7 @@ namespace NyoCoder
         private TextBox txtLlmServer;
         private Label lblModel;
         private TextBox txtModel;
+        private Button btnModelList;
         private Label lblReasoningEffort;
         private ComboBox cboReasoningEffort;
 
@@ -51,6 +52,29 @@ namespace NyoCoder
 
             this.txtModel = new TextBox();
             this.txtModel.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            this.txtModel.Margin = new Padding(0, 0, 6, 0);
+
+            this.btnModelList = new Button();
+            this.btnModelList.Text = "Model List";
+            this.btnModelList.AutoSize = true;
+            this.btnModelList.Anchor = AnchorStyles.Left;
+            this.btnModelList.Margin = new Padding(0);
+            this.btnModelList.FlatStyle = FlatStyle.System;
+            this.btnModelList.Click += OnModelListClick;
+
+            TableLayoutPanel modelRow = new TableLayoutPanel();
+            modelRow.AutoSize = true;
+            modelRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            modelRow.ColumnCount = 2;
+            modelRow.RowCount = 1;
+            modelRow.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            modelRow.Margin = new Padding(0);
+            modelRow.Padding = new Padding(0);
+            modelRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            modelRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            modelRow.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            modelRow.Controls.Add(this.txtModel, 0, 0);
+            modelRow.Controls.Add(this.btnModelList, 1, 0);
 
             this.lblReasoningEffort = new Label();
             this.lblReasoningEffort.AutoSize = true;
@@ -68,7 +92,7 @@ namespace NyoCoder
             AddRow(this.lblLlmServer, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtLlmServer, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblModel, new Padding(0, 0, 0, 4), true);
-            AddRow(this.txtModel, new Padding(0, 0, 0, 12), false);
+            AddRow(modelRow, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblReasoningEffort, new Padding(0, 0, 0, 4), true);
             AddRow(this.cboReasoningEffort, new Padding(0, 0, 0, 0), false);
 
@@ -115,6 +139,27 @@ namespace NyoCoder
             ConfigHandler.SetLlmServer(LlmServer);
             ConfigHandler.SetModel(Model);
             ConfigHandler.SetReasoningEffort(ReasoningEffort);
+        }
+
+        private void OnModelListClick(object sender, EventArgs e)
+        {
+            string baseUrl = LlmServer != null ? LlmServer.Trim() : string.Empty;
+            if (string.IsNullOrEmpty(baseUrl))
+            {
+                MessageBox.Show(
+                    this,
+                    "Enter an LLM server URL before listing models.",
+                    "Model List",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (ModelChooserDialog dialog = new ModelChooserDialog(baseUrl, ApiKey, Model))
+            {
+                if (dialog.ShowDialog(this) == DialogResult.OK && !string.IsNullOrEmpty(dialog.SelectedModel))
+                    Model = dialog.SelectedModel;
+            }
         }
     }
 }

@@ -169,6 +169,7 @@
     <Compile Include="Services\LLMClient.cs" />
     <Compile Include="Services\SseStreamParser.cs" />
     <Compile Include="Services\MessageDispatcher.cs" />
+    <Compile Include="Services\ModelsClient.cs" />
     <Compile Include="Services\SymbolExtractor.cs" />
     <Compile Include="Services\SymbolReferenceExtractor.cs" />
     <Compile Include="Services\TextNormalization.cs" />
@@ -233,6 +234,9 @@
     <Compile Include="UI\ChatTurn.cs" />
     <Compile Include="UI\ChatMessageDocumentBehavior.cs" />
     <Compile Include="UI\MarkdownHandler.cs" />
+    <Compile Include="UI\ModelChooserDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\BuildErrorHandlingOptionsPage.cs">
       <SubType>Component</SubType>
     </Compile>

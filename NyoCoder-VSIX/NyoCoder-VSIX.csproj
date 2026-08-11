@@ -142,6 +142,7 @@
   <ItemGroup>
     <!-- Core -->
     <Compile Include="Core\BuildErrorCheckMode.cs" />
+    <Compile Include="Core\ChatBlockDisplayMode.cs" />
     <Compile Include="Core\ChatMode.cs" />
     <Compile Include="Core\IndexingMode.cs" />
     <Compile Include="Core\Guids.cs" />

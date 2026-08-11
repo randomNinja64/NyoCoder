@@ -445,44 +445,58 @@ namespace NyoCoder
 			SetConfigValue("markdownparsing", value ? "1" : "0");
 		}
 
-		public static bool GetShowReasoningOutput()
+		public static ChatBlockDisplayMode GetThinkingDisplayMode()
 		{
-			return GetConfigValue("showreasoningoutput", "1") == "1";
+			return ParseChatBlockDisplayMode(GetConfigValue("thinkingdisplay"), ChatBlockDisplayMode.Collapsed);
 		}
 
-		public static void SetShowReasoningOutput(bool value)
+		public static void SetThinkingDisplayMode(ChatBlockDisplayMode value)
 		{
-			SetConfigValue("showreasoningoutput", value ? "1" : "0");
+			SetConfigValue("thinkingdisplay", FormatChatBlockDisplayMode(value));
 		}
 
-		public static bool GetCollapseThinkingBlocks()
+		public static ChatBlockDisplayMode GetToolCallDisplayMode()
 		{
-			return GetConfigValue("collapsethinking", "1") == "1";
+			return ParseChatBlockDisplayMode(GetConfigValue("toolcalldisplay"), ChatBlockDisplayMode.Collapsed);
 		}
 
-		public static void SetCollapseThinkingBlocks(bool value)
+		public static void SetToolCallDisplayMode(ChatBlockDisplayMode value)
 		{
-			SetConfigValue("collapsethinking", value ? "1" : "0");
+			SetConfigValue("toolcalldisplay", FormatChatBlockDisplayMode(value));
 		}
 
-		public static bool GetShowToolOutput()
+		public static ChatBlockDisplayMode GetToolOutputDisplayMode()
 		{
-			return GetConfigValue("showtooloutput", "1") == "1";
+			return ParseChatBlockDisplayMode(GetConfigValue("tooloutputdisplay"), ChatBlockDisplayMode.Shown);
 		}
 
-		public static void SetShowToolOutput(bool value)
+		public static void SetToolOutputDisplayMode(ChatBlockDisplayMode value)
 		{
-			SetConfigValue("showtooloutput", value ? "1" : "0");
+			SetConfigValue("tooloutputdisplay", FormatChatBlockDisplayMode(value));
 		}
 
-		public static bool GetCollapseToolCalls()
+		private static ChatBlockDisplayMode ParseChatBlockDisplayMode(string raw, ChatBlockDisplayMode fallback)
 		{
-			return GetConfigValue("collapsetoolcalls", "1") == "1";
+			if (!string.IsNullOrEmpty(raw))
+			{
+				switch (raw.Trim().ToLowerInvariant())
+				{
+					case "shown": return ChatBlockDisplayMode.Shown;
+					case "collapsed": return ChatBlockDisplayMode.Collapsed;
+					case "hidden": return ChatBlockDisplayMode.Hidden;
+				}
+			}
+			return fallback;
 		}
 
-		public static void SetCollapseToolCalls(bool value)
+		private static string FormatChatBlockDisplayMode(ChatBlockDisplayMode value)
 		{
-			SetConfigValue("collapsetoolcalls", value ? "1" : "0");
+			switch (value)
+			{
+				case ChatBlockDisplayMode.Shown: return "shown";
+				case ChatBlockDisplayMode.Hidden: return "hidden";
+				default: return "collapsed";
+			}
 		}
 
 		// -------------------------------------------------------------------------
@@ -638,7 +652,7 @@ namespace NyoCoder
 				AppendSection(lines, ref firstSection, "Context", config, written,
 					"autoRag", "contextWindowSize", "maxOpenFilesInContext", "maxReadLines");
 				AppendSection(lines, ref firstSection, "Appearance", config, written,
-					"markdownparsing", "showreasoningoutput", "collapsethinking", "showtooloutput", "collapsetoolcalls");
+					"markdownparsing", "thinkingdisplay", "toolcalldisplay", "tooloutputdisplay");
 				AppendSection(lines, ref firstSection, "Indexing", config, written,
 					"indexingMode", "embeddingsEndpoint", "embeddingsModel", "embeddingsApiKey",
 					"embeddingsMaxChars",

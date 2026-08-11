@@ -4,11 +4,15 @@ namespace NyoCoder
 {
     public class AppearanceOptionsPageHost : OptionsPageHostBase
     {
+        private static readonly string[] DisplayModeOptions = { "Shown", "Collapsed", "Hidden" };
+
         private CheckBox chkMarkdownParsing;
-        private CheckBox chkShowReasoning;
-        private CheckBox chkCollapseThinking;
-        private CheckBox chkShowToolOutput;
-        private CheckBox chkCollapseToolCalls;
+        private Label lblThinkingDisplay;
+        private ComboBox cboThinkingDisplay;
+        private Label lblToolCallDisplay;
+        private ComboBox cboToolCallDisplay;
+        private Label lblToolOutputDisplay;
+        private ComboBox cboToolOutputDisplay;
 
         public AppearanceOptionsPageHost()
         {
@@ -26,44 +30,55 @@ namespace NyoCoder
                 Text = "Render Markdown in chat output"
             };
 
-            chkShowReasoning = new CheckBox
+            lblThinkingDisplay = new Label
             {
                 AutoSize = true,
-                Text = "Show model reasoning output"
+                Text = "Thinking display:"
             };
+            cboThinkingDisplay = MakeDisplayModeCombo();
 
-            chkCollapseThinking = new CheckBox
+            lblToolCallDisplay = new Label
             {
                 AutoSize = true,
-                Text = "Collapse thinking blocks by default"
+                Text = "Tool call display:"
             };
+            cboToolCallDisplay = MakeDisplayModeCombo();
 
-            chkShowToolOutput = new CheckBox
+            lblToolOutputDisplay = new Label
             {
                 AutoSize = true,
-                Text = "Show full tool execution output"
+                Text = "Tool output display:"
             };
-
-            chkCollapseToolCalls = new CheckBox
-            {
-                AutoSize = true,
-                Text = "Collapse tool calls by default"
-            };
+            cboToolOutputDisplay = MakeDisplayModeCombo();
 
             AddRow(MakeSectionTitle("Chat:"), new Padding(0, 0, 0, 8), false);
             AddRow(chkMarkdownParsing, new Padding(0, 0, 0, 12), true);
 
             AddRow(MakeSectionTitle("Thinking:"), new Padding(0, 0, 0, 8), false);
-            AddRow(chkShowReasoning, new Padding(0, 0, 0, 8), true);
-            AddRow(chkCollapseThinking, new Padding(0, 0, 0, 12), true);
+            AddRow(lblThinkingDisplay, new Padding(0, 0, 0, 4), true);
+            AddRow(cboThinkingDisplay, new Padding(0, 0, 0, 12), false);
 
             AddRow(MakeSectionTitle("Tools:"), new Padding(0, 0, 0, 8), false);
-            AddRow(chkShowToolOutput, new Padding(0, 0, 0, 8), true);
-            AddRow(chkCollapseToolCalls, new Padding(0, 0, 0, 0), true);
+            AddRow(lblToolCallDisplay, new Padding(0, 0, 0, 4), true);
+            AddRow(cboToolCallDisplay, new Padding(0, 0, 0, 8), false);
+            AddRow(lblToolOutputDisplay, new Padding(0, 0, 0, 4), true);
+            AddRow(cboToolOutputDisplay, new Padding(0, 0, 0, 0), false);
 
             this.ResumeLayout(false);
             this.PerformLayout();
             UpdateWrappingWidths();
+        }
+
+        private static ComboBox MakeDisplayModeCombo()
+        {
+            var combo = new ComboBox
+            {
+                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            foreach (string option in DisplayModeOptions)
+                combo.Items.Add(option);
+            return combo;
         }
 
         public bool MarkdownParsing
@@ -72,46 +87,62 @@ namespace NyoCoder
             set { chkMarkdownParsing.Checked = value; }
         }
 
-        public bool ShowReasoningOutput
+        public ChatBlockDisplayMode ThinkingDisplayMode
         {
-            get { return chkShowReasoning.Checked; }
-            set { chkShowReasoning.Checked = value; }
+            get { return DisplayModeFromCombo(cboThinkingDisplay); }
+            set { SelectDisplayMode(cboThinkingDisplay, value); }
         }
 
-        public bool CollapseThinkingBlocks
+        public ChatBlockDisplayMode ToolCallDisplayMode
         {
-            get { return chkCollapseThinking.Checked; }
-            set { chkCollapseThinking.Checked = value; }
+            get { return DisplayModeFromCombo(cboToolCallDisplay); }
+            set { SelectDisplayMode(cboToolCallDisplay, value); }
         }
 
-        public bool ShowToolOutput
+        public ChatBlockDisplayMode ToolOutputDisplayMode
         {
-            get { return chkShowToolOutput.Checked; }
-            set { chkShowToolOutput.Checked = value; }
-        }
-
-        public bool CollapseToolCalls
-        {
-            get { return chkCollapseToolCalls.Checked; }
-            set { chkCollapseToolCalls.Checked = value; }
+            get { return DisplayModeFromCombo(cboToolOutputDisplay); }
+            set { SelectDisplayMode(cboToolOutputDisplay, value); }
         }
 
         public void LoadFromConfig()
         {
             MarkdownParsing = ConfigHandler.GetMarkdownParsing();
-            ShowReasoningOutput = ConfigHandler.GetShowReasoningOutput();
-            CollapseThinkingBlocks = ConfigHandler.GetCollapseThinkingBlocks();
-            ShowToolOutput = ConfigHandler.GetShowToolOutput();
-            CollapseToolCalls = ConfigHandler.GetCollapseToolCalls();
+            ThinkingDisplayMode = ConfigHandler.GetThinkingDisplayMode();
+            ToolCallDisplayMode = ConfigHandler.GetToolCallDisplayMode();
+            ToolOutputDisplayMode = ConfigHandler.GetToolOutputDisplayMode();
         }
 
         public void SaveToConfig()
         {
             ConfigHandler.SetMarkdownParsing(MarkdownParsing);
-            ConfigHandler.SetShowReasoningOutput(ShowReasoningOutput);
-            ConfigHandler.SetCollapseThinkingBlocks(CollapseThinkingBlocks);
-            ConfigHandler.SetShowToolOutput(ShowToolOutput);
-            ConfigHandler.SetCollapseToolCalls(CollapseToolCalls);
+            ConfigHandler.SetThinkingDisplayMode(ThinkingDisplayMode);
+            ConfigHandler.SetToolCallDisplayMode(ToolCallDisplayMode);
+            ConfigHandler.SetToolOutputDisplayMode(ToolOutputDisplayMode);
+        }
+
+        private static ChatBlockDisplayMode DisplayModeFromCombo(ComboBox combo)
+        {
+            switch ((combo.SelectedItem as string ?? "").ToLowerInvariant())
+            {
+                case "shown": return ChatBlockDisplayMode.Shown;
+                case "hidden": return ChatBlockDisplayMode.Hidden;
+                default: return ChatBlockDisplayMode.Collapsed;
+            }
+        }
+
+        private static void SelectDisplayMode(ComboBox combo, ChatBlockDisplayMode mode)
+        {
+            string text;
+            switch (mode)
+            {
+                case ChatBlockDisplayMode.Shown: text = "Shown"; break;
+                case ChatBlockDisplayMode.Hidden: text = "Hidden"; break;
+                default: text = "Collapsed"; break;
+            }
+            combo.SelectedItem = text;
+            if (combo.SelectedIndex < 0 && combo.Items.Count > 0)
+                combo.SelectedIndex = 0;
         }
     }
 }

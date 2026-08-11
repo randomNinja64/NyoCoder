@@ -19,21 +19,22 @@ namespace NyoCoder
 
         private static readonly string[] CollapsibleOpenTags =
         {
-            "[thinking]", "<think>", "[tool call]"
+            "[thinking]", "<think>", "[tool call]", "[tool output]"
         };
         private static readonly string[] CollapsibleCloseTags =
         {
-            "[/thinking]", "</think>", "[/tool call]"
+            "[/thinking]", "</think>", "[/tool call]", "[/tool output]"
         };
 
         internal enum CollapsibleBlockKind
         {
             Thinking,
-            ToolCall
+            ToolCall,
+            ToolOutput
         }
 
         /// <summary>
-        /// Shared UI state for thinking / tool-call expanders.
+        /// Shared UI state for thinking / tool-call / tool-output expanders.
         /// </summary>
         internal sealed class CollapsibleBlockState
         {
@@ -114,6 +115,19 @@ namespace NyoCoder
                         remaining = TakeToolCallName(remaining, out name);
                         StartCollapsibleBlock(name, CollapsibleBlockKind.ToolCall);
                     }
+                    else if (IsToolOutputOpenTag(openTag))
+                    {
+                        // Hidden mode emits a plain "[tool output]\nExit Code: N" stub
+                        // (SimpleLLMChat parity) — do not wrap it in an Expander.
+                        if (ConfigHandler.GetToolOutputDisplayMode() == ChatBlockDisplayMode.Hidden)
+                        {
+                            AppendPlain(openTag);
+                            continue;
+                        }
+
+                        remaining = remaining.TrimStart('\r', '\n');
+                        StartCollapsibleBlock(null, CollapsibleBlockKind.ToolOutput);
+                    }
                     else
                     {
                         remaining = remaining.TrimStart('\r', '\n');
@@ -180,9 +194,9 @@ namespace NyoCoder
                 Document.Blocks.Remove(last);
             }
 
-            bool collapseByDefault = kind == CollapsibleBlockKind.ToolCall
-                ? ConfigHandler.GetCollapseToolCalls()
-                : ConfigHandler.GetCollapseThinkingBlocks();
+            ChatBlockDisplayMode mode = GetDisplayMode(kind);
+            // Shown and Hidden (name-only tool call) start expanded; Collapsed does not.
+            bool expandByDefault = mode != ChatBlockDisplayMode.Collapsed;
 
             var state = new CollapsibleBlockState
             {
@@ -208,7 +222,7 @@ namespace NyoCoder
             {
                 Header = state.HeaderLabel,
                 Content = state.BodyText,
-                IsExpanded = !collapseByDefault,
+                IsExpanded = expandByDefault,
                 Style = ThinkingExpanderStyle,
                 Tag = state
             };
@@ -226,6 +240,19 @@ namespace NyoCoder
 
             if (state.Collapsed)
                 StartEllipsisTimer(state);
+        }
+
+        private static ChatBlockDisplayMode GetDisplayMode(CollapsibleBlockKind kind)
+        {
+            switch (kind)
+            {
+                case CollapsibleBlockKind.ToolCall:
+                    return ConfigHandler.GetToolCallDisplayMode();
+                case CollapsibleBlockKind.ToolOutput:
+                    return ConfigHandler.GetToolOutputDisplayMode();
+                default:
+                    return ConfigHandler.GetThinkingDisplayMode();
+            }
         }
 
         private void EndCollapsibleBlock()
@@ -315,6 +342,13 @@ namespace NyoCoder
                 return baseLabel;
             }
 
+            if (state.Kind == CollapsibleBlockKind.ToolOutput)
+            {
+                if (state.Collapsed && state.Active)
+                    return "tool output" + new string('.', state.EllipsisCount);
+                return "tool output";
+            }
+
             if (state.Collapsed && state.Active)
                 return "thinking" + new string('.', state.EllipsisCount);
 
@@ -359,7 +393,12 @@ namespace NyoCoder
 
         private static bool IsToolCallOpenTag(string openTag)
         {
-            return openTag.Equals(CollapsibleOpenTags[2], StringComparison.OrdinalIgnoreCase);
+            return openTag.Equals("[tool call]", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsToolOutputOpenTag(string openTag)
+        {
+            return openTag.Equals("[tool output]", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool TryFindTag(string text, string[] tags, out int index, out int length)

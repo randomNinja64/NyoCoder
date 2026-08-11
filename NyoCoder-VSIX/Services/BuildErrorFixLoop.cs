@@ -63,7 +63,6 @@ namespace NyoCoder
                 llmClient.ProcessConversation(
                     fixPrompt,
                     null,
-                    ConfigHandler.GetShowToolOutput(),
                     appendText,
                     ToolApprovalService.Request,
                     stopRequested: stopRequested,

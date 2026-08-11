@@ -9,6 +9,29 @@ namespace NyoCoder
     internal static class SseStreamParser
     {
         /// <summary>
+        /// Builds reasoning UI callbacks from the thinking display mode:
+        /// Shown/Collapsed stream full markers; Hidden emits a <c>[thought for N seconds]</c> stub.
+        /// </summary>
+        public static void CreateReasoningCallbacks(
+            Action<string> outputCallback,
+            Action startBlock,
+            out Action<string> onReasoningChunk,
+            out Action<int> onReasoningSummary)
+        {
+            bool showThinking = ConfigHandler.GetThinkingDisplayMode() != ChatBlockDisplayMode.Hidden;
+            onReasoningChunk = showThinking ? outputCallback : null;
+            onReasoningSummary = null;
+            if (outputCallback != null && !showThinking)
+            {
+                onReasoningSummary = s =>
+                {
+                    if (startBlock != null) startBlock();
+                    outputCallback("[thought for " + s + " second" + (s == 1 ? "" : "s") + "]\n");
+                };
+            }
+        }
+
+        /// <summary>
         /// Parses an SSE stream into an LLMCompletionResponse.
         /// Handles content streaming, tool call accumulation, error events, and stop requests.
         /// </summary>
@@ -17,6 +40,8 @@ namespace NyoCoder
         /// <param name="toolCallCallback">Called when a tool call name or argument chunk is seen.</param>
         /// <param name="stopRequested">Returns true when the caller wants to abort early.</param>
         /// <param name="onStop">Optional action invoked when a stop is detected mid-stream (e.g. abort the HTTP request).</param>
+        /// <param name="onReasoningChunk">Streams full thinking markers/content when thinking is Shown/Collapsed.</param>
+        /// <param name="onReasoningSummary">Emits elapsed seconds when thinking is Hidden (stub only).</param>
         /// <param name="startBlock">Optional action that pads the chat output to a blank line before a new block starts.</param>
         public static LLMClient.LLMCompletionResponse Parse(
             TextReader reader,
@@ -25,6 +50,7 @@ namespace NyoCoder
             Func<bool> stopRequested,
             Action onStop = null,
             Action<string> onReasoningChunk = null,
+            Action<int> onReasoningSummary = null,
             Action startBlock = null)
         {
             LLMClient.LLMCompletionResponse response = new LLMClient.LLMCompletionResponse
@@ -39,6 +65,7 @@ namespace NyoCoder
             Dictionary<int, int> toolCallArgumentLength = new Dictionary<int, int>();
             bool inReasoning = false;
             bool reasoningEndedWithNewline = true;
+            DateTime reasoningStart = DateTime.MinValue;
             string lastEvent = null;
             string line;
 
@@ -93,16 +120,25 @@ namespace NyoCoder
                         string reasoningChunk = delta != null
                             ? ((string)delta["reasoning_content"] ?? (string)delta["reasoning"])
                             : null;
-                        if (!string.IsNullOrEmpty(reasoningChunk) && onReasoningChunk != null)
+                        if (!string.IsNullOrEmpty(reasoningChunk))
                         {
-                            if (!inReasoning)
+                            if (onReasoningChunk != null)
                             {
-                                if (startBlock != null) startBlock();
-                                onReasoningChunk("[thinking]\n");
+                                if (!inReasoning)
+                                {
+                                    if (startBlock != null) startBlock();
+                                    onReasoningChunk("[thinking]\n");
+                                    inReasoning = true;
+                                }
+                                onReasoningChunk(reasoningChunk);
+                                reasoningEndedWithNewline = reasoningChunk.EndsWith("\n");
+                            }
+                            else if (!inReasoning)
+                            {
+                                // Hidden: track duration only; emit stub on close.
+                                reasoningStart = DateTime.UtcNow;
                                 inReasoning = true;
                             }
-                            onReasoningChunk(reasoningChunk);
-                            reasoningEndedWithNewline = reasoningChunk.EndsWith("\n");
                         }
 
                         string content = delta != null ? (string)delta["content"] : null;
@@ -110,13 +146,10 @@ namespace NyoCoder
                         {
                             if (inReasoning)
                             {
-                                // If the last reasoning chunk didn't end with a newline, the
-                                // closing tag needs one of its own so it doesn't glue onto
-                                // the trailing sentence.
-                                onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
-                                // Blank line between the thinking block and the text that follows
-                                if (startBlock != null) startBlock();
-                                inReasoning = false;
+                                CloseReasoningIfOpen(ref inReasoning, reasoningEndedWithNewline, reasoningStart,
+                                    onReasoningChunk, onReasoningSummary);
+                                if (onReasoningChunk != null && startBlock != null)
+                                    startBlock();
                             }
                             if (outputCallback != null)
                                 outputCallback(content);
@@ -135,9 +168,10 @@ namespace NyoCoder
                             // Close thinking before tool-call UI streams.
                             if (inReasoning)
                             {
-                                onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
-                                if (startBlock != null) startBlock();
-                                inReasoning = false;
+                                CloseReasoningIfOpen(ref inReasoning, reasoningEndedWithNewline, reasoningStart,
+                                    onReasoningChunk, onReasoningSummary);
+                                if (onReasoningChunk != null && startBlock != null)
+                                    startBlock();
                             }
 
                             foreach (JObject call in toolCalls)
@@ -196,14 +230,40 @@ namespace NyoCoder
                 }
             }
 
-            // Close any open reasoning block if the stream ended while still in reasoning
-            if (inReasoning)
-                onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
+            CloseReasoningIfOpen(ref inReasoning, reasoningEndedWithNewline, reasoningStart,
+                onReasoningChunk, onReasoningSummary);
 
             response.ToolCalls.AddRange(partialToolCalls.Values);
             response.Content = output.ToString();
 
             return response;
+        }
+
+        /// <summary>
+        /// Closes an in-progress reasoning span: emits [/thinking] when streaming,
+        /// or reports elapsed seconds via <paramref name="onReasoningSummary"/> when Hidden.
+        /// </summary>
+        private static void CloseReasoningIfOpen(
+            ref bool inReasoning,
+            bool reasoningEndedWithNewline,
+            DateTime reasoningStart,
+            Action<string> onReasoningChunk,
+            Action<int> onReasoningSummary)
+        {
+            if (!inReasoning)
+                return;
+
+            if (onReasoningChunk != null)
+            {
+                onReasoningChunk(reasoningEndedWithNewline ? "[/thinking]\n" : "\n[/thinking]\n");
+            }
+            else if (onReasoningSummary != null)
+            {
+                int secs = Math.Max(1, (int)(DateTime.UtcNow - reasoningStart).TotalSeconds);
+                onReasoningSummary(secs);
+            }
+
+            inReasoning = false;
         }
     }
 }

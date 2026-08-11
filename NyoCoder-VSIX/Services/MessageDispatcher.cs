@@ -188,7 +188,6 @@ namespace NyoCoder
                     llmClient.ProcessConversation(
                         userMessage,
                         attachedImage,
-                        ConfigHandler.GetShowToolOutput(),
                         _appendText,
                         ToolApprovalService.Request,
                         stopRequested: _stopRequested,
@@ -316,7 +315,6 @@ namespace NyoCoder
                     llmClient.ProcessConversation(
                         built.Prompt,
                         null,
-                        ConfigHandler.GetShowToolOutput(),
                         _appendText,
                         ToolApprovalService.Request,
                         stopRequested: _stopRequested,
@@ -338,7 +336,6 @@ namespace NyoCoder
                     llmClient.ProcessConversation(
                         refineText,
                         null,
-                        ConfigHandler.GetShowToolOutput(),
                         _appendText,
                         ToolApprovalService.Request,
                         stopRequested: _stopRequested,

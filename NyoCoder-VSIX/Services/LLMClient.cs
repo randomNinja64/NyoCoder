@@ -121,7 +121,6 @@ public class LLMClient
     public void ProcessConversation(
         string userMessage,
         string image,
-        bool showToolOutput,
         Action<string> outputCallback = null,
         Func<string, string, ApprovalResult> approvalCallback = null,
         Func<bool> stopRequested = null,
@@ -131,6 +130,9 @@ public class LLMClient
         Action startBlock = null)
     {
         FilesModifiedThisTurn = false;
+
+        ChatBlockDisplayMode toolCallDisplay = ConfigHandler.GetToolCallDisplayMode();
+        ChatBlockDisplayMode toolOutputDisplay = ConfigHandler.GetToolOutputDisplayMode();
 
         // Add user message
         ChatMessage userMsg = new ChatMessage
@@ -154,6 +156,7 @@ public class LLMClient
             }
 
             // Stream tool calls with explicit open/close markers for the chat UI.
+            // Hidden: announce name only (no argument body); Expander starts expanded in ChatTurn.
             Action<ToolHandler.ToolCall> toolCallStreamCallback = null;
             bool toolCallUiOpen = false;
             if (outputCallback != null)
@@ -169,7 +172,8 @@ public class LLMClient
                         outputCallback("[tool call] " + toolCall.Name + "\n");
                         toolCallUiOpen = true;
                     }
-                    else if (!string.IsNullOrEmpty(toolCall.Arguments))
+                    else if (!string.IsNullOrEmpty(toolCall.Arguments)
+                        && toolCallDisplay != ChatBlockDisplayMode.Hidden)
                     {
                         outputCallback(toolCall.Arguments);
                     }
@@ -295,11 +299,18 @@ public class LLMClient
                     if (exitCode == 0 && ToolDefinitions.IsFileModifyingTool(call.Name))
                         FilesModifiedThisTurn = true;
 
-                    // Output tool result
-                    if (outputCallback != null && showToolOutput)
+                    // Output tool result (Hidden = exit-code stub; Shown/Collapsed = full Expander markers)
+                    if (outputCallback != null)
                     {
                         if (startBlock != null) startBlock();
-                        outputCallback("[tool output]\n" + (toolContent ?? "").TrimEnd());
+                        if (toolOutputDisplay == ChatBlockDisplayMode.Hidden)
+                        {
+                            outputCallback("[tool output]\nExit Code: " + exitCode + "\n");
+                        }
+                        else
+                        {
+                            outputCallback("[tool output]\n" + (toolContent ?? "").TrimEnd() + "\n[/tool output]\n");
+                        }
                     }
 
                 }
@@ -649,10 +660,15 @@ public class LLMClient
             using (var responseStream = httpResponse.GetResponseStream())
             using (var reader = new StreamReader(responseStream, Encoding.UTF8))
             {
+                Action<string> onReasoningChunk;
+                Action<int> onReasoningSummary;
+                SseStreamParser.CreateReasoningCallbacks(outputCallback, startBlock, out onReasoningChunk, out onReasoningSummary);
+
                 completionResponse = SseStreamParser.Parse(
                     reader, outputCallback, toolCallCallback, stopRequested,
                     () => { try { request.Abort(); } catch { } },
-                    onReasoningChunk: ConfigHandler.GetShowReasoningOutput() ? outputCallback : null,
+                    onReasoningChunk: onReasoningChunk,
+                    onReasoningSummary: onReasoningSummary,
                     startBlock: startBlock);
             }
         }

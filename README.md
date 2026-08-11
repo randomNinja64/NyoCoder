@@ -20,8 +20,9 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
   - **Automatically Retrieve Context from Codebase (Auto-RAG)** - When enabled, retrieves up to 5 indexed codebase snippets for new chats and plan steps (default: on; requires a codebase index)
 - **Appearance**
   - **Render Markdown in Chat Output** - Renders Markdown formatting in chat (default: enabled)
-  - **Show Model Reasoning Output** - Displays model reasoning in chat (default: enabled)
-  - **Show Full Tool Execution Output** - Shows full tool output in chat (default: enabled)
+  - **Thinking display** - How model reasoning appears in chat: **Shown**, **Collapsed**, or **Hidden** (default: Collapsed). Hidden shows a short `[thought for N seconds]` stub instead of the full reasoning.
+  - **Tool call display** - How tool calls appear: **Shown**, **Collapsed**, or **Hidden** (default: Collapsed). Hidden shows an expanded tool-call header with the tool name only (no arguments).
+  - **Tool output display** - How tool results appear: **Shown**, **Collapsed**, or **Hidden** (default: Shown). Hidden shows `[tool output]` with the exit code only.
 - **Build Error Handling**
   - **Detection mode** - Detection method for build errors (default: IntelliSense)
     - **IntelliSense** - After a short wait, provide the IntelliSense errors to the LLM

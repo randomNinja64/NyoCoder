@@ -206,9 +206,14 @@ namespace NyoCoder
                         pipeThread.IsBackground = true;
                         pipeThread.Start();
 
+                        Action<string> onReasoningChunk;
+                        Action<int> onReasoningSummary;
+                        SseStreamParser.CreateReasoningCallbacks(outputCallback, startBlock, out onReasoningChunk, out onReasoningSummary);
+
                         LLMClient.LLMCompletionResponse result = SseStreamParser.Parse(
                             process.StandardOutput, outputCallback, toolCallCallback, stopRequested,
-                            onReasoningChunk: ConfigHandler.GetShowReasoningOutput() ? outputCallback : null,
+                            onReasoningChunk: onReasoningChunk,
+                            onReasoningSummary: onReasoningSummary,
                             startBlock: startBlock);
 
                         pipeThread.Join(5000);

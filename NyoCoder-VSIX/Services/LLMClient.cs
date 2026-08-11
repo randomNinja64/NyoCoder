@@ -358,6 +358,11 @@ public class LLMClient
                     break;
                 }
 
+                // Mid-turn manage_plan advanced/completed the current step — break so
+                // StepExecutor can keep the last message and move to the next step.
+                if (StepPlanner.Instance != null && StepPlanner.Instance.StepTurnEnded)
+                    break;
+
                 // Pad now so the next stream's first output (text or otherwise) starts on a
                 // fresh block after the tool output; a following StartBlock becomes a no-op.
                 if (outputCallback != null && startBlock != null)

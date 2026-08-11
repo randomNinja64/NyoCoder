@@ -64,6 +64,7 @@ namespace NyoCoder
         {
             _planner.PlanRequiresExecution = false;
             _planner.IsExecutingSteps = true;
+            _planner.StepTurnEnded = false;
 
             // Snapshot pre-plan conversation (user message + assistant plan call + tool result)
             List<LLMClient.ChatMessage> prePlanConversation = new List<LLMClient.ChatMessage>(_mainClient.Conversation);
@@ -94,6 +95,8 @@ namespace NyoCoder
                     if (step.Status == StepStatus.Completed || step.Status == StepStatus.Skipped)
                         continue;
 
+                    string stepTitle = step.Title;
+                    _planner.StepTurnEnded = false;
                     _planner.SetStepStatus(stepIdx, StepStatus.InProgress);
 
                     try
@@ -116,7 +119,7 @@ namespace NyoCoder
                         RaiseStepTokenCountChanged(stepCharacterCount);
 
                         _startBlock();
-                        _appendText("\u2501\u2501\u2501 Step " + (stepIdx + 1) + "/" + _planner.Steps.Count + ": " + step.Title + " \u2501\u2501\u2501\n");
+                        _appendText("\u2501\u2501\u2501 Step " + (stepIdx + 1) + "/" + _planner.Steps.Count + ": " + stepTitle + " \u2501\u2501\u2501\n");
 
                         // Build fresh editor context
                         string freshContext = string.Empty;
@@ -130,14 +133,14 @@ namespace NyoCoder
                         // Build step body (plan state + step identity)
                         StringBuilder stepBody = new StringBuilder();
                         stepBody.Append(_planner.ReadPlan());
-                        stepBody.Append("\n\nYou are now working on Step " + (stepIdx + 1) + ": \"" + step.Title + "\"\n");
+                        stepBody.Append("\n\nYou are now working on Step " + (stepIdx + 1) + ": \"" + stepTitle + "\"\n");
                         stepBody.Append("Focus on completing this step only.");
 
                         string stepPrompt = !string.IsNullOrWhiteSpace(freshContext)
                             ? freshContext + "\n\n---\n\n" + stepBody
                             : stepBody.ToString();
 
-                        AutoRagContext.Result rag = AutoRagContext.TryRetrieve(step.Title);
+                        AutoRagContext.Result rag = AutoRagContext.TryRetrieve(stepTitle);
                         if (rag != null && !string.IsNullOrEmpty(rag.UserStatusLine)
                             && (rag.Outcome == AutoRagContext.Status.NoIndex
                                 || rag.Outcome == AutoRagContext.Status.Success))
@@ -181,11 +184,16 @@ namespace NyoCoder
                         );
 
                         stepCharacterCount = localStepCharCount;
+                        _planner.StepTurnEnded = false;
 
-                        // Auto-mark completed if the LLM didn't already update it
-                        if (step.Status == StepStatus.InProgress)
+                        // Auto-mark completed if this index is still open. manage_plan may
+                        // have completed it already, or moved in_progress elsewhere and left
+                        // this step pending — either way the turn is done for this index.
+                        if (stepIdx < _planner.Steps.Count)
                         {
-                            _planner.SetStepStatus(stepIdx, StepStatus.Completed);
+                            StepStatus liveStatus = _planner.Steps[stepIdx].Status;
+                            if (liveStatus == StepStatus.InProgress || liveStatus == StepStatus.Pending)
+                                _planner.SetStepStatus(stepIdx, StepStatus.Completed);
                         }
 
                         // Extract the step's final assistant response and carry it into subsequent steps
@@ -200,8 +208,8 @@ namespace NyoCoder
                             }
                         }
 
-                        // Build a summary of what the step accomplished
-                        string stepLabel = "[Step " + (stepIdx + 1) + " completed: " + step.Title + "]";
+                        // Build a summary of what the step accomplished (use title from step start)
+                        string stepLabel = "[Step " + (stepIdx + 1) + " completed: " + stepTitle + "]";
                         string stepSummary = stepLabel;
 
                         if (stepResult != null)
@@ -236,6 +244,7 @@ namespace NyoCoder
             finally
             {
                 _planner.IsExecutingSteps = false;
+                _planner.StepTurnEnded = false;
 
                 // Sync main counter from actual conversation now that steps are done
                 int finalMainCharCount = _mainClient.GetConversationCharacterCount(_mainClient.Conversation);

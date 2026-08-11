@@ -68,6 +68,12 @@ namespace NyoCoder
         public bool IsExecutingSteps { get; set; }
 
         /// <summary>
+        /// True when manage_plan advanced/completed the executing step mid-turn.
+        /// ProcessConversation checks this and breaks so StepExecutor can move on.
+        /// </summary>
+        public bool StepTurnEnded { get; set; }
+
+        /// <summary>
         /// The current plan steps.
         /// </summary>
         public List<PlanStep> Steps { get { return _steps; } }
@@ -110,6 +116,9 @@ namespace NyoCoder
         {
             if (stepsArray == null || stepsArray.Count == 0)
             {
+                if (IsExecutingSteps && IndexOfInProgress(_steps) >= 0)
+                    StepTurnEnded = true;
+
                 _steps.Clear();
                 RaiseStepsChanged();
                 return "Plan cleared.";
@@ -150,6 +159,9 @@ namespace NyoCoder
                 newSteps.Add(new PlanStep(title, status));
             }
 
+            if (IsExecutingSteps && ShouldEndStepTurn(newSteps))
+                StepTurnEnded = true;
+
             _steps.Clear();
             _steps.AddRange(newSteps);
             RaiseStepsChanged();
@@ -171,6 +183,41 @@ namespace NyoCoder
             }
 
             return "Plan updated (" + _steps.Count + " steps).";
+        }
+
+        /// <summary>
+        /// True when a mid-turn plan write completes/fails/skips the current in_progress step
+        /// or moves in_progress to a different step.
+        /// </summary>
+        private bool ShouldEndStepTurn(List<PlanStep> newSteps)
+        {
+            int currentIndex = IndexOfInProgress(_steps);
+            if (currentIndex < 0)
+                return false;
+
+            if (currentIndex >= newSteps.Count)
+                return true;
+
+            StepStatus status = newSteps[currentIndex].Status;
+            if (status == StepStatus.Completed
+                || status == StepStatus.Failed
+                || status == StepStatus.Skipped)
+            {
+                return true;
+            }
+
+            int newIndex = IndexOfInProgress(newSteps);
+            return newIndex >= 0 && newIndex != currentIndex;
+        }
+
+        private static int IndexOfInProgress(List<PlanStep> steps)
+        {
+            for (int i = 0; i < steps.Count; i++)
+            {
+                if (steps[i].Status == StepStatus.InProgress)
+                    return i;
+            }
+            return -1;
         }
 
         /// <summary>
@@ -254,6 +301,7 @@ namespace NyoCoder
             _steps.Clear();
             PlanRequiresExecution = false;
             IsExecutingSteps = false;
+            StepTurnEnded = false;
             RaiseStepsChanged();
         }
     }

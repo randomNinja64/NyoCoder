@@ -205,9 +205,13 @@ public static class FileHandler
             // Check if file is open in Visual Studio and close it
             EditorService.TryCloseFileInVisualStudio(normalizedPath);
 
-            // Delete the file
+            // Delete from disk first, then sync project membership (same pattern as write + add).
             File.Delete(filePath);
-            
+
+            string projectDetail;
+            if (EditorService.TryRemoveFileFromProject(normalizedPath, out projectDetail))
+                return "File deleted successfully: " + filePath + "\n" + projectDetail;
+
             return "File deleted successfully: " + filePath;
         }
         catch (Exception ex)

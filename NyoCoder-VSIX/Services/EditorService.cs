@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using EnvDTE;
 using EnvDTE80;
 using Microsoft.VisualStudio;
@@ -346,6 +348,251 @@ namespace NyoCoder
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Adds a file to the owning solution project. Best-effort.
+        /// On success, <paramref name="detail"/> is "Added &lt;file&gt; to &lt;project&gt;"; otherwise null.
+        /// </summary>
+        internal static bool TryAddFileToProject(string fullPath, out string detail)
+        {
+            detail = null;
+            try
+            {
+                fullPath = NormalizeFilePath(fullPath);
+                if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))
+                    return false;
+
+                string fileName = Path.GetFileName(fullPath);
+                bool result = false;
+                string localDetail = null;
+                InvokeOnUIThread(() =>
+                {
+                    try
+                    {
+                        DTE2 dte = GetDte();
+                        if (dte == null || dte.Solution == null)
+                            return;
+
+                        Project project = FindProjectForPath(dte, fullPath);
+                        if (project == null)
+                            return;
+
+                        string projectName = null;
+                        try { projectName = project.Name; } catch { }
+                        if (string.IsNullOrEmpty(projectName))
+                            projectName = "?";
+
+                        project.ProjectItems.AddFromFile(fullPath);
+                        TrySaveProject(project);
+                        localDetail = "Added " + fileName + " to " + projectName;
+                        result = true;
+                    }
+                    catch { }
+                });
+
+                detail = localDetail;
+                return result;
+            }
+            catch
+            {
+                detail = null;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Removes a file from the owning solution project. Best-effort.
+        /// On success, <paramref name="detail"/> is "Removed &lt;file&gt; from &lt;project&gt;"; otherwise null.
+        /// Call after the file has already been deleted from disk (mirrors add-after-write).
+        /// </summary>
+        internal static bool TryRemoveFileFromProject(string fullPath, out string detail)
+        {
+            detail = null;
+            try
+            {
+                fullPath = NormalizeFilePath(fullPath);
+                if (string.IsNullOrEmpty(fullPath))
+                    return false;
+
+                string fileName = Path.GetFileName(fullPath);
+                bool result = false;
+                string localDetail = null;
+                InvokeOnUIThread(() =>
+                {
+                    try
+                    {
+                        DTE2 dte = GetDte();
+                        if (dte == null || dte.Solution == null)
+                            return;
+
+                        Project project = FindProjectForPath(dte, fullPath);
+                        if (project == null || project.ProjectItems == null)
+                            return;
+
+                        ProjectItem item = FindProjectItemByPath(project.ProjectItems, fullPath);
+                        if (item == null)
+                            return;
+
+                        string projectName = null;
+                        try { projectName = project.Name; } catch { }
+                        if (string.IsNullOrEmpty(projectName))
+                            projectName = "?";
+
+                        // File is already gone from disk; Remove drops the project entry only.
+                        item.Remove();
+                        TrySaveProject(project);
+                        localDetail = "Removed " + fileName + " from " + projectName;
+                        result = true;
+                    }
+                    catch { }
+                });
+
+                detail = localDetail;
+                return result;
+            }
+            catch
+            {
+                detail = null;
+                return false;
+            }
+        }
+
+        private static ProjectItem FindProjectItemByPath(ProjectItems items, string fullPath)
+        {
+            if (items == null)
+                return null;
+
+            foreach (ProjectItem item in items)
+            {
+                try
+                {
+                    if (item.FileCount >= 1)
+                    {
+                        string itemPath = null;
+                        try { itemPath = item.get_FileNames(1); } catch { }
+                        if (!string.IsNullOrEmpty(itemPath) &&
+                            string.Equals(Path.GetFullPath(itemPath), fullPath, StringComparison.OrdinalIgnoreCase))
+                            return item;
+                    }
+                }
+                catch { }
+
+                try
+                {
+                    if (item.ProjectItems != null && item.ProjectItems.Count > 0)
+                    {
+                        ProjectItem nested = FindProjectItemByPath(item.ProjectItems, fullPath);
+                        if (nested != null)
+                            return nested;
+                    }
+                }
+                catch { }
+            }
+
+            return null;
+        }
+
+        private static void TrySaveProject(Project project)
+        {
+            if (project == null)
+                return;
+            try { project.Save(); } catch { }
+        }
+
+        /// <summary>
+        /// Picks the loaded project whose directory is the longest prefix of <paramref name="fullPath"/>.
+        /// </summary>
+        private static Project FindProjectForPath(DTE2 dte, string fullPath)
+        {
+            if (dte == null || dte.Solution == null || string.IsNullOrEmpty(fullPath))
+                return null;
+
+            string fileDirectory;
+            try { fileDirectory = Path.GetFullPath(Path.GetDirectoryName(fullPath) ?? string.Empty); }
+            catch { return null; }
+            if (string.IsNullOrEmpty(fileDirectory))
+                return null;
+
+            var projects = new List<Project>();
+            try
+            {
+                foreach (Project project in dte.Solution.Projects)
+                    CollectProjects(project, projects);
+            }
+            catch { return null; }
+
+            Project bestMatch = null;
+            int bestMatchLength = -1;
+
+            foreach (Project project in projects)
+            {
+                string projectPath;
+                try { projectPath = project.FullName; }
+                catch { continue; }
+                if (string.IsNullOrEmpty(projectPath))
+                    continue;
+
+                string projectDirectory;
+                try { projectDirectory = Path.GetFullPath(Path.GetDirectoryName(projectPath) ?? string.Empty); }
+                catch { continue; }
+                if (string.IsNullOrEmpty(projectDirectory))
+                    continue;
+
+                if (!IsPathUnderDirectory(fileDirectory, projectDirectory))
+                    continue;
+
+                if (projectDirectory.Length > bestMatchLength)
+                {
+                    bestMatchLength = projectDirectory.Length;
+                    bestMatch = project;
+                }
+            }
+
+            return bestMatch;
+        }
+
+        private static void CollectProjects(Project project, List<Project> results)
+        {
+            if (project == null || results == null)
+                return;
+
+            try
+            {
+                // Solution folders (EnvDTE80.ProjectKinds / same GUID as vsProjectKindSolutionItems).
+                if (string.Equals(project.Kind, ProjectKinds.vsProjectKindSolutionFolder, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (project.ProjectItems == null)
+                        return;
+                    foreach (ProjectItem item in project.ProjectItems)
+                    {
+                        try
+                        {
+                            Project nested = item.Object as Project;
+                            if (nested != null)
+                                CollectProjects(nested, results);
+                        }
+                        catch { }
+                    }
+                }
+                else if (!string.Equals(project.Kind, EnvDTE.Constants.vsProjectKindMisc, StringComparison.OrdinalIgnoreCase))
+                {
+                    results.Add(project);
+                }
+            }
+            catch { }
+        }
+
+        private static bool IsPathUnderDirectory(string path, string parentDirectory)
+        {
+            if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(parentDirectory))
+                return false;
+            if (path.Equals(parentDirectory, StringComparison.OrdinalIgnoreCase))
+                return true;
+            string prefix = parentDirectory.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+                ? parentDirectory
+                : parentDirectory + Path.DirectorySeparatorChar;
+            return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

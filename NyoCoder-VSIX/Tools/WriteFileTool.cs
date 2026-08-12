@@ -27,7 +27,12 @@ namespace NyoCoder
                     EditorService.TryOpenFileInVisualStudio(expandedPath);
 
                     if (!ConfigHandler.RequiresApprovalAfterPreview("write_file"))
+                    {
+                        string projectDetail;
+                        if (EditorService.TryAddFileToProject(expandedPath, out projectDetail))
+                            return "File written successfully: " + expandedPath + "\n" + projectDetail;
                         return "File written successfully: " + expandedPath;
+                    }
 
                     ApprovalResult newFileApproval = ApprovalResult.Rejected;
                     string newFileRejectedMsg = "Rejected by user. File deleted.";
@@ -55,7 +60,10 @@ namespace NyoCoder
                         return newFileRejectedMsg;
                     }
 
-                    return "Approved. File written successfully: " + expandedPath;
+                    string approvedProjectDetail;
+                    if (EditorService.TryAddFileToProject(expandedPath, out approvedProjectDetail))
+                        return "File written successfully: " + expandedPath + "\n" + approvedProjectDetail;
+                    return "File written successfully: " + expandedPath;
                 }
 
                 // --- Existing file: compute diff and show preview ---
@@ -120,7 +128,7 @@ namespace NyoCoder
                     return "Error: Failed to apply changes.";
                 }
 
-                return "Approved. File written successfully: " + expandedPath;
+                return "File written successfully: " + expandedPath;
             }
             catch (Exception ex)
             {

@@ -1,3 +1,4 @@
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -9,7 +10,7 @@ namespace NyoCoder
 {
     internal static class WebSearchTool
     {
-        internal const string DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36";
+        internal const string DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
 
         private delegate string SearchResultParser(string response);
 
@@ -26,6 +27,23 @@ namespace NyoCoder
             return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput);
         }
 
+        /// <summary>
+        /// POSTs a JSON body via curl (-d inline). Optional extra headers (e.g. Authorization).
+        /// </summary>
+        private static string CurlPostJson(string url, string jsonBody, out int exitCode,
+            bool combineErrorOutput = false, params string[] extraHeaders)
+        {
+            StringBuilder args = new StringBuilder();
+            args.Append("-s -L -X POST");
+            args.Append(" -H \"Content-Type: application/json\"");
+            foreach (string header in extraHeaders)
+                args.Append(" -H \"" + header + "\"");
+            string escapedJson = (jsonBody ?? "").Replace("\"", "\\\"");
+            args.Append(" -d \"").Append(escapedJson).Append("\"");
+            args.Append(" \"").Append(url).Append("\"");
+            return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput);
+        }
+
         private static string ExecuteSearch(string url, SearchResultParser parser, int maxSearchResults, out int exitCode, params string[] headers)
         {
             string response;
@@ -39,6 +57,11 @@ namespace NyoCoder
                 return "Error running curl.exe for search: " + ex.Message;
             }
 
+            return FinalizeSearch(response, parser, maxSearchResults, out exitCode);
+        }
+
+        private static string FinalizeSearch(string response, SearchResultParser parser, int maxSearchResults, out int exitCode)
+        {
             if (string.IsNullOrWhiteSpace(response))
             {
                 exitCode = -1;
@@ -47,6 +70,7 @@ namespace NyoCoder
 
             try
             {
+                exitCode = 0;
                 return TruncateResults(parser(response), maxSearchResults);
             }
             catch
@@ -57,7 +81,21 @@ namespace NyoCoder
         }
 
         // --- read_website ---
-        public static string ReadWebsite(string url, int maxContentLength, int maxLinks, out int exitCode)
+        public static string ReadWebsite(string url, int maxContentLength, int maxLinks,
+            string firecrawlEndpoint, string firecrawlApiKey, out int exitCode)
+        {
+            if (!string.IsNullOrWhiteSpace(firecrawlEndpoint))
+            {
+                string firecrawlText;
+                if (TryReadViaFirecrawl(url, firecrawlEndpoint, firecrawlApiKey,
+                        maxContentLength, maxLinks, out firecrawlText, out exitCode))
+                    return firecrawlText + "\n";
+            }
+
+            return ReadWebsiteViaCurl(url, maxContentLength, maxLinks, out exitCode);
+        }
+
+        private static string ReadWebsiteViaCurl(string url, int maxContentLength, int maxLinks, out int exitCode)
         {
             string html;
             try
@@ -90,6 +128,121 @@ namespace NyoCoder
                 exitCode = -1;
                 return "Error running curl.exe: " + ex.Message;
             }
+        }
+
+        /// <summary>
+        /// Scrapes via Firecrawl /v2/scrape. Returns false on any failure so caller can fall back to curl.
+        /// </summary>
+        private static bool TryReadViaFirecrawl(string pageUrl, string endpoint, string apiKey,
+            int maxContentLength, int maxLinks, out string text, out int exitCode)
+        {
+            text = null;
+            exitCode = -1;
+
+            try
+            {
+                string scrapeUrl = endpoint.TrimEnd('/') + "/v2/scrape";
+                JObject payload = new JObject
+                {
+                    ["url"] = pageUrl,
+                    ["formats"] = new JArray("markdown"),
+                    ["onlyMainContent"] = true
+                };
+
+                string[] headers = string.IsNullOrWhiteSpace(apiKey)
+                    ? new string[0]
+                    : new[] { "Authorization: Bearer " + apiKey.Trim() };
+
+                string response = CurlPostJson(
+                    scrapeUrl, payload.ToString(Formatting.None), out exitCode,
+                    combineErrorOutput: false, headers);
+
+                if (exitCode != 0 || string.IsNullOrWhiteSpace(response))
+                    return false;
+
+                JObject root = JObject.Parse(response);
+                if (root["success"] != null && root["success"].Type == JTokenType.Boolean
+                    && !(bool)root["success"])
+                    return false;
+
+                JObject data = root["data"] as JObject;
+                if (data == null)
+                    return false;
+
+                string markdown = data["markdown"] != null ? data["markdown"].ToString() : null;
+                if (string.IsNullOrWhiteSpace(markdown))
+                    return false;
+
+                JObject metadata = data["metadata"] as JObject;
+                string title = "";
+                string desc = "";
+                if (metadata != null)
+                {
+                    title = FirstNonEmpty(
+                        metadata["title"] != null ? metadata["title"].ToString() : null,
+                        metadata["ogTitle"] != null ? metadata["ogTitle"].ToString() : null);
+                    desc = FirstNonEmpty(
+                        metadata["description"] != null ? metadata["description"].ToString() : null,
+                        metadata["ogDescription"] != null ? metadata["ogDescription"].ToString() : null);
+                }
+
+                List<KeyValuePair<string, string>> links;
+                string body = MarkdownToReadableBody(markdown, maxLinks, out links);
+                if (string.IsNullOrWhiteSpace(body) && links.Count == 0)
+                    return false;
+
+                text = AssembleOutput(title, desc, body, links, maxContentLength);
+                exitCode = 0;
+                return !string.IsNullOrWhiteSpace(text);
+            }
+            catch
+            {
+                text = null;
+                exitCode = -1;
+                return false;
+            }
+        }
+
+        private static string FirstNonEmpty(params string[] values)
+        {
+            if (values == null)
+                return "";
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(values[i]))
+                    return values[i].Trim();
+            }
+            return "";
+        }
+
+        /// <summary>
+        /// Keep images inline (rewritten to [Image: alt](src)); move [text](url) into Links and leave text in body.
+        /// </summary>
+        private static string MarkdownToReadableBody(string markdown, int maxLinks,
+            out List<KeyValuePair<string, string>> links)
+        {
+            List<KeyValuePair<string, string>> collected = new List<KeyValuePair<string, string>>();
+            HashSet<string> seenUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string body = markdown ?? "";
+
+            // Strip normal links first (not images: (?<!!)); leave label in body
+            body = Regex.Replace(body,
+                @"(?<!!)\[([^\]]*)\]\(([^)\s]+)(?:\s+""[^""]*"")?\)",
+                m => CollectLinkBodyLabel(
+                    collected, seenUrls, maxLinks,
+                    NormalizeWhitespace(m.Groups[1].Value),
+                    m.Groups[2].Value.Trim()));
+
+            // Images stay inline, rewritten to match the curl HTML path
+            body = Regex.Replace(body,
+                @"!\[([^\]]*)\]\(([^)\s]+)(?:\s+""[^""]*"")?\)",
+                m => FormatImageMarkup(
+                    NormalizeWhitespace(m.Groups[1].Value),
+                    m.Groups[2].Value.Trim()));
+
+            body = Regex.Replace(body, @"\n{3,}", "\n\n");
+            links = collected;
+            return body.Trim();
         }
 
         /// <summary>
@@ -129,18 +282,9 @@ namespace NyoCoder
                 @"<a\b[^>]*\bhref\s*=\s*(['""])(.*?)\1[^>]*>(.*?)</a>",
                 m =>
                 {
-                    string href = WebUtility.HtmlDecode(m.Groups[2].Value.Trim());
+                    string href = ResolveUrl(baseUri, WebUtility.HtmlDecode(m.Groups[2].Value.Trim()));
                     string label = NormalizeWhitespace(StripTags(WebUtility.HtmlDecode(m.Groups[3].Value)));
-                    href = ResolveUrl(baseUri, href);
-
-                    if (IsCollectableLink(href) && links.Count < maxLinks && seenUrls.Add(href))
-                    {
-                        if (string.IsNullOrEmpty(label))
-                            label = href;
-                        links.Add(new KeyValuePair<string, string>(label, href));
-                    }
-
-                    return string.IsNullOrEmpty(label) ? "" : label;
+                    return CollectLinkBodyLabel(links, seenUrls, maxLinks, label, href);
                 },
                 RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
@@ -290,9 +434,16 @@ namespace NyoCoder
         {
             string alt = NormalizeWhitespace(WebUtility.HtmlDecode(ExtractAttribute(attributes, "alt")));
             string src = ResolveUrl(baseUri, WebUtility.HtmlDecode(ExtractAttribute(attributes, "src")));
+            return FormatImageMarkup(alt, src);
+        }
 
+        /// <summary>
+        /// Inline image markup shared by HTML and markdown paths. Drops data: URLs.
+        /// </summary>
+        private static string FormatImageMarkup(string alt, string src)
+        {
             if (!string.IsNullOrEmpty(src) && src.TrimStart().StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-                src = ""; // data URLs are huge and not useful for download_file
+                src = ""; // data URLs are huge and not useful
 
             if (string.IsNullOrEmpty(alt) && string.IsNullOrEmpty(src))
                 return "";
@@ -301,6 +452,27 @@ namespace NyoCoder
             if (string.IsNullOrEmpty(alt))
                 return "[Image](" + src + ")";
             return "[Image: " + alt + "](" + src + ")";
+        }
+
+        /// <summary>
+        /// Adds a collectable, unique href to the Links list (up to maxLinks).
+        /// Returns the label to leave in the body (empty if none).
+        /// </summary>
+        private static string CollectLinkBodyLabel(
+            List<KeyValuePair<string, string>> links,
+            HashSet<string> seenUrls,
+            int maxLinks,
+            string label,
+            string href)
+        {
+            if (IsCollectableLink(href) && links.Count < maxLinks && seenUrls.Add(href))
+            {
+                if (string.IsNullOrEmpty(label))
+                    label = href;
+                links.Add(new KeyValuePair<string, string>(label, href));
+            }
+
+            return string.IsNullOrEmpty(label) ? "" : label;
         }
 
         private static string ExtractAttribute(string attributes, string name)
@@ -430,20 +602,22 @@ namespace NyoCoder
         }
 
         // --- run_web_search ---
-        public static string RunWebSearch(string query, string searxngInstance, int maxSearchResults, out int exitCode)
+        public static string RunWebSearch(string query, string searxngInstance,
+            string firecrawlEndpoint, string firecrawlApiKey, int maxSearchResults, out int exitCode)
         {
             string output = "";
             exitCode = 0;
 
-            // Try SearXNG if configured
+            // SearXNG > Firecrawl > DDG > Wiby
             if (!string.IsNullOrWhiteSpace(searxngInstance))
                 output = RunSearXNGSearch(query, searxngInstance, maxSearchResults, out exitCode);
 
-            // Fallback to DuckDuckGo
+            if (string.IsNullOrWhiteSpace(output) && !string.IsNullOrWhiteSpace(firecrawlEndpoint))
+                output = RunFirecrawlSearch(query, firecrawlEndpoint, firecrawlApiKey, maxSearchResults, out exitCode);
+
             if (string.IsNullOrWhiteSpace(output))
                 output = RunDDGSearch(query, maxSearchResults, out exitCode);
 
-            // Fallback to Wiby
             if (string.IsNullOrWhiteSpace(output))
                 output = RunWibySearch(query, maxSearchResults, out exitCode);
 
@@ -516,6 +690,95 @@ namespace NyoCoder
             return results.ToString();
         }
 
+        private static string RunFirecrawlSearch(string query, string endpoint, string apiKey,
+            int maxSearchResults, out int exitCode)
+        {
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                exitCode = -1;
+                return "";
+            }
+
+            string response = "";
+            try
+            {
+                string searchUrl = endpoint.TrimEnd('/') + "/v2/search";
+                JObject payload = new JObject
+                {
+                    ["query"] = query,
+                    ["limit"] = maxSearchResults > 0 ? maxSearchResults : 20
+                };
+
+                string[] headers = string.IsNullOrWhiteSpace(apiKey)
+                    ? new string[0]
+                    : new[] { "Authorization: Bearer " + apiKey.Trim() };
+
+                response = CurlPostJson(
+                    searchUrl, payload.ToString(Formatting.None), out exitCode,
+                    combineErrorOutput: false, headers);
+            }
+            catch (Exception ex)
+            {
+                exitCode = -1;
+                return "Error running curl.exe for search: " + ex.Message;
+            }
+
+            return FinalizeSearch(response,
+                delegate(string json)
+                {
+                    return ParseFirecrawlResults(json, maxSearchResults);
+                },
+                maxSearchResults, out exitCode);
+        }
+
+        private static string ParseFirecrawlResults(string json, int maxSearchResults)
+        {
+            JObject root = JObject.Parse(json);
+            if (root["success"] != null && root["success"].Type == JTokenType.Boolean
+                && !(bool)root["success"])
+                return "";
+
+            JArray webResults = null;
+            JToken data = root["data"];
+            if (data is JObject)
+                webResults = data["web"] as JArray;
+            else if (data is JArray)
+                webResults = (JArray)data;
+
+            if (webResults == null || webResults.Count == 0)
+                return "";
+
+            StringBuilder results = new StringBuilder();
+            int count = 0;
+            foreach (JToken result in webResults)
+            {
+                if (maxSearchResults > 0 && count >= maxSearchResults)
+                    break;
+
+                string url = result["url"] != null ? result["url"].ToString().Trim() : "";
+                string title = NormalizeSearchText(result["title"] != null ? result["title"].ToString() : null);
+                string content = NormalizeSearchText(FirstNonEmpty(
+                    result["description"] != null ? result["description"].ToString() : null,
+                    result["snippet"] != null ? result["snippet"].ToString() : null,
+                    result["content"] != null ? result["content"].ToString() : null));
+
+                if (!string.IsNullOrEmpty(url))
+                {
+                    results.AppendLine(url + " : " + title + " - " + content);
+                    count++;
+                }
+            }
+
+            return results.ToString();
+        }
+
+        private static string NormalizeSearchText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return "";
+            return Regex.Replace(text.Trim(), @"\s+", " ");
+        }
+
         private static string RunSearXNGSearch(string query, string searxngInstance, int maxSearchResults, out int exitCode)
         {
             string url = searxngInstance.TrimEnd('/') + "/search?q=" + Uri.EscapeDataString(query) + "&format=json";
@@ -544,6 +807,8 @@ namespace NyoCoder
         private static string TruncateResults(string results, int maxResults)
         {
             if (string.IsNullOrEmpty(results))
+                return results;
+            if (maxResults <= 0)
                 return results;
             string[] lines = results.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
             if (lines.Length > maxResults)

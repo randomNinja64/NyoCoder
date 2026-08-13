@@ -1,4 +1,3 @@
-using System.Drawing;
 using System.Windows.Forms;
 
 namespace NyoCoder
@@ -13,7 +12,10 @@ namespace NyoCoder
         private TextBox txtMaxWebContentLength;
         private Label lblSearXNG;
         private TextBox txtSearXNG;
-        private Label lblSearXNGHint;
+        private Label lblFirecrawlEndpoint;
+        private TextBox txtFirecrawlEndpoint;
+        private Label lblFirecrawlApiKey;
+        private TextBox txtFirecrawlApiKey;
         private Label lblUserAgent;
         private TextBox txtUserAgent;
 
@@ -55,10 +57,19 @@ namespace NyoCoder
             this.txtSearXNG = new TextBox();
             this.txtSearXNG.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
-            this.lblSearXNGHint = new Label();
-            this.lblSearXNGHint.AutoSize = true;
-            this.lblSearXNGHint.ForeColor = SystemColors.GrayText;
-            this.lblSearXNGHint.Text = "If not set, DuckDuckGo and Wiby are used as fallbacks.";
+            this.lblFirecrawlEndpoint = new Label();
+            this.lblFirecrawlEndpoint.AutoSize = true;
+            this.lblFirecrawlEndpoint.Text = "Firecrawl API base URL (optional):";
+
+            this.txtFirecrawlEndpoint = new TextBox();
+            this.txtFirecrawlEndpoint.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+
+            this.lblFirecrawlApiKey = new Label();
+            this.lblFirecrawlApiKey.AutoSize = true;
+            this.lblFirecrawlApiKey.Text = "Firecrawl API key (optional):";
+
+            this.txtFirecrawlApiKey = new TextBox();
+            this.txtFirecrawlApiKey.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
             this.lblUserAgent = new Label();
             this.lblUserAgent.AutoSize = true;
@@ -75,8 +86,11 @@ namespace NyoCoder
             AddRow(this.lblMaxWebContentLength, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtMaxWebContentLength, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblSearXNG, new Padding(0, 0, 0, 4), true);
-            AddRow(this.txtSearXNG, new Padding(0, 0, 0, 4), false);
-            AddRow(this.lblSearXNGHint, new Padding(0, 0, 0, 12), true);
+            AddRow(this.txtSearXNG, new Padding(0, 0, 0, 12), false);
+            AddRow(this.lblFirecrawlEndpoint, new Padding(0, 0, 0, 4), true);
+            AddRow(this.txtFirecrawlEndpoint, new Padding(0, 0, 0, 12), false);
+            AddRow(this.lblFirecrawlApiKey, new Padding(0, 0, 0, 4), true);
+            AddRow(this.txtFirecrawlApiKey, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblUserAgent, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtUserAgent, new Padding(0, 0, 0, 0), false);
 
@@ -127,6 +141,18 @@ namespace NyoCoder
             set { txtSearXNG.Text = value ?? string.Empty; }
         }
 
+        public string FirecrawlEndpoint
+        {
+            get { return txtFirecrawlEndpoint.Text != null ? txtFirecrawlEndpoint.Text.Trim() : string.Empty; }
+            set { txtFirecrawlEndpoint.Text = value ?? string.Empty; }
+        }
+
+        public string FirecrawlApiKey
+        {
+            get { return txtFirecrawlApiKey.Text != null ? txtFirecrawlApiKey.Text.Trim() : string.Empty; }
+            set { txtFirecrawlApiKey.Text = value ?? string.Empty; }
+        }
+
         public string UserAgent
         {
             get { return txtUserAgent.Text != null ? txtUserAgent.Text.Trim() : WebSearchTool.DefaultUserAgent; }
@@ -139,6 +165,8 @@ namespace NyoCoder
             MaxSearchResults = ConfigHandler.GetConfigInt("maxSearchResults", 20);
             MaxWebContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 10000);
             SearXNGInstance = ConfigHandler.GetConfigValue("searxngInstance", "");
+            FirecrawlEndpoint = ConfigHandler.GetConfigValue("firecrawlEndpoint", "");
+            FirecrawlApiKey = ConfigHandler.GetConfigValue("firecrawlApiKey", "");
             UserAgent = ConfigHandler.GetConfigValue("webUserAgent", WebSearchTool.DefaultUserAgent);
         }
 
@@ -148,6 +176,8 @@ namespace NyoCoder
             ConfigHandler.SetConfigValue("maxSearchResults", MaxSearchResults > 0 ? MaxSearchResults.ToString() : null);
             ConfigHandler.SetConfigValue("maxWebContentLength", MaxWebContentLength >= 0 ? MaxWebContentLength.ToString() : null);
             ConfigHandler.SetConfigValue("searxngInstance", SearXNGInstance);
+            ConfigHandler.SetConfigValue("firecrawlEndpoint", FirecrawlEndpoint);
+            ConfigHandler.SetConfigValue("firecrawlApiKey", FirecrawlApiKey);
             ConfigHandler.SetConfigValue("webUserAgent", UserAgent);
         }
     }

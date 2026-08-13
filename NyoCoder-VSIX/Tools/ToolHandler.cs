@@ -144,8 +144,12 @@ public static class ToolHandler
                     {
                         string query = GetRequiredArg(args, "query");
                         string searxngInstance = ConfigHandler.GetConfigValue("searxngInstance");
+                        string firecrawlEndpoint = ConfigHandler.GetConfigValue("firecrawlEndpoint");
+                        string firecrawlApiKey = ConfigHandler.GetConfigValue("firecrawlApiKey");
                         int maxSearchResults = ConfigHandler.GetConfigInt("maxSearchResults", 20);
-                        string output = WebSearchTool.RunWebSearch(query, searxngInstance, maxSearchResults, out exitCode);
+                        string output = WebSearchTool.RunWebSearch(
+                            query, searxngInstance, firecrawlEndpoint, firecrawlApiKey,
+                            maxSearchResults, out exitCode);
                         toolContent = FormatCommandResult("web search: " + query, output, exitCode);
                         return true;
                     }
@@ -155,7 +159,10 @@ public static class ToolHandler
                         string url = GetRequiredArg(args, "url");
                         int maxContentLength = ConfigHandler.GetConfigInt("maxWebContentLength", 10000);
                         int maxLinks = ConfigHandler.GetConfigInt("maxLinks", 40);
-                        string output = WebSearchTool.ReadWebsite(url, maxContentLength, maxLinks, out exitCode);
+                        string firecrawlEndpoint = ConfigHandler.GetConfigValue("firecrawlEndpoint");
+                        string firecrawlApiKey = ConfigHandler.GetConfigValue("firecrawlApiKey");
+                        string output = WebSearchTool.ReadWebsite(
+                            url, maxContentLength, maxLinks, firecrawlEndpoint, firecrawlApiKey, out exitCode);
                         toolContent = FormatCommandResult("read website: " + url, output, exitCode);
                         return true;
                     }

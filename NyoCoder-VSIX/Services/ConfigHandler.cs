@@ -659,7 +659,8 @@ namespace NyoCoder
 					"indexOnSolutionOpen", "indexOnSave", "indexChunkLines", "indexChunkOverlap",
 					"indexMaxChunksTotal");
 				AppendSection(lines, ref firstSection, "Web Search", config, written,
-					"maxLinks", "maxSearchResults", "maxWebContentLength", "searxngInstance", "webUserAgent");
+					"maxLinks", "maxSearchResults", "maxWebContentLength", "searxngInstance",
+					"firecrawlEndpoint", "firecrawlApiKey", "webUserAgent");
 				AppendSection(lines, ref firstSection, "Build Error Handling", config, written,
 					"buildErrorCheckMode", "buildErrorCheckWaitSeconds", "buildErrorFixMaxAttempts");
 

@@ -53,8 +53,10 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
   - **Maximum Links from Webpage** - Maximum number of unique links to include at the end of a webpage read (default: `40`)
   - **Maximum Search Results** - Maximum number of search results to retrieve (default: `20`)
   - **Maximum Web Content Length** - Maximum number of characters to return when reading a webpage (default: `10000`; `0` = no limit)
+  - **Firecrawl API base URL** - Firecrawl API base URL (e.g. `http://localhost:3002`). If set, `read_website` will attempt to use it to view page content, and `run_web_search` will use it as a fallback search engine. (default: none)
+  - **Firecrawl API key** - Firecrawl API key (optional) (default: none)
   - **SearXNG Instance** - SearXNG instance to use for running web searches (must support JSON API) (default: none)
-  - **User Agent** - User agent to use when making web requests (default: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36`)
+  - **User Agent** - User agent to use when making web requests (default: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36`)
 
 ## Installation
 
@@ -80,9 +82,9 @@ The extension can be triggered through its tool window, the right-click menu wit
 - **list_directory** - lists all files and subdirectories in a directory
 - **move_file** - moves or renames a file
 - **read_file** - reads the contents of a local file and returns it as a string
-- **read_website** - reads a webpage as Title/Desc, readable text (headings, lists, images), and a capped Links section
+- **read_website** - reads a webpage as Title/Description, body text (image alt+src kept), and a Links section with a configurable cap
 - **run_shell_command** - executes a shell command on the host system and return its output
-- **run_web_search** - runs a web search (uses SearXNG if available, DuckDuckGo and Wiby if not) (Relies on curl.exe in the extension's directory, included with the release but not with source)
+- **run_web_search** - searches the web using SearXNG, with Firecrawl, DDG, and Wiby as fallbacks (Relies on curl.exe in the extension's directory, included with the release but not with source)
 - **manage_plan** - tracks progress on multi-step tasks; supports `read` (view plan) and `write` (write/overwrite plan)
 - **search_replace** - makes targeted changes to a file via a list of exact old_string/new_string edits
 - **view_skill** - loads a skill's `SKILL.md` (and optional linked files) from `%APPDATA%\NyoCoder\Skills`

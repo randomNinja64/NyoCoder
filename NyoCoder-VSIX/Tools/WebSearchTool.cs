@@ -147,13 +147,9 @@ namespace NyoCoder
                 payload["formats"] = new JArray("markdown");
                 payload["onlyMainContent"] = true;
 
-                string[] headers = string.IsNullOrWhiteSpace(apiKey)
-                    ? new string[0]
-                    : new[] { "Authorization: Bearer " + apiKey.Trim() };
-
                 string response = CurlPostJson(
                     scrapeUrl, payload.ToString(Formatting.None), out exitCode,
-                    false, headers);
+                    false, FirecrawlAuthHeaders(apiKey));
 
                 if (exitCode != 0 || string.IsNullOrWhiteSpace(response))
                     return false;
@@ -256,17 +252,7 @@ namespace NyoCoder
 
             string desc = ExtractMetaDescription(html);
 
-            // Remove non-content blocks
-            html = Regex.Replace(html, @"<!DOCTYPE[^>]*>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<!--.*?-->", "", RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<script\b[^<]*(?:(?!</script>)<[^<]*)*</script>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<style\b[^<]*(?:(?!</style>)<[^<]*)*</style>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<svg\b[^<]*(?:(?!</svg>)<[^<]*)*</svg>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<noscript\b[^<]*(?:(?!</noscript>)<[^<]*)*</noscript>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<nav\b[^<]*(?:(?!</nav>)<[^<]*)*</nav>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<header\b[^<]*(?:(?!</header>)<[^<]*)*</header>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<form\b[^<]*(?:(?!</form>)<[^<]*)*</form>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<head\b[^>]*>.*?</head>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            html = StripNonContentBlocks(html);
 
             Uri baseUri = null;
             if (!string.IsNullOrWhiteSpace(pageUrl))
@@ -513,22 +499,34 @@ namespace NyoCoder
         }
 
         /// <summary>
+        /// Removes doctype, comments, and common non-content blocks shared by readable and fallback paths.
+        /// </summary>
+        private static string StripNonContentBlocks(string html)
+        {
+            html = Regex.Replace(html, @"<!DOCTYPE[^>]*>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            html = Regex.Replace(html, @"<!--.*?-->", "", RegexOptions.Singleline);
+            html = Regex.Replace(html, @"<script\b[^<]*(?:(?!</script>)<[^<]*)*</script>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            html = Regex.Replace(html, @"<style\b[^<]*(?:(?!</style>)<[^<]*)*</style>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            html = Regex.Replace(html, @"<svg\b[^<]*(?:(?!</svg>)<[^<]*)*</svg>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            html = Regex.Replace(html, @"<noscript\b[^<]*(?:(?!</noscript>)<[^<]*)*</noscript>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            html = Regex.Replace(html, @"<nav\b[^<]*(?:(?!</nav>)<[^<]*)*</nav>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            html = Regex.Replace(html, @"<header\b[^<]*(?:(?!</header>)<[^<]*)*</header>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            html = Regex.Replace(html, @"<form\b[^<]*(?:(?!</form>)<[^<]*)*</form>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            html = Regex.Replace(html, @"<head\b[^>]*>.*?</head>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            return html;
+        }
+
+        /// <summary>
         /// Older HTML stripper used when readable-text conversion throws: remove fluff,
         /// simplify tags, keep &lt;img src/alt&gt; and &lt;a href&gt;.
         /// </summary>
         private static string FallbackPlainText(string html)
         {
-            html = Regex.Replace(html, @"<!DOCTYPE[^>]*>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            html = StripNonContentBlocks(html);
             html = Regex.Replace(html, @"<html\b[^>]*>", "<html>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<script\b[^<]*(?:(?!</script>)<[^<]*)*</script>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<style\b[^<]*(?:(?!</style>)<[^<]*)*</style>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
             html = Regex.Replace(html, @"<path\b[^>]*>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<svg\b[^<]*(?:(?!</svg>)<[^<]*)*</svg>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<nav\b[^<]*(?:(?!</nav>)<[^<]*)*</nav>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<header\b[^<]*(?:(?!</header>)<[^<]*)*</header>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
             html = Regex.Replace(html, @"<meta\b[^>]*>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
             html = Regex.Replace(html, @"<link\b[^>]*>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<form\b[^<]*(?:(?!</form>)<[^<]*)*</form>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
             html = Regex.Replace(html, @"<input\b[^>]*>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
             // Keep img with src and alt only
@@ -558,9 +556,7 @@ namespace NyoCoder
 
             // Remove inline JS/CSS noise attributes
             html = Regex.Replace(html, @"\s(on\w+|style|class|id|method|role)\s*=\s*(['""]).*?\2", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            html = Regex.Replace(html, @"<!--.*?-->", "", RegexOptions.Singleline);
             html = Regex.Replace(html, @"^\s*$[\r\n]*", "", RegexOptions.Multiline);
-            html = Regex.Replace(html, @"<head\b[^>]*>.*?</head>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
             html = Regex.Replace(html, @"</?html\b[^>]*>", "", RegexOptions.IgnoreCase);
             html = Regex.Replace(html, @"</?body\b[^>]*>", "", RegexOptions.IgnoreCase);
 
@@ -705,13 +701,9 @@ namespace NyoCoder
                 payload["query"] = query;
                 payload["limit"] = maxSearchResults > 0 ? maxSearchResults : 20;
 
-                string[] headers = string.IsNullOrWhiteSpace(apiKey)
-                    ? new string[0]
-                    : new[] { "Authorization: Bearer " + apiKey.Trim() };
-
                 response = CurlPostJson(
                     searchUrl, payload.ToString(Formatting.None), out exitCode,
-                    false, headers);
+                    false, FirecrawlAuthHeaders(apiKey));
             }
             catch (Exception ex)
             {
@@ -719,15 +711,17 @@ namespace NyoCoder
                 return "Error running curl.exe for search: " + ex.Message;
             }
 
-            return FinalizeSearch(response,
-                delegate(string json)
-                {
-                    return ParseFirecrawlResults(json, maxSearchResults);
-                },
-                maxSearchResults, out exitCode);
+            return FinalizeSearch(response, ParseFirecrawlResults, maxSearchResults, out exitCode);
         }
 
-        private static string ParseFirecrawlResults(string json, int maxSearchResults)
+        private static string[] FirecrawlAuthHeaders(string apiKey)
+        {
+            return string.IsNullOrWhiteSpace(apiKey)
+                ? new string[0]
+                : new[] { "Authorization: Bearer " + apiKey.Trim() };
+        }
+
+        private static string ParseFirecrawlResults(string json)
         {
             JObject root = JObject.Parse(json);
             if (root["success"] != null && root["success"].Type == JTokenType.Boolean
@@ -745,34 +739,20 @@ namespace NyoCoder
                 return "";
 
             StringBuilder results = new StringBuilder();
-            int count = 0;
             foreach (JToken result in webResults)
             {
-                if (maxSearchResults > 0 && count >= maxSearchResults)
-                    break;
-
                 string url = result["url"] != null ? result["url"].ToString().Trim() : "";
-                string title = NormalizeSearchText(result["title"] != null ? result["title"].ToString() : null);
-                string content = NormalizeSearchText(FirstNonEmpty(
+                string title = NormalizeWhitespace(result["title"] != null ? result["title"].ToString() : null);
+                string content = NormalizeWhitespace(FirstNonEmpty(
                     result["description"] != null ? result["description"].ToString() : null,
                     result["snippet"] != null ? result["snippet"].ToString() : null,
                     result["content"] != null ? result["content"].ToString() : null));
 
                 if (!string.IsNullOrEmpty(url))
-                {
                     results.AppendLine(url + " : " + title + " - " + content);
-                    count++;
-                }
             }
 
             return results.ToString();
-        }
-
-        private static string NormalizeSearchText(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return "";
-            return Regex.Replace(text.Trim(), @"\s+", " ");
         }
 
         private static string RunSearXNGSearch(string query, string searxngInstance, int maxSearchResults, out int exitCode)

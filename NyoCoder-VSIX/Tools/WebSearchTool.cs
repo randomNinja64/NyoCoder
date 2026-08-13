@@ -142,12 +142,10 @@ namespace NyoCoder
             try
             {
                 string scrapeUrl = endpoint.TrimEnd('/') + "/v2/scrape";
-                JObject payload = new JObject
-                {
-                    ["url"] = pageUrl,
-                    ["formats"] = new JArray("markdown"),
-                    ["onlyMainContent"] = true
-                };
+                JObject payload = new JObject();
+                payload["url"] = pageUrl;
+                payload["formats"] = new JArray("markdown");
+                payload["onlyMainContent"] = true;
 
                 string[] headers = string.IsNullOrWhiteSpace(apiKey)
                     ? new string[0]
@@ -155,7 +153,7 @@ namespace NyoCoder
 
                 string response = CurlPostJson(
                     scrapeUrl, payload.ToString(Formatting.None), out exitCode,
-                    combineErrorOutput: false, headers);
+                    false, headers);
 
                 if (exitCode != 0 || string.IsNullOrWhiteSpace(response))
                     return false;
@@ -703,11 +701,9 @@ namespace NyoCoder
             try
             {
                 string searchUrl = endpoint.TrimEnd('/') + "/v2/search";
-                JObject payload = new JObject
-                {
-                    ["query"] = query,
-                    ["limit"] = maxSearchResults > 0 ? maxSearchResults : 20
-                };
+                JObject payload = new JObject();
+                payload["query"] = query;
+                payload["limit"] = maxSearchResults > 0 ? maxSearchResults : 20;
 
                 string[] headers = string.IsNullOrWhiteSpace(apiKey)
                     ? new string[0]
@@ -715,7 +711,7 @@ namespace NyoCoder
 
                 response = CurlPostJson(
                     searchUrl, payload.ToString(Formatting.None), out exitCode,
-                    combineErrorOutput: false, headers);
+                    false, headers);
             }
             catch (Exception ex)
             {

@@ -224,7 +224,6 @@ namespace NyoCoder
             // Embed all collected chunks in one pass.
             if (semantic)
             {
-                bool embedOk = true;
                 if (embedChunks.Count > 0)
                 {
                     IndexingStatusReporter.ReportProgress(total, total, "Embedding");
@@ -232,15 +231,12 @@ namespace NyoCoder
                     string embedFailure = ApplyEmbeddings(embeddings, embedChunks, embedTexts, index, out added);
                     if (embedFailure != null)
                     {
-                        embedOk = false;
-                        embedError = "Embeddings failed: " + embedFailure + " (symbol index saved).";
+                        // Hashes were stamped before embed; saving would skip those files forever.
+                        AbandonUnsavedIndex("Embeddings failed: " + embedFailure + " (index not saved).");
+                        return;
                     }
                 }
-                // Stamp the model when embedding succeeded or nothing needed embedding this run
-                // (e.g. no files changed); an outright failure leaves the manifest as-is so a
-                // stale/incomplete vector set is retried on the next run.
-                if (embedOk)
-                    index.Manifest.EmbeddingsModel = currentModel;
+                index.Manifest.EmbeddingsModel = currentModel;
             }
             FinalizeIndex(index, embedError);
         }
@@ -284,11 +280,13 @@ namespace NyoCoder
 
                 int added;
                 string embedFailure = ApplyEmbeddings(embeddings, chunks, texts, index, out added);
-                chunkCount = added;
                 if (embedFailure != null)
-                    embedError = "Embeddings failed: " + embedFailure;
-                else
-                    index.Manifest.EmbeddingsModel = ConfigHandler.GetEmbeddingsModel();
+                {
+                    AbandonUnsavedIndex("Embeddings failed: " + embedFailure + " (index not saved).");
+                    return;
+                }
+                chunkCount = added;
+                index.Manifest.EmbeddingsModel = ConfigHandler.GetEmbeddingsModel();
             }
 
             index.Manifest.Files[path] = BuildManifestEntry(
@@ -314,6 +312,16 @@ namespace NyoCoder
             index.Save();
             CodebaseIndex.SetCurrent(index);
             PublishReady(index, error);
+        }
+
+        /// <summary>
+        /// Drops an in-memory pass that must not be persisted (e.g. embeddings failed after
+        /// hashes were stamped) and restores the last saved index from disk.
+        /// </summary>
+        private static void AbandonUnsavedIndex(string error)
+        {
+            CodebaseIndex.Invalidate();
+            PublishReady(CodebaseIndex.GetCurrent(), error);
         }
 
         private static void PublishReady(CodebaseIndex index, string error)

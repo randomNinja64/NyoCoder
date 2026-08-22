@@ -372,7 +372,7 @@ public static class ToolHandler
     // Runs shell commands on the OS
     private static string RunShellCommand(string command, out int exitCode)
     {
-        return ExecuteProcess("cmd.exe", "/c " + command, out exitCode);
+        return ExecuteProcess("cmd.exe", "/s /c " + command, out exitCode);
     }
 
     public static string FormatCommandResult(string command, string output, int exitCode)

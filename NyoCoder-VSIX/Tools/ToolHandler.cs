@@ -23,7 +23,7 @@ public static class ToolHandler
         }
     }
 
-    public static bool ExecuteToolCall(ToolCall call, out string toolContent, out int exitCode)
+    public static bool ExecuteToolCall(ToolCall call, ChatMode mode, out string toolContent, out int exitCode)
     {
         toolContent = "";
         exitCode = 0;
@@ -32,6 +32,22 @@ public static class ToolHandler
         {
             // Parse arguments once; all cases reuse this object.
             JObject args = ParseArguments(call.Arguments);
+
+            // In Plan mode the only writable target is PLAN.md. write_file and
+            // search_replace are the only file-modifying tools exposed in Plan mode
+            // (both take "file_path"), so block any that target a different file.
+            if (mode == ChatMode.Plan
+                && (string.Equals(call.Name, "write_file", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(call.Name, "search_replace", StringComparison.OrdinalIgnoreCase))
+                && !PlanFile.IsPlanFile(JsonExtractString(args, "file_path")))
+            {
+                exitCode = 1;
+                toolContent = FormatCommandResult(
+                    call.Name,
+                    "Plan mode only allows modifying " + PlanFile.FileName + ". Other file changes are not permitted while planning.",
+                    exitCode);
+                return true;
+            }
 
             switch (call.Name)
             {
@@ -45,25 +61,25 @@ public static class ToolHandler
 
                 case "read_file":
                     {
-                        string filename = GetRequiredArg(args, "filename");
+                        string filePath = GetRequiredArg(args, "file_path");
                         string offsetStr = JsonExtractString(args, "offset");
                         int lineOffset = 0;
                         if (!string.IsNullOrEmpty(offsetStr))
                             int.TryParse(offsetStr.Trim(), out lineOffset);
-                        string output = FileHandler.ReadFile(filename, out exitCode, lineOffset);
-                        toolContent = FormatCommandResult("read file: " + filename, output, exitCode);
+                        string output = FileHandler.ReadFile(filePath, out exitCode, lineOffset);
+                        toolContent = FormatCommandResult("read file: " + filePath, output, exitCode);
                         return true;
                     }
 
                 case "write_file":
                     {
-                        string filename = GetRequiredArg(args, "filename");
+                        string filePath = GetRequiredArg(args, "file_path");
                         string contentStr = JsonExtractString(args, "content");
                         string content = string.IsNullOrEmpty(contentStr) ? "" : contentStr.Trim();
-                        string output = WriteFileTool.Write(filename, content, out exitCode);
+                        string output = WriteFileTool.Write(filePath, content, out exitCode);
                         if (exitCode == 0)
-                            CodebaseIndexer.RequestIndexFile(filename);
-                        toolContent = FormatCommandResult("write file: " + filename, output, exitCode);
+                            CodebaseIndexer.RequestIndexFile(filePath);
+                        toolContent = FormatCommandResult("write file: " + filePath, output, exitCode);
                         return true;
                     }
 

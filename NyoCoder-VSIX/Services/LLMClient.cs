@@ -284,13 +284,13 @@ public class LLMClient
                         else
                         {
                             // User approved - execute the tool
-                            ToolHandler.ExecuteToolCall(call, out toolContent, out exitCode);
+                            ToolHandler.ExecuteToolCall(call, mode, out toolContent, out exitCode);
                         }
                     }
                     else
                     {
                         // Execute the requested tool and capture its output
-                        ToolHandler.ExecuteToolCall(call, out toolContent, out exitCode);
+                        ToolHandler.ExecuteToolCall(call, mode, out toolContent, out exitCode);
                     }
 
                     ChatMessage toolMsg = new ChatMessage

@@ -106,7 +106,8 @@ namespace NyoCoder
 
         /// <summary>
         /// Tools available in Plan mode (read-only + planning).
-        /// These tools cannot modify the file system.
+        /// write_file and search_replace are included so the plan can be authored and
+        /// refined in PLAN.md; ToolHandler restricts them to that file while in Plan mode.
         /// </summary>
         private static readonly HashSet<string> PlanModeTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -117,7 +118,9 @@ namespace NyoCoder
             "run_web_search",
             "read_website",
             "view_skill",
-            "ask_user_question"
+            "ask_user_question",
+            "write_file",
+            "search_replace"
         };
 
         /// <summary>
@@ -179,20 +182,20 @@ namespace NyoCoder
                     "Read the contents of a local file and return it as a string. Always reads up to " + ConfigHandler.MaxReadLines + " lines. Use the offset parameter to read different parts of large files.",
                     new Dictionary<string, PropertyInfo>
                     {
-                        { "filename", new PropertyInfo("string", "The full path of the file to read. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
+                        { "file_path", new PropertyInfo("string", "The full path of the file to read. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
                         { "offset", new PropertyInfo("string", "Optional. Line number to start reading from (0-indexed, default: 0). Use this to read different parts of large files. For example, offset " + ConfigHandler.MaxReadLines + " reads lines " + ConfigHandler.MaxReadLines + "-" + (ConfigHandler.MaxReadLines * 2 - 1) + ".") }
                     },
-                    new[] { "filename" }
+                    new[] { "file_path" }
                 ),
                 new ToolEntry(
                     "write_file",
                     "Write the given content to a local file, creating or overwriting it.",
                     new Dictionary<string, PropertyInfo>
                     {
-                        { "filename", new PropertyInfo("string", "The full path of the file to write to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
+                        { "file_path", new PropertyInfo("string", "The full path of the file to write to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
                         { "content", new PropertyInfo("string", "The content to write into the file.") }
                     },
-                    new[] { "filename", "content" }
+                    new[] { "file_path", "content" }
                 ),
                 new ToolEntry(
                     "move_file",

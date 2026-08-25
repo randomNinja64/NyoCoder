@@ -296,7 +296,11 @@ namespace NyoCoder
                 {
                     _setMode(ChatMode.Agent);
 
-                    string planText = ExtractApprovedPlan(llmClient.Conversation);
+                    // Prefer the plan file on disk (the source of truth); fall back to
+                    // scraping the transcript if PLAN.md was never written.
+                    string planText = PlanFile.ReadAll();
+                    if (string.IsNullOrWhiteSpace(planText))
+                        planText = ExtractApprovedPlan(llmClient.Conversation);
 
                     // Drop planning transcript; agent starts with a fresh context seeded by the plan.
                     llmClient.Conversation.Clear();

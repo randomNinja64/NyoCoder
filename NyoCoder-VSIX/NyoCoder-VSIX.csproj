@@ -171,6 +171,7 @@
     <Compile Include="Services\SseStreamParser.cs" />
     <Compile Include="Services\MessageDispatcher.cs" />
     <Compile Include="Services\ModelsClient.cs" />
+    <Compile Include="Services\PlanFile.cs" />
     <Compile Include="Services\SymbolExtractor.cs" />
     <Compile Include="Services\SymbolReferenceExtractor.cs" />
     <Compile Include="Services\TextNormalization.cs" />

@@ -155,6 +155,11 @@ public class LLMClient
                 return;
             }
 
+            // Check context usage before every LLM call — not just after tool batches.
+            // This covers text-only turns, the first call of a turn, and subagent
+            // step conversations whose prompts may already exceed the threshold.
+            TrySummarizeConversation(outputCallback, onSummarized, startBlock);
+
             // Stream tool calls with explicit open/close markers for the chat UI.
             // Hidden: announce name only (no argument body); Expander starts expanded in ChatTurn.
             Action<ToolHandler.ToolCall> toolCallStreamCallback = null;
@@ -326,37 +331,7 @@ public class LLMClient
                 }
 
                 // Check if we need to summarize before the next LLM call
-                if (ShouldSummarize(GetConversationCharacterCount(this.Conversation)))
-                {
-                    if (outputCallback != null)
-                    {
-                        if (startBlock != null) startBlock();
-                        outputCallback("[Context usage high - summarizing conversation...]\n");
-                    }
-                    
-                    string summary = SummarizeConversation(this.Conversation, outputCallback, startBlock);
-                    
-                    if (!string.IsNullOrEmpty(summary))
-                    {
-                        // Replace conversation with summary
-                        this.Conversation.Clear();
-                        this.Conversation.Add(new ChatMessage("user", 
-                            "[Previous conversation summary]\n" + summary + 
-                            "\n\n[Continue from this context. The user's original request is being processed.]"));
-                        
-                        if (outputCallback != null)
-                        {
-                            if (startBlock != null) startBlock();
-                            outputCallback("[Conversation summarized - continuing...]\n");
-                        }
-                        
-                        // Notify UI to reset character count
-                        if (onSummarized != null)
-                        {
-                            onSummarized(GetConversationCharacterCount(this.Conversation));
-                        }
-                    }
-                }
+                TrySummarizeConversation(outputCallback, onSummarized, startBlock);
 
                 // Check if a plan was just created — break so the caller can orchestrate step execution
                 if (StepPlanner.Instance != null && StepPlanner.Instance.PlanRequiresExecution)
@@ -549,6 +524,46 @@ public class LLMClient
         }
 
         return SendHttpRequest(payload, outputCallback, toolCallCallback, stopRequested, startBlock);
+    }
+
+    /// <summary>
+    /// Checks context usage and, if over the threshold, summarizes the conversation
+    /// in place and notifies the UI via <paramref name="onSummarized"/>.
+    /// Safe to call before every LLM request.
+    /// </summary>
+    private void TrySummarizeConversation(Action<string> outputCallback, Action<int> onSummarized, Action startBlock)
+    {
+        if (!ShouldSummarize(GetConversationCharacterCount(this.Conversation)))
+            return;
+
+        if (outputCallback != null)
+        {
+            if (startBlock != null) startBlock();
+            outputCallback("[Context usage high - summarizing conversation...]\n");
+        }
+
+        string summary = SummarizeConversation(this.Conversation, outputCallback, startBlock);
+
+        if (!string.IsNullOrEmpty(summary))
+        {
+            // Replace conversation with summary
+            this.Conversation.Clear();
+            this.Conversation.Add(new ChatMessage("user",
+                "[Previous conversation summary]\n" + summary +
+                "\n\n[Continue from this context. The user's original request is being processed.]"));
+
+            if (outputCallback != null)
+            {
+                if (startBlock != null) startBlock();
+                outputCallback("[Conversation summarized - continuing...]\n");
+            }
+
+            // Notify UI to reset character count
+            if (onSummarized != null)
+            {
+                onSummarized(GetConversationCharacterCount(this.Conversation));
+            }
+        }
     }
 
     /// <summary>

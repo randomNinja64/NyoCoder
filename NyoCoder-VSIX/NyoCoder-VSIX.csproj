@@ -181,6 +181,7 @@
     <Compile Include="Services\VectorStore.cs" />
     <!-- Tools -->
     <Compile Include="Tools\CodebaseSearchTool.cs" />
+    <Compile Include="Tools\DownloadFileTool.cs" />
     <Compile Include="Tools\DiffApprovalHelper.cs" />
     <Compile Include="Tools\ExternalToolRegistry.cs" />
     <Compile Include="Tools\GrepSearchTool.cs" />

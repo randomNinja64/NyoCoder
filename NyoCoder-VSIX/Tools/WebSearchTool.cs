@@ -11,11 +11,12 @@ namespace NyoCoder
     internal static class WebSearchTool
     {
         internal const string DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
+        private const int ReadWebsiteTimeoutMs = 60000;
 
         private delegate string SearchResultParser(string response);
 
         // Executes curl for a given URL and returns the response body
-        private static string CurlExecute(string url, out int exitCode, bool combineErrorOutput = false, params string[] extraHeaders)
+        private static string CurlExecute(string url, out int exitCode, bool combineErrorOutput = false, int timeoutMilliseconds = -1, params string[] extraHeaders)
         {
             string userAgent = ConfigHandler.GetConfigValue("webUserAgent", DefaultUserAgent);
             StringBuilder args = new StringBuilder();
@@ -24,14 +25,14 @@ namespace NyoCoder
             foreach (string header in extraHeaders)
                 args.Append(" -H \"" + header + "\"");
             args.Append(" \"" + url + "\"");
-            return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput);
+            return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput, timeoutMilliseconds);
         }
 
         /// <summary>
         /// POSTs a JSON body via curl (-d inline). Optional extra headers (e.g. Authorization).
         /// </summary>
         private static string CurlPostJson(string url, string jsonBody, out int exitCode,
-            bool combineErrorOutput = false, params string[] extraHeaders)
+            bool combineErrorOutput = false, int timeoutMilliseconds = -1, params string[] extraHeaders)
         {
             StringBuilder args = new StringBuilder();
             args.Append("-s -L -X POST");
@@ -41,7 +42,7 @@ namespace NyoCoder
             string escapedJson = (jsonBody ?? "").Replace("\"", "\\\"");
             args.Append(" -d \"").Append(escapedJson).Append("\"");
             args.Append(" \"").Append(url).Append("\"");
-            return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput);
+            return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput, timeoutMilliseconds);
         }
 
         private static string ExecuteSearch(string url, SearchResultParser parser, int maxSearchResults, out int exitCode, params string[] headers)
@@ -49,7 +50,7 @@ namespace NyoCoder
             string response;
             try
             {
-                response = CurlExecute(url, out exitCode, false, headers);
+                response = CurlExecute(url, out exitCode, false, -1, headers);
             }
             catch (Exception ex)
             {
@@ -100,7 +101,7 @@ namespace NyoCoder
             string html;
             try
             {
-                html = CurlExecute(url, out exitCode, combineErrorOutput: false);
+                html = CurlExecute(url, out exitCode, combineErrorOutput: false, timeoutMilliseconds: ReadWebsiteTimeoutMs);
 
                 if (exitCode != 0 && string.IsNullOrWhiteSpace(html))
                     return "Error fetching URL (curl exit " + exitCode + ").\n";
@@ -149,7 +150,7 @@ namespace NyoCoder
 
                 string response = CurlPostJson(
                     scrapeUrl, payload.ToString(Formatting.None), out exitCode,
-                    false, FirecrawlAuthHeaders(apiKey));
+                    false, ReadWebsiteTimeoutMs, FirecrawlAuthHeaders(apiKey));
 
                 if (exitCode != 0 || string.IsNullOrWhiteSpace(response))
                     return false;
@@ -703,7 +704,7 @@ namespace NyoCoder
 
                 response = CurlPostJson(
                     searchUrl, payload.ToString(Formatting.None), out exitCode,
-                    false, FirecrawlAuthHeaders(apiKey));
+                    false, -1, FirecrawlAuthHeaders(apiKey));
             }
             catch (Exception ex)
             {

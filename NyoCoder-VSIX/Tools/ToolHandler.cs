@@ -183,6 +183,17 @@ public static class ToolHandler
                         return true;
                     }
 
+                case "download_file":
+                    {
+                        string filename = GetRequiredArg(args, "filename");
+                        string url = GetRequiredArg(args, "url");
+                        string output = DownloadFileTool.Download(filename, url, out exitCode);
+                        if (exitCode == 0)
+                            CodebaseIndexer.RequestIndexFile(filename);
+                        toolContent = FormatCommandResult("download file: " + url, output, exitCode);
+                        return true;
+                    }
+
                 case "view_skill":
                     {
                         string name = GetRequiredArg(args, "name");

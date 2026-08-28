@@ -62,6 +62,7 @@ namespace NyoCoder
             "search_replace",
             "run_web_search",
             "read_website",
+            "download_file",
             "view_skill",
             "create_skill",
             "edit_skill",
@@ -85,7 +86,8 @@ namespace NyoCoder
             "search_replace",
             "delete_file",
             "move_file",
-            "copy_file"
+            "copy_file",
+            "download_file"
         };
 
         /// <summary>
@@ -289,6 +291,16 @@ namespace NyoCoder
                         { "url", new PropertyInfo("string", "The URL of the web page to fetch.") }
                     },
                     new[] { "url" }
+                ),
+                new ToolEntry(
+                    "download_file",
+                    "Downloads a file from the internet using cURL and saves it to the provided location.",
+                    new Dictionary<string, PropertyInfo>
+                    {
+                        { "filename", new PropertyInfo("string", "The full path of the file to write to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
+                        { "url", new PropertyInfo("string", "The URL of the file to download.") }
+                    },
+                    new[] { "filename", "url" }
                 ),
                 new ToolEntry(
                     "view_skill",

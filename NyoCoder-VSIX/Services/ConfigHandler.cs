@@ -223,6 +223,7 @@ namespace NyoCoder
 		"move_file",
 		"delete_file",
 		"copy_file",
+		"download_file",
 		"write_file",
 		"search_replace",
 		"create_skill",

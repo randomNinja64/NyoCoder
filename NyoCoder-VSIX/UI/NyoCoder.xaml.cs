@@ -187,7 +187,7 @@ namespace NyoCoder
 
         private void AppendTextInternal(string text)
         {
-            _tokenTracker.OnTextAppended(text.Length);
+            _tokenTracker.OnTextAppended(text);
 
             if (_currentTurn == null)
                 _currentTurn = AddTurn();

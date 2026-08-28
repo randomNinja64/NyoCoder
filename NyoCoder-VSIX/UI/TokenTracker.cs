@@ -20,6 +20,7 @@ namespace NyoCoder
         private int _totalCharacterCount;
         private int _stepCharacterCount;
         private bool _isTrackingStepTokens;
+        private bool _isStreamingThinking;
 
         public int TotalCharacterCount { get { return _totalCharacterCount; } }
         public ChatMode CurrentMode { get; set; }
@@ -66,11 +67,27 @@ namespace NyoCoder
         /// appropriate counter (step or main) depending on the current mode.
         /// Must be called on the UI thread.
         /// </summary>
-        public void OnTextAppended(int charCount)
+        public void OnTextAppended(string text)
         {
-            if (charCount <= 0)
+            if (string.IsNullOrEmpty(text))
                 return;
 
+            // Reasoning is displayed but is not retained in the conversation sent
+            // on later requests, so it must not inflate the context estimate.
+            if (text == "[thinking]\n")
+            {
+                _isStreamingThinking = true;
+                return;
+            }
+
+            if (_isStreamingThinking)
+            {
+                if (text == "[/thinking]\n" || text == "\n[/thinking]\n")
+                    _isStreamingThinking = false;
+                return;
+            }
+
+            int charCount = text.Length;
             if (_isTrackingStepTokens)
             {
                 _stepCharacterCount += charCount;
@@ -92,6 +109,7 @@ namespace NyoCoder
             _totalCharacterCount = 0;
             _isTrackingStepTokens = false;
             _stepCharacterCount = 0;
+            _isStreamingThinking = false;
             RefreshTokenDisplay(_totalCharacterCount, "Tokens", _tokenStatusText);
             _subagentStatusRow.Visibility = Visibility.Collapsed;
         }

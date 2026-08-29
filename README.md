@@ -83,6 +83,7 @@ The extension can be triggered through its tool window, the right-click menu wit
 - **move_file** - moves or renames a file
 - **read_file** - reads the contents of a local file and returns it as a string
 - **read_website** - reads a webpage as Title/Description, body text (image alt+src kept), and a Links section with a configurable cap
+- **download_file** - downloads a file using cURL (Relies on curl.exe in the extension's directory, included with the release but not with source)
 - **run_shell_command** - executes a shell command on the host system and return its output
 - **run_web_search** - searches the web using SearXNG, with Firecrawl, DDG, and Wiby as fallbacks (Relies on curl.exe in the extension's directory, included with the release but not with source)
 - **manage_plan** - tracks progress on multi-step tasks; supports `read` (view plan) and `write` (write/overwrite plan)

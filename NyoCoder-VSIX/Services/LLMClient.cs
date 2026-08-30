@@ -475,7 +475,15 @@ public class LLMClient
         return msgObj;
     }
 
-    LLMCompletionResponse sendMessages(List<ChatMessage> conversation, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null, ChatMode mode = ChatMode.Agent, Action startBlock = null)
+    LLMCompletionResponse sendMessages(
+        List<ChatMessage> conversation,
+        Action<string> outputCallback = null,
+        Action<ToolHandler.ToolCall> toolCallCallback = null,
+        Func<bool> stopRequested = null,
+        ChatMode mode = ChatMode.Agent,
+        Action startBlock = null,
+        bool includeTools = true,
+        bool includeContextInjections = true)
     {
         // Build payload
         JObject payload = new JObject();
@@ -486,11 +494,14 @@ public class LLMClient
 
         // System message — includes mode-specific instructions and injected tool context
         string systemPrompt = ContextEngine.GetSystemPrompt(mode);
-        List<string> enabledTools = ToolDefinitions.GetEnabledToolNames(mode);
-        if (SkillHandler.AnySkillToolEnabled(enabledTools))
-            systemPrompt += "\n\n" + SkillHandler.GetContext();
-        foreach (string injection in ExternalToolRegistry.GetContextInjections(enabledTools))
-            systemPrompt += "\n\n" + injection;
+        if (includeContextInjections)
+        {
+            List<string> enabledTools = ToolDefinitions.GetEnabledToolNames(mode);
+            if (SkillHandler.AnySkillToolEnabled(enabledTools))
+                systemPrompt += "\n\n" + SkillHandler.GetContext();
+            foreach (string injection in ExternalToolRegistry.GetContextInjections(enabledTools))
+                systemPrompt += "\n\n" + injection;
+        }
 
         JObject systemMsg = new JObject();
         systemMsg["role"] = "system";
@@ -508,9 +519,12 @@ public class LLMClient
 
         payload["messages"] = messages;
 
-        // Add tools filtered by mode (Plan mode = read-only tools only)
-        JArray toolsArray = ToolDefinitions.BuildToolsArray(mode);
-        payload["tools"] = toolsArray;
+        if (includeTools)
+        {
+            // Add tools filtered by mode (Plan mode = read-only tools only)
+            JArray toolsArray = ToolDefinitions.BuildToolsArray(mode);
+            payload["tools"] = toolsArray;
+        }
 
         payload["stream"] = true;
 
@@ -542,7 +556,7 @@ public class LLMClient
             outputCallback("[Context usage high - summarizing conversation...]\n");
         }
 
-        string summary = SummarizeConversation(this.Conversation, outputCallback, startBlock);
+        string summary = SummarizeConversation(this.Conversation);
 
         if (!string.IsNullOrEmpty(summary))
         {
@@ -613,8 +627,9 @@ public class LLMClient
     /// <summary>
     /// Summarizes the current conversation to reduce context usage.
     /// Appends a summary request to the conversation, gets the summary, and returns it.
+    /// The summary LLM call is silent (no chat streaming), tool-free, and omits skill/external-tool prompt injections.
     /// </summary>
-    public string SummarizeConversation(List<ChatMessage> conversation, Action<string> outputCallback = null, Action startBlock = null)
+    public string SummarizeConversation(List<ChatMessage> conversation)
     {
         if (conversation == null || conversation.Count == 0)
             return string.Empty;
@@ -626,19 +641,17 @@ public class LLMClient
             "Focus on: what was requested, what actions were taken (files, commands), " +
             "current state, and any pending tasks. Include key details like file paths."));
 
-        StringBuilder summary = new StringBuilder();
-        
-        // Use regular sendMessages - we just want the text content, ignore any tool calls
-        sendMessages(summaryConversation, (text) =>
-        {
-            summary.Append(text);
-            if (outputCallback != null)
-            {
-                outputCallback(text);
-            }
-        }, null, null, startBlock: startBlock);
+        LLMCompletionResponse response = sendMessages(
+            summaryConversation,
+            outputCallback: null,
+            toolCallCallback: null,
+            stopRequested: null,
+            mode: ChatMode.Agent,
+            startBlock: null,
+            includeTools: false,
+            includeContextInjections: false);
 
-        return summary.ToString();
+        return response.Content ?? string.Empty;
     }
 
     private LLMCompletionResponse SendHttpRequest(JObject payload, Action<string> outputCallback = null, Action<ToolHandler.ToolCall> toolCallCallback = null, Func<bool> stopRequested = null, Action startBlock = null)

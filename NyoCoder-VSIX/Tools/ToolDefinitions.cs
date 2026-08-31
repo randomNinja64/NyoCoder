@@ -149,16 +149,16 @@ namespace NyoCoder
             {
                 new ToolEntry(
                     "run_shell_command",
-                    "Execute a shell command on the host system and return its output.",
+                    "Execute a non-interactive shell command on the host and return exit code plus output. Prefer this for builds, tests, and project scripts — not for reading or searching the repo (use file/search tools instead). Avoid pagers and prompts that wait for input. Do not use for destructive git (force-push, hard reset, updating git config) or irreversible deletes unless the user clearly asked. Do not commit or push unless the user explicitly asked. Tailor commands to the user's OS (often Windows / Visual Studio).",
                     new Dictionary<string, PropertyInfo>
                     {
-                        { "command", new PropertyInfo("string", "Full command line to execute. Keep it short and avoid interactive programs.") }
+                        { "command", new PropertyInfo("string", "Full command line to execute. Keep it short; no interactive programs.") }
                     },
                     new[] { "command" }
                 ),
                 new ToolEntry(
                     "read_file",
-                    "Read the contents of a local file and return it as a string. Always reads up to " + ConfigHandler.MaxReadLines + " lines. Use the offset parameter to read different parts of large files.",
+                    "Read the contents of a local file and return it as a string. Prefer this over shell commands when inspecting file contents. Always reads up to " + ConfigHandler.MaxReadLines + " lines. Use the offset parameter to read different parts of large files.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "file_path", new PropertyInfo("string", "The full path of the file to read. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
@@ -168,7 +168,7 @@ namespace NyoCoder
                 ),
                 new ToolEntry(
                     "write_file",
-                    "Write the given content to a local file, creating or overwriting it.",
+                    "Write the given content to a local file, creating or overwriting it. Prefer this for new files or deliberate full-file rewrites. For targeted edits to an existing file, prefer search_replace when available.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "file_path", new PropertyInfo("string", "The full path of the file to write to. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
@@ -207,7 +207,7 @@ namespace NyoCoder
                 ),
                 new ToolEntry(
                     "list_directory",
-                    "List all files and subdirectories in a given directory.",
+                    "List all files and subdirectories in a given directory. Prefer this over shell listing commands when exploring the filesystem.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "directory_path", new PropertyInfo("string", "The full path of the directory to list. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") }
@@ -237,7 +237,7 @@ namespace NyoCoder
                 ),
                 new ToolEntry(
                     "search_replace",
-                    "Replace exact text in a file. Provide one or more edits; each edit's old_string must match exactly (including whitespace, indentation, and line endings) and occur exactly once in the file. Multiple edits can be provided to make multiple changes to the same file in one call. If the file is part of the project, it will be opened in Visual Studio with changes highlighted.",
+                    "Replace exact text in an existing file. Prefer this over write_file for targeted edits. Provide one or more edits; each edit's old_string must match exactly (including whitespace, indentation, and line endings) and occur exactly once in the file. Multiple edits can be provided to make multiple changes to the same file in one call. If the file is part of the project, it will be opened in Visual Studio with changes highlighted.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "file_path", new PropertyInfo("string", "The full path of the file to modify. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
@@ -333,7 +333,7 @@ namespace NyoCoder
                 ),
                 new ToolEntry(
                     "ask_user_question",
-                    "Ask the user a question and wait for their response. The UI displays a button for each option plus a free-form text field so the user can type their own answer. Use this to gather preferences, clarify ambiguous requirements, or get a decision before continuing. Prefer this over guessing when the user's intent is unclear.",
+                    "Ask the user a question and wait for their response. The UI displays a button for each option plus a free-form text field so the user can type their own answer. Use this to gather preferences, clarify ambiguous requirements, or get a decision that would significantly change scope or approach. Prefer this over guessing when the user's intent is unclear.",
                     new Dictionary<string, PropertyInfo>
                     {
                         { "question", new PropertyInfo("string", "The question text to present to the user.") },

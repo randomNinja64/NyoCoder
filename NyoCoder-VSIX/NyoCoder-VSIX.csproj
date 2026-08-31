@@ -143,7 +143,9 @@
     <!-- Core -->
     <Compile Include="Core\BuildErrorCheckMode.cs" />
     <Compile Include="Core\ChatBlockDisplayMode.cs" />
-    <Compile Include="Core\ChatMode.cs" />
+    <Compile Include="Core\ModeDefinition.cs" />
+    <Compile Include="Core\ModeDefaults.cs" />
+    <Compile Include="Core\ModeIds.cs" />
     <Compile Include="Core\IndexingMode.cs" />
     <Compile Include="Core\Guids.cs" />
     <Compile Include="Core\PkgCmdID.cs" />
@@ -170,6 +172,7 @@
     <Compile Include="Services\LLMClient.cs" />
     <Compile Include="Services\SseStreamParser.cs" />
     <Compile Include="Services\MessageDispatcher.cs" />
+    <Compile Include="Services\ModeRegistry.cs" />
     <Compile Include="Services\ModelsClient.cs" />
     <Compile Include="Services\PlanFile.cs" />
     <Compile Include="Services\SymbolExtractor.cs" />
@@ -244,6 +247,12 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="UI\BuildErrorHandlingOptionsPageHost.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ModesOptionsPage.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\ModesOptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\AppearanceOptionsPage.cs">

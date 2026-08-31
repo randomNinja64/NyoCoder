@@ -125,7 +125,7 @@ public class LLMClient
         Func<string, string, ApprovalResult> approvalCallback = null,
         Func<bool> stopRequested = null,
         Action<int> onSummarized = null,
-        ChatMode mode = ChatMode.Agent,
+        string modeId = ModeIds.Agent,
         Func<string> dequeueSteerMessage = null,
         Action startBlock = null)
     {
@@ -185,7 +185,7 @@ public class LLMClient
                 };
             }
 
-            LLMCompletionResponse response = sendMessages(this.Conversation, outputCallback, toolCallStreamCallback, stopRequested, mode, startBlock);
+            LLMCompletionResponse response = sendMessages(this.Conversation, outputCallback, toolCallStreamCallback, stopRequested, modeId, startBlock);
 
             if (toolCallUiOpen)
                 outputCallback("[/tool call]\n");
@@ -284,13 +284,13 @@ public class LLMClient
                         else
                         {
                             // User approved - execute the tool
-                            ToolHandler.ExecuteToolCall(call, mode, out toolContent, out exitCode);
+                            ToolHandler.ExecuteToolCall(call, modeId, out toolContent, out exitCode);
                         }
                     }
                     else
                     {
                         // Execute the requested tool and capture its output
-                        ToolHandler.ExecuteToolCall(call, mode, out toolContent, out exitCode);
+                        ToolHandler.ExecuteToolCall(call, modeId, out toolContent, out exitCode);
                     }
 
                     ChatMessage toolMsg = new ChatMessage
@@ -480,7 +480,7 @@ public class LLMClient
         Action<string> outputCallback = null,
         Action<ToolHandler.ToolCall> toolCallCallback = null,
         Func<bool> stopRequested = null,
-        ChatMode mode = ChatMode.Agent,
+        string modeId = ModeIds.Agent,
         Action startBlock = null,
         bool includeTools = true,
         bool includeContextInjections = true)
@@ -493,10 +493,10 @@ public class LLMClient
         JArray messages = new JArray();
 
         // System message — includes mode-specific instructions and injected tool context
-        string systemPrompt = ContextEngine.GetSystemPrompt(mode);
+        string systemPrompt = ContextEngine.GetSystemPrompt(modeId);
         if (includeContextInjections)
         {
-            List<string> enabledTools = ToolDefinitions.GetEnabledToolNames(mode);
+            List<string> enabledTools = ToolDefinitions.GetEnabledToolNames(modeId);
             if (SkillHandler.AnySkillToolEnabled(enabledTools))
                 systemPrompt += "\n\n" + SkillHandler.GetContext();
             foreach (string injection in ExternalToolRegistry.GetContextInjections(enabledTools))
@@ -522,7 +522,7 @@ public class LLMClient
         if (includeTools)
         {
             // Add tools filtered by mode (Plan mode = read-only tools only)
-            JArray toolsArray = ToolDefinitions.BuildToolsArray(mode);
+            JArray toolsArray = ToolDefinitions.BuildToolsArray(modeId);
             payload["tools"] = toolsArray;
         }
 
@@ -646,7 +646,7 @@ public class LLMClient
             outputCallback: null,
             toolCallCallback: null,
             stopRequested: null,
-            mode: ChatMode.Agent,
+            modeId: ModeIds.Agent,
             startBlock: null,
             includeTools: false,
             includeContextInjections: false);

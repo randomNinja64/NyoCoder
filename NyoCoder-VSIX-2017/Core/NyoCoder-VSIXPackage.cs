@@ -22,6 +22,7 @@ namespace NyoCoder
     [ProvideOptionPage(typeof(IndexingOptionsPage), "NyoCoder", "Indexing", 0, 0, true)]
     [ProvideOptionPage(typeof(AppearanceOptionsPage), "NyoCoder", "Appearance", 0, 0, true)]
     [ProvideOptionPage(typeof(BuildErrorHandlingOptionsPage), "NyoCoder", "Build Error Handling", 0, 0, true)]
+    [ProvideOptionPage(typeof(ModesOptionsPage), "NyoCoder", "Modes", 0, 0, true)]
     [Guid(GuidList.guidNyoCoder_VSIXPkgString)]
     public sealed class NyoCoder_VSIXPackage :
         NyoCoderPackageBase,

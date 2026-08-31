@@ -23,6 +23,13 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
   - **Thinking display** - How model reasoning appears in chat: **Shown**, **Collapsed**, or **Hidden** (default: Collapsed). Hidden shows a short `[thought for N seconds]` stub instead of the full reasoning.
   - **Tool call display** - How tool calls appear: **Shown**, **Collapsed**, or **Hidden** (default: Collapsed). Hidden shows an expanded tool-call header with the tool name only (no arguments).
   - **Tool output display** - How tool results appear: **Shown**, **Collapsed**, or **Hidden** (default: Shown). Hidden shows `[tool output]` with the exit code only.
+- **Modes**
+  - **Display name** - Label shown in the mode dropdown
+  - **System prompt** - System prompt for selected mode
+  - **Tools** - **All** or **Allow list**; when **Allow list** is selected, the selected tools are allowed to be called in that mode (subject to global allow list)
+  - **Add Custom Mode** - Add a new custom mode
+  - **Delete** - Delete a custom mode
+  - **Reset to Default** - Restore a built in mode to its default settings
 - **Build Error Handling**
   - **Detection mode** - Detection method for build errors (default: IntelliSense)
     - **IntelliSense** - After a short wait, provide the IntelliSense errors to the LLM
@@ -69,8 +76,10 @@ The extension can be triggered through its tool window, the right-click menu wit
 ## Modes
 
 - **Agent** - AI reads and writes code, and executes commands. (Default)
-- **Plan** - AI creates a plan using read-only tools and promptes the user for approval/refinement.
+- **Plan** - AI creates a plan using read-only tools and prompts the user for approval/refinement.
 - **Debug** - AI focuses on resolving build errors/bugs.
+
+Custom modes are listed below the built in modes in the "Mode" dropdown.
 
 ## Tools
 

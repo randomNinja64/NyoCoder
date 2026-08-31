@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading;
@@ -70,25 +71,18 @@ namespace NyoCoder
                 AddToCharacterCount,
                 () => SetInputBarGenerationMode(false),
                 HideStepDisplay,
-                mode => EditorService.InvokeOnUIThread(() => ModeSelector.SelectedItem = mode, Dispatcher),
+                modeId => EditorService.InvokeOnUIThread(() => SelectModeById(modeId), Dispatcher),
                 () => EditorService.BeginInvokeOnUIThread(RefreshStepDisplay, Dispatcher),
                 ScrollToBottom,
                 _tokenTracker,
                 _interactionManager,
                 Dispatcher);
 
-            // Populate mode selector from the ChatMode enum so adding a new value
-            // only requires changing the enum.
-            ModeSelector.ItemsSource = Enum.GetValues(typeof(ChatMode));
-            ModeSelector.SelectedIndex = 0;
-            ModeSelector.SelectionChanged += (s, e) =>
-            {
-                if (ModeSelector.SelectedItem is ChatMode)
-                {
-                    _tokenTracker.CurrentMode = (ChatMode)ModeSelector.SelectedItem;
-                    _tokenTracker.ResetCharacterCount(_tokenTracker.TotalCharacterCount);
-                }
-            };
+            ModeSelector.DisplayMemberPath = "DisplayName";
+            ModeSelector.SelectedValuePath = "Id";
+            RefreshModeSelector();
+            ModeRegistry.ModesChanged += OnModesChanged;
+            ModeSelector.SelectionChanged += ModeSelector_SelectionChanged;
 
             // Keep the persistent indexing status bar in sync with the shared reporter. This
             // control is created once for the life of the tool window, so we subscribe once and
@@ -532,8 +526,10 @@ namespace NyoCoder
         /// </summary>
         private void StartConversation(string message)
         {
-            // Read selected mode directly from the ComboBox — driven by the ChatMode enum.
-            ChatMode chatMode = ModeSelector.SelectedItem is ChatMode ? (ChatMode)ModeSelector.SelectedItem : ChatMode.Agent;
+            // Read selected mode from the ComboBox — driven by ModeRegistry.
+            string modeId = ModeSelector.SelectedValue as string;
+            if (string.IsNullOrEmpty(modeId))
+                modeId = ModeIds.Agent;
 
             // Get package instance and LLM client
             NyoCoder_VSIXPackage package = NyoCoder_VSIXPackage.Instance;
@@ -583,7 +579,59 @@ namespace NyoCoder
             try { package.SaveAllOpenFiles(); } catch { }
 
             var builtMessage = _dispatcher.BuildUserMessage(message, isNewSession);
-            _dispatcher.RunConversation(builtMessage, attachedImage, llmClient, chatMode, isNewSession, package);
+            _dispatcher.RunConversation(builtMessage, attachedImage, llmClient, modeId, isNewSession, package);
+        }
+
+        private void OnModesChanged()
+        {
+            EditorService.BeginInvokeOnUIThread(RefreshModeSelector, Dispatcher);
+        }
+
+        private void ModeSelector_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            SyncTokenTrackerMode();
+        }
+
+        private void RefreshModeSelector()
+        {
+            string preserveId = ModeSelector.SelectedValue as string;
+            if (string.IsNullOrEmpty(preserveId))
+                preserveId = _tokenTracker.CurrentModeId ?? ModeIds.Agent;
+
+            ModeSelector.ItemsSource = ModeRegistry.GetOrderedForDisplay();
+            SelectModeById(preserveId);
+            SyncTokenTrackerMode();
+        }
+
+        private void SelectModeById(string modeId)
+        {
+            if (string.IsNullOrEmpty(modeId))
+                modeId = ModeIds.Agent;
+
+            foreach (ModeDefinition mode in ModeSelector.Items)
+            {
+                if (string.Equals(mode.Id, modeId, StringComparison.OrdinalIgnoreCase))
+                {
+                    ModeSelector.SelectedItem = mode;
+                    return;
+                }
+            }
+
+            if (ModeSelector.Items.Count > 0)
+                ModeSelector.SelectedIndex = 0;
+        }
+
+        private void SyncTokenTrackerMode()
+        {
+            string modeId = ModeSelector.SelectedValue as string;
+            if (string.IsNullOrEmpty(modeId) && ModeSelector.SelectedItem is ModeDefinition)
+                modeId = ((ModeDefinition)ModeSelector.SelectedItem).Id;
+
+            if (string.IsNullOrEmpty(modeId))
+                modeId = ModeIds.Agent;
+
+            _tokenTracker.CurrentModeId = modeId;
+            _tokenTracker.ResetCharacterCount(_tokenTracker.TotalCharacterCount);
         }
     }
 }

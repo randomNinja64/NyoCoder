@@ -23,7 +23,7 @@ public static class ToolHandler
         }
     }
 
-    public static bool ExecuteToolCall(ToolCall call, ChatMode mode, out string toolContent, out int exitCode)
+    public static bool ExecuteToolCall(ToolCall call, string modeId, out string toolContent, out int exitCode)
     {
         toolContent = "";
         exitCode = 0;
@@ -36,7 +36,7 @@ public static class ToolHandler
             // In Plan mode the only writable target is PLAN.md. write_file and
             // search_replace are the only file-modifying tools exposed in Plan mode
             // (both take "file_path"), so block any that target a different file.
-            if (mode == ChatMode.Plan
+            if (string.Equals(modeId, ModeIds.Plan, StringComparison.OrdinalIgnoreCase)
                 && (string.Equals(call.Name, "write_file", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(call.Name, "search_replace", StringComparison.OrdinalIgnoreCase))
                 && !PlanFile.IsPlanFile(JsonExtractString(args, "file_path")))

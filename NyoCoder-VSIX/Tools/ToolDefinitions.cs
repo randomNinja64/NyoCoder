@@ -107,45 +107,23 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Tools available in Plan mode (read-only + planning).
-        /// write_file and search_replace are included so the plan can be authored and
-        /// refined in PLAN.md; ToolHandler restricts them to that file while in Plan mode.
-        /// </summary>
-        private static readonly HashSet<string> PlanModeTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "read_file",
-            "list_directory",
-            "codebase_search",
-            "grep_search",
-            "run_web_search",
-            "read_website",
-            "view_skill",
-            "ask_user_question",
-            "write_file",
-            "search_replace"
-        };
-
-        /// <summary>
         /// Returns the names of all tools that would be sent to the LLM for the given mode.
         /// </summary>
-        public static List<string> GetEnabledToolNames(ChatMode mode = ChatMode.Agent)
+        public static List<string> GetEnabledToolNames(string modeId = ModeIds.Agent)
         {
             var enabled = new List<string>();
 
             foreach (string name in BuiltInToolNames)
             {
-                if (ConfigHandler.IsToolDisabled(name))
-                    continue;
-                if (mode == ChatMode.Plan && !PlanModeTools.Contains(name))
-                    continue;
-                enabled.Add(name);
+                if (ModeRegistry.IsToolEnabled(modeId, name))
+                    enabled.Add(name);
             }
 
             foreach (ExternalToolRegistry.PackageInfo pkg in ExternalToolRegistry.GetPackages())
             {
                 foreach (string name in pkg.ToolNames)
                 {
-                    if (!ConfigHandler.IsToolDisabled(name))
+                    if (ModeRegistry.IsToolEnabled(modeId, name))
                         enabled.Add(name);
                 }
             }
@@ -159,14 +137,13 @@ namespace NyoCoder
         /// </summary>
         public static JArray BuildToolsArray()
         {
-            return BuildToolsArray(ChatMode.Agent);
+            return BuildToolsArray(ModeIds.Agent);
         }
 
         /// <summary>
         /// Builds the JSON array of tool definitions filtered by chat mode.
-        /// In Plan mode, only read-only + planning tools are included.
         /// </summary>
-        public static JArray BuildToolsArray(ChatMode mode)
+        public static JArray BuildToolsArray(string modeId)
         {
             ToolEntry[] definitions = new ToolEntry[]
             {
@@ -386,20 +363,27 @@ namespace NyoCoder
 
             foreach (ToolEntry def in definitions)
             {
-                if (ConfigHandler.IsToolDisabled(def.Name))
-                    continue;
-
-                // In Plan mode, only include read-only / planning tools
-                if (mode == ChatMode.Plan && !PlanModeTools.Contains(def.Name))
+                if (!ModeRegistry.IsToolEnabled(modeId, def.Name))
                     continue;
 
                 toolsArray.Add(CreateToolDefinition(def.Name, def.Description, def.Props, def.Required));
             }
 
-            // Append any SimpleLLMChat-compatible external tools installed under
-            // %APPDATA%\NyoCoder\tools\
             foreach (JToken externalTool in ExternalToolRegistry.BuildToolsArray())
+            {
+                JObject externalObj = externalTool as JObject;
+                if (externalObj == null) continue;
+
+                JToken funcToken = externalObj["function"];
+                JObject funcObj = funcToken as JObject;
+                if (funcObj == null) continue;
+
+                string toolName = funcObj["name"] != null ? funcObj["name"].ToString() : null;
+                if (!ModeRegistry.IsToolEnabled(modeId, toolName))
+                    continue;
+
                 toolsArray.Add(externalTool);
+            }
 
             return toolsArray;
         }
@@ -453,16 +437,27 @@ namespace NyoCoder
         }
 
         internal static int _toolDefinitionsLength = -1;
+        private static string _toolDefinitionsLengthModeId;
 
         /// <summary>
-        /// Gets the approximate character length of all tool definitions.
-        /// Used for token estimation. Cached until the disabled tools list changes.
+        /// Gets the approximate character length of all tool definitions for a mode.
+        /// Used for token estimation. Cached until disabled tools or modes change.
         /// </summary>
-        public static int GetToolDefinitionsLength()
+        public static int GetToolDefinitionsLength(string modeId = ModeIds.Agent)
         {
-            if (_toolDefinitionsLength < 0)
-                _toolDefinitionsLength = BuildToolsArray().ToString().Length;
+            if (_toolDefinitionsLength >= 0 &&
+                string.Equals(_toolDefinitionsLengthModeId, modeId, StringComparison.OrdinalIgnoreCase))
+                return _toolDefinitionsLength;
+
+            _toolDefinitionsLengthModeId = modeId;
+            _toolDefinitionsLength = BuildToolsArray(modeId).ToString().Length;
             return _toolDefinitionsLength;
+        }
+
+        public static void InvalidateToolDefinitionsCache()
+        {
+            _toolDefinitionsLength = -1;
+            _toolDefinitionsLengthModeId = null;
         }
     }
 }

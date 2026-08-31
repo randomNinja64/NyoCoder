@@ -213,7 +213,7 @@
                                 Margin="0,0,0,4"
                                 Click="NewChatButton_Click"/>
                         <ComboBox x:Name="ModeSelector"
-                                  MinWidth="72"/>
+                                  Width="72"/>
                     </StackPanel>
                     <TextBox x:Name="InputBox"
                              Grid.Column="1"

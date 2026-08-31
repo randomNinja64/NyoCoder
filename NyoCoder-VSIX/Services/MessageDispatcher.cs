@@ -21,7 +21,7 @@ namespace NyoCoder
         private readonly Action<int> _addToCharacterCount;
         private readonly Action _showInputBar;
         private readonly Action _hideStepDisplay;
-        private readonly Action<ChatMode> _setMode;
+        private readonly Action<string> _setMode;
         private readonly Action _onStepsChanged;
         private readonly Action _scrollToBottom;
         private readonly TokenTracker _tokenTracker;
@@ -40,7 +40,7 @@ namespace NyoCoder
             Action<int> addToCharacterCount,
             Action showInputBar,
             Action hideStepDisplay,
-            Action<ChatMode> setMode,
+            Action<string> setMode,
             Action onStepsChanged,
             Action scrollToBottom,
             TokenTracker tokenTracker,
@@ -157,7 +157,7 @@ namespace NyoCoder
             BuiltUserMessage builtMessage,
             string attachedImage,
             LLMClient llmClient,
-            ChatMode chatMode,
+            string modeId,
             bool isNewSession,
             NyoCoder_VSIXPackage package)
         {
@@ -192,7 +192,7 @@ namespace NyoCoder
                         ToolApprovalService.Request,
                         stopRequested: _stopRequested,
                         onSummarized: _resetCharacterCount,
-                        mode: chatMode,
+                        modeId: modeId,
                         dequeueSteerMessage: _steerer.TryDequeue,
                         startBlock: _startBlock
                     );
@@ -201,9 +201,9 @@ namespace NyoCoder
 
                     StepPlanner planner = StepPlanner.Instance;
 
-                    if (chatMode == ChatMode.Plan)
+                    if (string.Equals(modeId, ModeIds.Plan, StringComparison.OrdinalIgnoreCase))
                     {
-                        HandlePlanReview(llmClient, chatMode);
+                        HandlePlanReview(llmClient, modeId);
                     }
                     else if (planner != null && !planner.PlanRequiresExecution && !isNewSession)
                     {
@@ -282,7 +282,7 @@ namespace NyoCoder
                 _applyMarkdown();
         }
 
-        private void HandlePlanReview(LLMClient llmClient, ChatMode planMode)
+        private void HandlePlanReview(LLMClient llmClient, string planModeId)
         {
             while (true)
             {
@@ -294,7 +294,7 @@ namespace NyoCoder
 
                 if (reviewResult == PlanReviewResult.Execute)
                 {
-                    _setMode(ChatMode.Agent);
+                    _setMode(ModeIds.Agent);
 
                     // Prefer the plan file on disk (the source of truth); fall back to
                     // scraping the transcript if PLAN.md was never written.
@@ -323,7 +323,7 @@ namespace NyoCoder
                         ToolApprovalService.Request,
                         stopRequested: _stopRequested,
                         onSummarized: _resetCharacterCount,
-                        mode: ChatMode.Agent,
+                        modeId: ModeIds.Agent,
                         dequeueSteerMessage: _steerer.TryDequeue,
                         startBlock: _startBlock
                     );
@@ -344,7 +344,7 @@ namespace NyoCoder
                         ToolApprovalService.Request,
                         stopRequested: _stopRequested,
                         onSummarized: _resetCharacterCount,
-                        mode: planMode,
+                        modeId: planModeId,
                         dequeueSteerMessage: _steerer.TryDequeue,
                         startBlock: _startBlock
                     );

@@ -43,6 +43,7 @@ namespace NyoCoder
 			configFilePath = Path.Combine(configFolder, "NyoCoder.ini");
 			NeedsOnboarding = !File.Exists(configFilePath);
 			LoadFromDisk();
+			ModeRegistry.Initialize();
 		}
 
 		/// <summary>
@@ -51,6 +52,7 @@ namespace NyoCoder
 		public static void ReloadConfig()
 		{
 			LoadFromDisk();
+			ModeRegistry.Reload();
 		}
 
 		private static void LoadFromDisk()
@@ -306,7 +308,7 @@ namespace NyoCoder
 		{
 			SetConfigValue("disabledTools",
 				tools != null && tools.Count > 0 ? string.Join(",", tools.ToArray()) : null);
-			ToolDefinitions._toolDefinitionsLength = -1;
+			ToolDefinitions.InvalidateToolDefinitionsCache();
 		}
 
 		// -------------------------------------------------------------------------

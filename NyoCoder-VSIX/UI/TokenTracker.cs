@@ -23,7 +23,7 @@ namespace NyoCoder
         private bool _isStreamingThinking;
 
         public int TotalCharacterCount { get { return _totalCharacterCount; } }
-        public ChatMode CurrentMode { get; set; }
+        public string CurrentModeId { get; set; }
 
         public TokenTracker(TextBlock tokenStatusText, TextBlock stepTokenStatusText, UIElement subagentStatusRow, Dispatcher dispatcher)
         {
@@ -177,7 +177,7 @@ namespace NyoCoder
 
         private void RefreshTokenDisplay(int characterCount, string label, TextBlock target)
         {
-            int approximateTokens = ContextEngine.ApproximateTokens(characterCount, CurrentMode);
+            int approximateTokens = ContextEngine.ApproximateTokens(characterCount, CurrentModeId ?? ModeIds.Agent);
             int? contextWindowSize = ConfigHandler.ContextWindowSize;
 
             string statusText;

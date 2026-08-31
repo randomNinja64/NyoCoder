@@ -67,7 +67,7 @@ namespace NyoCoder
                     ToolApprovalService.Request,
                     stopRequested: stopRequested,
                     onSummarized: onSummarized,
-                    mode: ChatMode.Debug,
+                    modeId: ModeIds.Debug,
                     dequeueSteerMessage: dequeueSteerMessage,
                     startBlock: startBlock);
 

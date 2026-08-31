@@ -14,6 +14,12 @@ namespace NyoCoder
         protected TableLayoutPanel layout;
         private readonly List<Control> _wrappingControls = new List<Control>();
 
+        /// <summary>Loads current config values into the page controls.</summary>
+        public abstract void LoadFromConfig();
+
+        /// <summary>Writes page control values to ConfigHandler.</summary>
+        public abstract void SaveToConfig();
+
         /// <summary>
         /// Initialises the shared TableLayoutPanel and sets default control sizing.
         /// Call this from the subclass constructor inside a SuspendLayout/ResumeLayout pair.

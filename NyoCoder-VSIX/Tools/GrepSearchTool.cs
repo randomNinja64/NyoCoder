@@ -62,7 +62,7 @@ namespace NyoCoder
 
                 args.Append("\"" + searchPath + "\"");
 
-                string output = ToolHandler.ExecuteProcess(grepExePath, args.ToString(), out exitCode, combineErrorOutput: false, timeoutMilliseconds: 60000);
+                string output = ProcessRunner.RunCommand(grepExePath, args.ToString(), out exitCode, combineErrorOutput: false, timeoutMilliseconds: 60000);
 
                 if (exitCode == 0 && string.IsNullOrWhiteSpace(output))
                     return "No matches found for pattern: " + pattern;

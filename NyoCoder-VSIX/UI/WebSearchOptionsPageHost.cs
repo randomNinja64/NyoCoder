@@ -159,7 +159,7 @@ namespace NyoCoder
             set { txtUserAgent.Text = value ?? WebSearchTool.DefaultUserAgent; }
         }
 
-        public void LoadFromConfig()
+        public override void LoadFromConfig()
         {
             MaxLinks = ConfigHandler.GetConfigInt("maxLinks", 40);
             MaxSearchResults = ConfigHandler.GetConfigInt("maxSearchResults", 20);
@@ -170,7 +170,7 @@ namespace NyoCoder
             UserAgent = ConfigHandler.GetConfigValue("webUserAgent", WebSearchTool.DefaultUserAgent);
         }
 
-        public void SaveToConfig()
+        public override void SaveToConfig()
         {
             ConfigHandler.SetConfigValue("maxLinks", MaxLinks >= 0 ? MaxLinks.ToString() : null);
             ConfigHandler.SetConfigValue("maxSearchResults", MaxSearchResults > 0 ? MaxSearchResults.ToString() : null);

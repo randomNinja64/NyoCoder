@@ -25,7 +25,7 @@ namespace NyoCoder
             foreach (string header in extraHeaders)
                 args.Append(" -H \"" + header + "\"");
             args.Append(" \"" + url + "\"");
-            return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput, timeoutMilliseconds);
+            return ProcessRunner.RunCommand(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput, timeoutMilliseconds);
         }
 
         /// <summary>
@@ -42,7 +42,7 @@ namespace NyoCoder
             string escapedJson = (jsonBody ?? "").Replace("\"", "\\\"");
             args.Append(" -d \"").Append(escapedJson).Append("\"");
             args.Append(" \"").Append(url).Append("\"");
-            return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput, timeoutMilliseconds);
+            return ProcessRunner.RunCommand(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput, timeoutMilliseconds);
         }
 
         private static string ExecuteSearch(string url, SearchResultParser parser, int maxSearchResults, out int exitCode, params string[] headers)

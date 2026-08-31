@@ -1,12 +1,8 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.IO.Pipes;
 using System.Text;
-using System.Threading;
 
 namespace NyoCoder
 {
@@ -36,38 +32,14 @@ namespace NyoCoder
                     ? ""
                     : " -H \"Authorization: Bearer " + apiKey + "\"";
 
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = GetCurlPath(),
-                    Arguments = "-s -X GET"
-                        + " -H \"Accept: application/json\""
-                        + authHeader
-                        + " \"" + fullUrl + "\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8
-                };
+                string arguments = "-s -X GET"
+                    + " -H \"Accept: application/json\""
+                    + authHeader
+                    + " \"" + fullUrl + "\"";
 
-                using (Process process = Process.Start(psi))
-                {
-                    string output = "";
-                    string error = "";
-                    Thread errThread = new Thread(() => { try { error = process.StandardError.ReadToEnd(); } catch { } });
-                    errThread.IsBackground = true;
-                    errThread.Start();
-
-                    output = process.StandardOutput.ReadToEnd();
-                    errThread.Join(5000);
-                    process.WaitForExit();
-                    exitCode = process.ExitCode;
-
-                    if (exitCode != 0 && string.IsNullOrEmpty(output))
-                        return "cURL failed (exit " + exitCode + "): " + error;
-                    return output;
-                }
+                ProcessRunResult result = ProcessRunner.Run(GetCurlPath(), arguments);
+                exitCode = result.ExitCode;
+                return FormatCurlFailure(result);
             }
             catch (Exception ex)
             {
@@ -90,60 +62,17 @@ namespace NyoCoder
 
             try
             {
-                using (NamedPipeServerStream pipeServer = new NamedPipeServerStream(
-                    pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte))
-                {
-                    ProcessStartInfo psi = new ProcessStartInfo
-                    {
-                        FileName = GetCurlPath(),
-                        Arguments = "-s -X POST"
-                            + " -H \"Content-Type: application/json\""
-                            + " -H \"Authorization: Bearer " + apiKey + "\""
-                            + " --data-binary \"@\\\\.\\pipe\\" + pipeName + "\""
-                            + " \"" + fullUrl + "\"",
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        StandardOutputEncoding = Encoding.UTF8,
-                        StandardErrorEncoding = Encoding.UTF8
-                    };
+                string arguments = "-s -X POST"
+                    + " -H \"Content-Type: application/json\""
+                    + " -H \"Authorization: Bearer " + apiKey + "\""
+                    + " --data-binary \"@\\\\.\\pipe\\" + pipeName + "\""
+                    + " \"" + fullUrl + "\"";
 
-                    using (Process process = Process.Start(psi))
-                    {
-                        Thread pipeThread = new Thread(() =>
-                        {
-                            try
-                            {
-                                pipeServer.WaitForConnection();
-                                pipeServer.Write(jsonBytes, 0, jsonBytes.Length);
-                                pipeServer.Flush();
-                                pipeServer.Close();
-                            }
-                            catch { }
-                        });
-                        pipeThread.IsBackground = true;
-                        pipeThread.Start();
+                ProcessRunResult result = ProcessRunner.RunWithNamedPipeStdin(
+                    GetCurlPath(), arguments, pipeName, jsonBytes);
 
-                        // Read stdout and stderr concurrently to avoid pipe-buffer deadlocks.
-                        string output = "";
-                        string error = "";
-                        Thread errThread = new Thread(() => { try { error = process.StandardError.ReadToEnd(); } catch { } });
-                        errThread.IsBackground = true;
-                        errThread.Start();
-
-                        output = process.StandardOutput.ReadToEnd();
-
-                        pipeThread.Join(5000);
-                        errThread.Join(5000);
-                        process.WaitForExit();
-                        exitCode = process.ExitCode;
-
-                        if (exitCode != 0 && string.IsNullOrEmpty(output))
-                            return "cURL failed (exit " + exitCode + "): " + error;
-                        return output;
-                    }
-                }
+                exitCode = result.ExitCode;
+                return FormatCurlFailure(result);
             }
             catch (Exception ex)
             {
@@ -163,84 +92,59 @@ namespace NyoCoder
             Func<bool> stopRequested,
             Action startBlock = null)
         {
-            // Use a Windows named pipe so curl can read the JSON body from memory
-            // without touching disk, avoiding stdin pipe deadlock issues.
             string pipeName = "nyocoder_" + Guid.NewGuid().ToString("N");
             byte[] jsonBytes = Encoding.UTF8.GetBytes(payload.ToString(Formatting.None));
 
             try
             {
-                using (NamedPipeServerStream pipeServer = new NamedPipeServerStream(
-                    pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte))
-                {
-                    ProcessStartInfo psi = new ProcessStartInfo
-                    {
-                        FileName = GetCurlPath(),
-                        Arguments = "-s -N -X POST"
-                            + " -H \"Content-Type: application/json\""
-                            + " -H \"Authorization: Bearer " + apiKey + "\""
-                            + " --data-binary \"@\\\\.\\pipe\\" + pipeName + "\""
-                            + " \"" + serverUrl + "/v1/chat/completions\"",
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        StandardOutputEncoding = Encoding.UTF8,
-                        StandardErrorEncoding = Encoding.UTF8
-                    };
+                string arguments = "-s -N -X POST"
+                    + " -H \"Content-Type: application/json\""
+                    + " -H \"Authorization: Bearer " + apiKey + "\""
+                    + " --data-binary \"@\\\\.\\pipe\\" + pipeName + "\""
+                    + " \"" + serverUrl + "/v1/chat/completions\"";
 
-                    using (Process process = Process.Start(psi))
+                LLMClient.LLMCompletionResponse parsed = default(LLMClient.LLMCompletionResponse);
+                bool parsedReceived = false;
+                ProcessRunResult result = ProcessRunner.RunWithNamedPipeStdin(
+                    GetCurlPath(),
+                    arguments,
+                    pipeName,
+                    jsonBytes,
+                    stdoutConsumer: reader =>
                     {
-                        // Serve the JSON body via the named pipe on a background thread
-                        Thread pipeThread = new Thread(() =>
-                        {
-                            try
-                            {
-                                pipeServer.WaitForConnection();
-                                pipeServer.Write(jsonBytes, 0, jsonBytes.Length);
-                                pipeServer.Flush();
-                                pipeServer.Close();
-                            }
-                            catch { }
-                        });
-                        pipeThread.IsBackground = true;
-                        pipeThread.Start();
-
                         Action<string> onReasoningChunk;
                         Action<int> onReasoningSummary;
-                        SseStreamParser.CreateReasoningCallbacks(outputCallback, startBlock, out onReasoningChunk, out onReasoningSummary);
+                        SseStreamParser.CreateReasoningCallbacks(
+                            outputCallback, startBlock, out onReasoningChunk, out onReasoningSummary);
 
-                        LLMClient.LLMCompletionResponse result = SseStreamParser.Parse(
-                            process.StandardOutput, outputCallback, toolCallCallback, stopRequested,
+                        parsed = SseStreamParser.Parse(
+                            reader, outputCallback, toolCallCallback, stopRequested,
                             onReasoningChunk: onReasoningChunk,
                             onReasoningSummary: onReasoningSummary,
                             startBlock: startBlock);
+                        parsedReceived = true;
+                    });
 
-                        pipeThread.Join(5000);
-                        process.WaitForExit();
-
-                        if (process.ExitCode != 0)
-                        {
-                            string stderr = process.StandardError.ReadToEnd();
-                            return new LLMClient.LLMCompletionResponse(
-                                "cURL failed (exit " + process.ExitCode + "): " + stderr,
-                                null, "request_failed");
-                        }
-
-                        if (string.IsNullOrEmpty(result.Content) &&
-                            string.IsNullOrEmpty(result.FinishReason) &&
-                            result.ToolCalls.Count == 0)
-                        {
-                            string stderr = process.StandardError.ReadToEnd();
-                            string detail = string.IsNullOrEmpty(stderr) ? "no response data" : stderr.Trim();
-                            return new LLMClient.LLMCompletionResponse(
-                                "cURL returned no response: " + detail,
-                                null, "request_failed");
-                        }
-
-                        return result;
-                    }
+                if (result.ExitCode != 0)
+                {
+                    return new LLMClient.LLMCompletionResponse(
+                        "cURL failed (exit " + result.ExitCode + "): " + result.StdErr,
+                        null, "request_failed");
                 }
+
+                int toolCallCount = parsed.ToolCalls != null ? parsed.ToolCalls.Count : 0;
+                if (!parsedReceived ||
+                    (string.IsNullOrEmpty(parsed.Content) &&
+                     string.IsNullOrEmpty(parsed.FinishReason) &&
+                     toolCallCount == 0))
+                {
+                    string detail = string.IsNullOrEmpty(result.StdErr) ? "no response data" : result.StdErr.Trim();
+                    return new LLMClient.LLMCompletionResponse(
+                        "cURL returned no response: " + detail,
+                        null, "request_failed");
+                }
+
+                return parsed;
             }
             catch (Exception ex)
             {
@@ -249,5 +153,11 @@ namespace NyoCoder
             }
         }
 
+        private static string FormatCurlFailure(ProcessRunResult result)
+        {
+            if (result.ExitCode != 0 && string.IsNullOrEmpty(result.StdOut))
+                return "cURL failed (exit " + result.ExitCode + "): " + result.StdErr;
+            return result.StdOut;
+        }
     }
 }

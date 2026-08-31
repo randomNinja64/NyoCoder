@@ -15,18 +15,6 @@ namespace NyoCoder
             return host;
         }
 
-        protected override void UpdateHostFromConfig()
-        {
-            if (Host != null)
-                Host.LoadFromConfig();
-        }
-
-        protected override void SaveHostToConfig()
-        {
-            if (Host != null)
-                Host.SaveToConfig();
-        }
-
         private void OnIndexNow()
         {
             // Persist any unsaved edits so the indexer uses the current field values.

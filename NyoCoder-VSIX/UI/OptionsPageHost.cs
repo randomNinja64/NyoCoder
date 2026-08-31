@@ -125,7 +125,7 @@ namespace NyoCoder
             set { cboReasoningEffort.Text = value ?? string.Empty; }
         }
 
-        public void LoadFromConfig()
+        public override void LoadFromConfig()
         {
             ApiKey = ConfigHandler.GetApiKey();
             LlmServer = ConfigHandler.GetLlmServer();
@@ -133,7 +133,7 @@ namespace NyoCoder
             ReasoningEffort = ConfigHandler.GetReasoningEffort();
         }
 
-        public void SaveToConfig()
+        public override void SaveToConfig()
         {
             ConfigHandler.SetApiKey(ApiKey);
             ConfigHandler.SetLlmServer(LlmServer);

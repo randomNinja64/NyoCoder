@@ -204,7 +204,7 @@ namespace NyoCoder
             AddRow(buttons, new Padding(0, 0, 0, 0), true);
         }
 
-        public void LoadFromConfig()
+        public override void LoadFromConfig()
         {
             ExternalToolRegistry.EnsureLoaded();
             _allToolNames = BuildAllToolNames();
@@ -223,7 +223,7 @@ namespace NyoCoder
             }
         }
 
-        public void SaveToConfig()
+        public override void SaveToConfig()
         {
             CommitEditorToSelection();
             ModeRegistry.Save(_builtInOverrides, _customModes);

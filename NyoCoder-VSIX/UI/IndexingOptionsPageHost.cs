@@ -251,7 +251,7 @@ namespace NyoCoder
             set { chkOnSave.Checked = value; }
         }
 
-        public void LoadFromConfig()
+        public override void LoadFromConfig()
         {
             Endpoint = ConfigHandler.GetEmbeddingsEndpointRaw();
             Model = ConfigHandler.GetEmbeddingsModel();
@@ -267,7 +267,7 @@ namespace NyoCoder
             RefreshStatus();
         }
 
-        public void SaveToConfig()
+        public override void SaveToConfig()
         {
             ConfigHandler.SetIndexingMode(Mode);
             ConfigHandler.SetConfigValue("embeddingsEndpoint", Endpoint);

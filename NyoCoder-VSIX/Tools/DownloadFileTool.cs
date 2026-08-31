@@ -91,7 +91,7 @@ namespace NyoCoder
                 args.Append(" ").Append(extraFlags);
             args.Append(" -H \"User-Agent: ").Append(userAgent).Append("\"");
             args.Append(" \"").Append(url).Append("\"");
-            return ToolHandler.ExecuteProcess(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput);
+            return ProcessRunner.RunCommand(CurlClient.GetCurlPath(), args.ToString(), out exitCode, combineErrorOutput);
         }
 
         private static string GetContentTypeFromUrl(string url, out int exitCode)

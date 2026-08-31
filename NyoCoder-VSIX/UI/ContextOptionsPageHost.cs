@@ -108,7 +108,7 @@ namespace NyoCoder
             set { txtMaxOpenFilesInContext.Text = value.ToString(); }
         }
 
-        public void LoadFromConfig()
+        public override void LoadFromConfig()
         {
             AutoRagEnabled = ConfigHandler.GetAutoRagEnabled();
             ContextWindowSize = ConfigHandler.ContextWindowSize;
@@ -116,7 +116,7 @@ namespace NyoCoder
             MaxOpenFilesInContext = ConfigHandler.MaxOpenFilesInContext;
         }
 
-        public void SaveToConfig()
+        public override void SaveToConfig()
         {
             ConfigHandler.SetAutoRagEnabled(AutoRagEnabled);
             ConfigHandler.SetContextWindowSize(ContextWindowSize);

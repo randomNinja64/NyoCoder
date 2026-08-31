@@ -281,7 +281,7 @@ namespace NyoCoder
                 string stdinData = stdinPayload.ToString(Formatting.None);
 
                 int exitCode;
-                return ToolHandler.ExecuteProcess(
+                return ProcessRunner.RunCommand(
                     executablePath,
                     commandName,
                     out exitCode,
@@ -379,7 +379,7 @@ namespace NyoCoder
 
                 string stdinData = stdinPayload.ToString(Formatting.None);
 
-                string output = ToolHandler.ExecuteProcess(
+                string output = ProcessRunner.RunCommand(
                     def.ExecutablePath,
                     toolName,
                     out exitCode,

@@ -140,14 +140,14 @@ namespace NyoCoder
             numWaitSeconds.Enabled = intelliSense;
         }
 
-        public void LoadFromConfig()
+        public override void LoadFromConfig()
         {
             Mode = ConfigHandler.GetBuildErrorCheckMode();
             WaitSeconds = ConfigHandler.GetBuildErrorCheckWaitSeconds();
             MaxAttempts = ConfigHandler.GetBuildErrorFixMaxAttempts();
         }
 
-        public void SaveToConfig()
+        public override void SaveToConfig()
         {
             ConfigHandler.SetBuildErrorCheckMode(Mode);
             ConfigHandler.SetBuildErrorCheckWaitSeconds(WaitSeconds);

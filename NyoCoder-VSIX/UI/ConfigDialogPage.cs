@@ -6,11 +6,10 @@ namespace NyoCoder
     /// <summary>
     /// Base class for options pages that host a WinForms UserControl.
     /// Handles the lazy-creation lifecycle, config reload on open, and save/reload on close.
-    /// Subclasses implement <see cref="CreateHost"/>, <see cref="UpdateHostFromConfig"/>,
-    /// and <see cref="SaveHostToConfig"/> to define page-specific UI binding.
+    /// Override <see cref="CreateHost"/> when the host needs custom wiring (e.g. event handlers).
     /// </summary>
     public abstract class ConfigDialogPage<THost> : DialogPage
-        where THost : Control
+        where THost : OptionsPageHostBase, new()
     {
         private THost _host;
 
@@ -46,12 +45,23 @@ namespace NyoCoder
         }
 
         /// <summary>Creates and returns the WinForms host control for this page.</summary>
-        protected abstract THost CreateHost();
+        protected virtual THost CreateHost()
+        {
+            return new THost();
+        }
 
         /// <summary>Pushes current config values into the host control.</summary>
-        protected abstract void UpdateHostFromConfig();
+        protected virtual void UpdateHostFromConfig()
+        {
+            if (Host != null)
+                Host.LoadFromConfig();
+        }
 
         /// <summary>Reads values from the host control and writes them to ConfigHandler.</summary>
-        protected abstract void SaveHostToConfig();
+        protected virtual void SaveHostToConfig()
+        {
+            if (Host != null)
+                Host.SaveToConfig();
+        }
     }
 }

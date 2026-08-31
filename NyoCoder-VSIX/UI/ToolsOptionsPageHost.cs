@@ -188,7 +188,7 @@ namespace NyoCoder
             }
         }
 
-        public void LoadFromConfig()
+        public override void LoadFromConfig()
         {
             ApplyFromConfig(ConfigHandler.GetDisabledTools(), ConfigHandler.GetToolsRequiringApproval());
             var toolOpts = new Dictionary<string, string>(ExternalToolRegistry.GetOptionDefaults(), StringComparer.OrdinalIgnoreCase);
@@ -197,7 +197,7 @@ namespace NyoCoder
             SetToolOptions(toolOpts);
         }
 
-        public void SaveToConfig()
+        public override void SaveToConfig()
         {
             List<string> disabled, approval;
             ReadToConfig(out disabled, out approval);

@@ -1,6 +1,5 @@
 using Newtonsoft.Json.Linq;
 using System;
-using System.Diagnostics;
 using System.Text;
 using System.Collections.Generic;
 using System.IO;
@@ -298,80 +297,12 @@ public static class ToolHandler
         return value;
     }
 
-    public static string ExecuteProcess(string fileName, string arguments, out int exitCode, bool combineErrorOutput = true, int timeoutMilliseconds = -1, string stdinData = null, string workingDirectory = null)
+    // Runs shell commands on the OS
+    private static string RunShellCommand(string command, out int exitCode)
     {
-        try
-        {
-            ProcessStartInfo psi = new ProcessStartInfo
-            {
-                FileName = fileName,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                RedirectStandardInput = stdinData != null,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8
-            };
-
-            if (!string.IsNullOrEmpty(workingDirectory))
-                psi.WorkingDirectory = workingDirectory;
-
-            using (System.Diagnostics.Process process = System.Diagnostics.Process.Start(psi))
-            {
-                // Write stdin synchronously before reading; the payload is small so it fits
-                // in the pipe buffer without risk of deadlock.
-                if (stdinData != null)
-                {
-                    process.StandardInput.Write(stdinData);
-                    process.StandardInput.Close();
-                }
-
-                // Read stdout and stderr concurrently to avoid pipe-buffer deadlocks
-                // on processes that write large amounts of output.
-                string output = "";
-                string error = "";
-
-                System.Threading.Thread outThread = new System.Threading.Thread(() => { output = process.StandardOutput.ReadToEnd(); });
-                System.Threading.Thread errThread = new System.Threading.Thread(() => { error = process.StandardError.ReadToEnd(); });
-                outThread.IsBackground = true;
-                errThread.IsBackground = true;
-                outThread.Start();
-                errThread.Start();
-
-                if (timeoutMilliseconds > 0)
-                {
-                    if (!process.WaitForExit(timeoutMilliseconds))
-                    {
-                        try { process.Kill(); } catch { }
-                        process.WaitForExit();
-                        exitCode = -1;
-                        throw new TimeoutException(string.Format("Process '{0}' timed out after {1} seconds.", fileName, timeoutMilliseconds / 1000));
-                    }
-                }
-                else
-                {
-                    process.WaitForExit();
-                }
-
-                outThread.Join();
-                errThread.Join();
-
-                exitCode = process.ExitCode;
-                if (combineErrorOutput && !string.IsNullOrEmpty(error))
-                    return output + error;
-                return output;
-            }
-        }
-        catch (Exception ex)
-        {
-            exitCode = -1;
-            throw new InvalidOperationException("Failed to execute " + fileName + ": " + ex.Message, ex);
-        }
+        return ProcessRunner.RunCommand("cmd.exe", "/s /c " + command, out exitCode);
     }
 
-    // Extracts a string value from a pre-parsed JObject.
     private static string JsonExtractString(JObject obj, string key)
     {
         if (obj == null || string.IsNullOrEmpty(key))
@@ -394,12 +325,6 @@ public static class ToolHandler
             return token.Type == JTokenType.String ? token.Value<string>() ?? "" : token.ToString();
 
         return "";
-    }
-
-    // Runs shell commands on the OS
-    private static string RunShellCommand(string command, out int exitCode)
-    {
-        return ExecuteProcess("cmd.exe", "/s /c " + command, out exitCode);
     }
 
     public static string FormatCommandResult(string command, string output, int exitCode)

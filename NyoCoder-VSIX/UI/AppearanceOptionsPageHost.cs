@@ -105,7 +105,7 @@ namespace NyoCoder
             set { SelectDisplayMode(cboToolOutputDisplay, value); }
         }
 
-        public void LoadFromConfig()
+        public override void LoadFromConfig()
         {
             MarkdownParsing = ConfigHandler.GetMarkdownParsing();
             ThinkingDisplayMode = ConfigHandler.GetThinkingDisplayMode();
@@ -113,7 +113,7 @@ namespace NyoCoder
             ToolOutputDisplayMode = ConfigHandler.GetToolOutputDisplayMode();
         }
 
-        public void SaveToConfig()
+        public override void SaveToConfig()
         {
             ConfigHandler.SetMarkdownParsing(MarkdownParsing);
             ConfigHandler.SetThinkingDisplayMode(ThinkingDisplayMode);

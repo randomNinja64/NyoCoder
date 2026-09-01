@@ -30,6 +30,7 @@ namespace NyoCoder
             public string Type;
             public string Description;
             public bool Required;
+            public JObject Items;
         }
 
         public struct ExternalToolDefinition
@@ -185,7 +186,8 @@ namespace NyoCoder
                             Name = (string)paramObj["name"] ?? "",
                             Type = (string)paramObj["type"] ?? "string",
                             Description = (string)paramObj["description"] ?? "",
-                            Required = isRequired
+                            Required = isRequired,
+                            Items = paramObj["items"] as JObject
                         });
                     }
                 }
@@ -318,6 +320,8 @@ namespace NyoCoder
                     JObject propObj = new JObject();
                     propObj["type"] = param.Type;
                     propObj["description"] = param.Description;
+                    if (param.Items != null)
+                        propObj["items"] = param.Items;
                     props[param.Name] = propObj;
                     if (param.Required)
                         required.Add(param.Name);

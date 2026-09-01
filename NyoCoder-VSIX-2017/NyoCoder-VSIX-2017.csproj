@@ -93,11 +93,11 @@
     <None Include="..\NyoCoder-VSIX\Key.snk" Link="Key.snk" />
   </ItemGroup>
 
-  <!-- VSCT bitmaps and package icon — linked from NyoCoder-VSIX (no local copies) -->
+  <!-- VSCT bitmaps and package icon -->
   <ItemGroup>
-    <None Include="..\NyoCoder-VSIX\Resources\Images_24bit.bmp" Link="Resources\Images_24bit.bmp" />
-    <None Include="..\NyoCoder-VSIX\Resources\Images_32bit.bmp" Link="Resources\Images_32bit.bmp" />
-    <Content Include="..\NyoCoder-VSIX\Resources\Package.ico" Link="Resources\Package.ico">
+    <None Include="Resources\Images_24bit.bmp" />
+    <None Include="Resources\Images_32bit.bmp" />
+    <Content Include="Resources\Package.ico">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="..\LICENSE.rtf" Link="LICENSE.rtf">

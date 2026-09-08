@@ -15,7 +15,8 @@ namespace NyoCoder
     /// Invocation protocol (identical to SimpleLLMChat):
     ///   1. Spawn: <executable> <tool_name>
     ///   2. Write UTF-8 JSON to stdin: { "config": {...}, "arguments": {...} }
-    ///   3. Read stdout as the tool result; stderr is appended if non-empty.
+    ///   3. Read stdout as JSON result { "text", "image"? }; plain text on parse failure.
+    ///      stderr is appended to the parse input if non-empty.
     ///
     /// Context injectors (optional manifest field "context_injector"):
     ///   1. Spawn: <executable> <context_injector>
@@ -283,13 +284,19 @@ namespace NyoCoder
                 string stdinData = stdinPayload.ToString(Formatting.None);
 
                 int exitCode;
-                return ProcessRunner.RunCommand(
+                string raw = ProcessRunner.RunCommand(
                     executablePath,
                     commandName,
                     out exitCode,
                     combineErrorOutput: false,
                     stdinData: stdinData,
                     workingDirectory: Path.GetDirectoryName(executablePath));
+
+                string text;
+                string imageBase64;
+                string imageMime;
+                ToolHandler.ParseToolStdout(raw, out text, out imageBase64, out imageMime);
+                return text;
             }
             catch
             {
@@ -351,8 +358,18 @@ namespace NyoCoder
         /// </summary>
         public static void ExecuteToolCall(string toolName, string arguments, out string toolContent, out int exitCode)
         {
+            string imageBase64;
+            string imageMime;
+            ExecuteToolCall(toolName, arguments, out toolContent, out exitCode, out imageBase64, out imageMime);
+        }
+
+        public static void ExecuteToolCall(string toolName, string arguments, out string toolContent, out int exitCode,
+            out string imageBase64, out string imageMime)
+        {
             toolContent = "";
             exitCode = 0;
+            imageBase64 = null;
+            imageMime = null;
 
             EnsureLoaded();
 
@@ -391,7 +408,9 @@ namespace NyoCoder
                     stdinData: stdinData,
                     workingDirectory: Path.GetDirectoryName(def.ExecutablePath));
 
-                toolContent = ToolHandler.FormatCommandResult(toolName, output, exitCode);
+                string text;
+                ToolHandler.ParseToolStdout(output, out text, out imageBase64, out imageMime);
+                toolContent = ToolHandler.FormatCommandResult(toolName, text, exitCode);
             }
             catch (Exception ex)
             {

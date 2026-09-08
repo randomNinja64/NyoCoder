@@ -82,8 +82,8 @@ namespace NyoCoder
 
                 string output = "";
                 string error = "";
-                Thread outThread = new Thread(() => { output = process.StandardOutput.ReadToEnd(); });
-                Thread errThread = new Thread(() => { error = process.StandardError.ReadToEnd(); });
+                Thread outThread = new Thread(() => { try { output = process.StandardOutput.ReadToEnd(); } catch { } });
+                Thread errThread = new Thread(() => { try { error = process.StandardError.ReadToEnd(); } catch { } });
                 outThread.IsBackground = true;
                 errThread.IsBackground = true;
                 outThread.Start();
@@ -106,8 +106,19 @@ namespace NyoCoder
                     process.WaitForExit();
                 }
 
-                outThread.Join();
-                errThread.Join();
+                // GUI apps launched via `start` inherit redirected pipe handles and
+                // would otherwise keep ReadToEnd blocked until those apps close.
+                const int pipeDrainTimeoutMs = 2000;
+                if (!outThread.Join(pipeDrainTimeoutMs))
+                {
+                    try { process.StandardOutput.Close(); } catch { }
+                }
+                if (!errThread.Join(pipeDrainTimeoutMs))
+                {
+                    try { process.StandardError.Close(); } catch { }
+                }
+                outThread.Join(500);
+                errThread.Join(500);
 
                 return new ProcessRunResult
                 {

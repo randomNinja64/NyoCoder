@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -8,7 +10,7 @@ using Microsoft.VisualStudio.Shell;
 namespace NyoCoder
 {
     /// <summary>
-    /// One chat output block (user, assistant, tool, etc.) backed by its own FlowDocument.
+    /// Text-backed chat output with a releasable document and per-block display state.
     /// </summary>
     public class ChatTurn
     {
@@ -38,6 +40,7 @@ namespace NyoCoder
         /// </summary>
         internal sealed class CollapsibleBlockState
         {
+            public ContentRecord Record;
             public bool Active;
             public string Name;
             public CollapsibleBlockKind Kind;
@@ -55,7 +58,114 @@ namespace NyoCoder
             }
         }
 
-        public FlowDocument Document { get; private set; }
+        internal sealed class ContentRecord
+        {
+            public CollapsibleBlockKind? Kind;
+            public string Name;
+            public bool Expanded;
+            public int DurationSeconds;
+            public StringBuilder Buffer = new StringBuilder();
+            public string Text;
+            public string GetText() { return Text ?? Buffer.ToString(); }
+        }
+
+        private readonly List<ContentRecord> _content = new List<ContentRecord>();
+        private FlowDocument _document;
+        private ContentRecord _restoringRecord;
+        private bool _restoring;
+        private bool _completed;
+        private bool _viewActive = true;
+        private bool _markdown;
+        private double _fontSize = 12;
+        private double _pageWidth = double.NaN;
+        public bool IsCompleted { get { return _completed; } }
+        public bool HasDocument { get { return _document != null; } }
+
+        public FlowDocument Document
+        {
+            get
+            {
+                if (_document == null)
+                {
+                    _document = CreateDocument();
+                    MarkdownProcessedBlockCount = 0;
+                    _restoring = true;
+                    try
+                    {
+                        foreach (ContentRecord record in _content)
+                        {
+                            if (record.Kind.HasValue)
+                            {
+                                _restoringRecord = record;
+                                StartCollapsibleBlock(record.Name, record.Kind.Value);
+                                _activeBlock.BodyText.Text = record.GetText();
+                                EndCollapsibleBlock();
+                            }
+                            else AppendPlain(record.GetText());
+                        }
+                        TrimTrailingBlankParagraphs();
+                    }
+                    finally { _restoring = false; _restoringRecord = null; }
+                    if (_markdown) ProcessMarkdown();
+                }
+                return _document;
+            }
+        }
+
+        private FlowDocument CreateDocument()
+        {
+            FlowDocument document = new FlowDocument
+            {
+                PagePadding = new Thickness(0), FontSize = _fontSize, PageWidth = _pageWidth
+            };
+            document.SetResourceReference(FlowDocument.ForegroundProperty, VsBrushes.WindowTextKey);
+            return document;
+        }
+
+        public void Complete()
+        {
+            if (_completed) return;
+            TrimTrailingBlankParagraphs();
+            foreach (ContentRecord record in _content)
+            {
+                record.Text = record.Buffer.ToString();
+                record.Buffer = null;
+            }
+            _completed = true;
+        }
+
+        public void ProcessMarkdown()
+        {
+            _markdown = true;
+            if (_document != null)
+                MarkdownHandler.ProcessMarkdown(_document, ref MarkdownProcessedBlockCount);
+        }
+
+        public void ApplyFontSize(double size)
+        {
+            _fontSize = size;
+            if (_document != null) _document.FontSize = size;
+        }
+
+        public void SetPageWidth(double width)
+        {
+            _pageWidth = width;
+            if (_document != null) _document.PageWidth = width;
+        }
+
+        public void ReleaseDocument()
+        {
+            if (!_completed || _document == null || _document.Parent != null) return;
+            _document = null;
+        }
+
+        public void SetViewActive(bool active)
+        {
+            _viewActive = active;
+            if (_activeBlock == null) return;
+            if (active && _activeBlock.Collapsed) StartEllipsisTimer(_activeBlock);
+            else StopEllipsisTimer(_activeBlock);
+        }
 
         /// <summary>
         /// Block index already processed by MarkdownHandler for this turn's document.
@@ -69,14 +179,12 @@ namespace NyoCoder
 
         public ChatTurn()
         {
-            Document = new FlowDocument
-            {
-                PagePadding = new Thickness(0)
-            };
+            _document = CreateDocument();
         }
 
         public void AppendText(string text)
         {
+            if (_completed) throw new InvalidOperationException("Cannot append to a completed turn.");
             if (string.IsNullOrEmpty(text))
                 return;
 
@@ -140,12 +248,12 @@ namespace NyoCoder
                     int closeLength;
                     if (!TryFindTag(remaining, CollapsibleCloseTags, out closeIndex, out closeLength))
                     {
-                        _activeBlock.BodyText.Text += remaining;
+                        AppendBody(remaining);
                         break;
                     }
 
                     if (closeIndex > 0)
-                        _activeBlock.BodyText.Text += remaining.Substring(0, closeIndex);
+                        AppendBody(remaining.Substring(0, closeIndex));
 
                     EndCollapsibleBlock();
                     remaining = remaining.Substring(closeIndex + closeLength).TrimStart('\r', '\n');
@@ -161,6 +269,7 @@ namespace NyoCoder
             if (_activeBlock != null)
                 EndCollapsibleBlock();
 
+            bool removed = false;
             while (Document.Blocks.Count > 1)
             {
                 Paragraph paragraph = Document.Blocks.LastBlock as Paragraph;
@@ -172,6 +281,25 @@ namespace NyoCoder
                     break;
 
                 Document.Blocks.Remove(paragraph);
+                removed = true;
+            }
+            if (removed && !_restoring && _content.Count != 0)
+            {
+                ContentRecord last = _content[_content.Count - 1];
+                if (!last.Kind.HasValue && last.Buffer != null)
+                {
+                    string source = last.Buffer.ToString();
+                    int end = source.Length;
+                    while (end > 0)
+                    {
+                        int start = end;
+                        while (start > 0 && source[start - 1] != '\r' && source[start - 1] != '\n') start--;
+                        if (source.Substring(start, end - start).Trim().Length != 0) break;
+                        end = start;
+                        while (end > 0 && (source[end - 1] == '\r' || source[end - 1] == '\n')) end--;
+                    }
+                    last.Buffer.Length = end;
+                }
             }
         }
 
@@ -180,7 +308,23 @@ namespace NyoCoder
             if (string.IsNullOrEmpty(text))
                 return;
 
+            if (!_restoring)
+            {
+                ContentRecord record = _content.Count == 0 ? null : _content[_content.Count - 1];
+                if (record == null || record.Kind.HasValue)
+                {
+                    record = new ContentRecord();
+                    _content.Add(record);
+                }
+                record.Buffer.Append(text);
+            }
             new TextRange(Document.ContentEnd, Document.ContentEnd).Text = text;
+        }
+
+        private void AppendBody(string text)
+        {
+            _activeBlock.Record.Buffer.Append(text);
+            _activeBlock.BodyText.Text += text;
         }
 
         private void StartCollapsibleBlock(string name, CollapsibleBlockKind kind)
@@ -196,11 +340,17 @@ namespace NyoCoder
 
             ChatBlockDisplayMode mode = GetDisplayMode(kind);
             // Shown and Hidden (name-only tool call) start expanded; Collapsed does not.
-            bool expandByDefault = mode != ChatBlockDisplayMode.Collapsed;
+            bool expandByDefault = _restoring ? _restoringRecord.Expanded : mode != ChatBlockDisplayMode.Collapsed;
+            ContentRecord record = _restoring ? _restoringRecord : new ContentRecord
+            {
+                Kind = kind, Name = name, Expanded = expandByDefault
+            };
+            if (!_restoring) _content.Add(record);
 
             var state = new CollapsibleBlockState
             {
-                Active = true,
+                Record = record,
+                Active = !_restoring,
                 Name = name,
                 Kind = kind,
                 EllipsisCount = 1,
@@ -238,7 +388,7 @@ namespace NyoCoder
             _activeBlock = state;
             state.HeaderLabel.Text = BuildLabelText(state);
 
-            if (state.Collapsed)
+            if (_viewActive && state.Active && state.Collapsed)
                 StartEllipsisTimer(state);
         }
 
@@ -262,7 +412,9 @@ namespace NyoCoder
                 return;
 
             state.Active = false;
-            state.DurationSeconds = Math.Max(0, (int)Math.Round((DateTime.UtcNow - state.StartedUtc).TotalSeconds));
+            state.DurationSeconds = _restoring ? state.Record.DurationSeconds
+                : Math.Max(0, (int)Math.Round((DateTime.UtcNow - state.StartedUtc).TotalSeconds));
+            state.Record.DurationSeconds = state.DurationSeconds;
             _activeBlock = null;
             StopEllipsisTimer(state);
             state.HeaderLabel.Text = BuildLabelText(state);
@@ -278,6 +430,7 @@ namespace NyoCoder
             if (state == null)
                 return;
 
+            state.Record.Expanded = true;
             StopEllipsisTimer(state);
             state.HeaderLabel.Text = BuildLabelText(state);
         }
@@ -289,7 +442,8 @@ namespace NyoCoder
             if (state == null)
                 return;
 
-            if (state.Active)
+            state.Record.Expanded = false;
+            if (_viewActive && state.Active)
                 StartEllipsisTimer(state);
             else
                 state.HeaderLabel.Text = BuildLabelText(state);

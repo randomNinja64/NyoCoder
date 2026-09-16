@@ -230,6 +230,7 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\ChatTurn.cs" />
+    <Compile Include="UI\ChatTurnView.cs" />
     <Compile Include="UI\ChatMessageDocumentBehavior.cs" />
     <Compile Include="UI\MarkdownHandler.cs" />
     <Compile Include="UI\ModelChooserDialog.cs">

@@ -175,7 +175,7 @@ namespace NyoCoder
             if (_currentTurn == null)
                 return;
 
-            _currentTurn.TrimTrailingBlankParagraphs();
+            _currentTurn.Complete();
             _currentTurn = null;
         }
 
@@ -211,9 +211,7 @@ namespace NyoCoder
             {
                 foreach (ChatTurn turn in _chatTurns)
                 {
-                    MarkdownHandler.ProcessMarkdown(
-                        turn.Document,
-                        ref turn.MarkdownProcessedBlockCount);
+                    turn.ProcessMarkdown();
                 }
             }, Dispatcher);
         }
@@ -225,6 +223,7 @@ namespace NyoCoder
         {
             EditorService.InvokeOnUIThread(() =>
             {
+                StartOutputBlockInternal();
                 _chatTurns.Clear();
                 _currentTurn = null;
                 _tokenTracker.Reset();
@@ -274,9 +273,7 @@ namespace NyoCoder
         {
             ChatTurn turn = new ChatTurn();
             if (ChatList.FontSize > 0)
-                turn.Document.FontSize = ChatList.FontSize;
-            if (ChatList.Foreground != null)
-                turn.Document.Foreground = ChatList.Foreground;
+                turn.ApplyFontSize(ChatList.FontSize);
             ApplyDocumentPageWidth(turn);
             _chatTurns.Add(turn);
             return turn;
@@ -286,6 +283,7 @@ namespace NyoCoder
         {
             ChatTurn welcome = AddTurn();
             welcome.AppendText(WelcomeMessage);
+            welcome.Complete();
             // Welcome is not an open streaming turn — next StartBlock/Write opens a fresh one.
             _currentTurn = null;
         }
@@ -305,7 +303,7 @@ namespace NyoCoder
                 - SystemParameters.VerticalScrollBarWidth
                 - 16;
             if (width > 50)
-                turn.Document.PageWidth = width;
+                turn.SetPageWidth(width);
         }
 
         private void ScrollChatToEnd()

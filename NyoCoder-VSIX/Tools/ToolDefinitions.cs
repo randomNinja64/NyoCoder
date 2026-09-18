@@ -162,7 +162,7 @@ namespace NyoCoder
                     new Dictionary<string, PropertyInfo>
                     {
                         { "file_path", new PropertyInfo("string", "The full path of the file to read. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                        { "offset", new PropertyInfo("string", "Optional. Line number to start reading from (0-indexed, default: 0). Use this to read different parts of large files. For example, offset " + ConfigHandler.MaxReadLines + " reads lines " + ConfigHandler.MaxReadLines + "-" + (ConfigHandler.MaxReadLines * 2 - 1) + ".") }
+                        { "offset", new PropertyInfo("string", "Line number to start reading from (0-indexed, default: 0). Use this to read different parts of large files. For example, offset " + ConfigHandler.MaxReadLines + " reads lines " + ConfigHandler.MaxReadLines + "-" + (ConfigHandler.MaxReadLines * 2 - 1) + ".") }
                     },
                     new[] { "file_path" }
                 ),
@@ -229,9 +229,9 @@ namespace NyoCoder
                     new Dictionary<string, PropertyInfo>
                     {
                         { "pattern", new PropertyInfo("string", "The regular expression pattern to search for.") },
-                        { "directory_path", new PropertyInfo("string", "Optional. The directory to search in. Defaults to current directory if not specified. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                        { "file_pattern", new PropertyInfo("string", "Optional. File pattern to filter (e.g., '*.cs', '*.py'). Searches all files if not specified.") },
-                        { "case_insensitive", new PropertyInfo("string", "Optional. Set to 'true' for case-insensitive search. Default is case-sensitive.") }
+                        { "directory_path", new PropertyInfo("string", "The directory to search in. Defaults to current directory if not specified. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
+                        { "file_pattern", new PropertyInfo("string", "File pattern to filter (e.g., '*.cs', '*.py'). Searches all files if not specified.") },
+                        { "case_insensitive", new PropertyInfo("string", "Set to 'true' for case-insensitive search. Default is case-sensitive.") }
                     },
                     new[] { "pattern" }
                 ),
@@ -306,8 +306,8 @@ namespace NyoCoder
                     new Dictionary<string, PropertyInfo>
                     {
                         { "name", new PropertyInfo("string", "The existing skill name.") },
-                        { "description", new PropertyInfo("string", "Optional. New description (third person). Truncated to 1024 characters. Omit to leave the current description unchanged.") },
-                        { "instructions", new PropertyInfo("string", "Optional. New markdown body for SKILL.md. Omit to leave current instructions unchanged.") }
+                        { "description", new PropertyInfo("string", "New description (third person). Truncated to 1024 characters. Omit to leave the current description unchanged.") },
+                        { "instructions", new PropertyInfo("string", "New markdown body for SKILL.md. Omit to leave current instructions unchanged.") }
                     },
                     new[] { "name" }
                 ),

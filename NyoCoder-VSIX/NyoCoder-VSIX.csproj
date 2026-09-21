@@ -170,6 +170,8 @@
     <Compile Include="Services\FileScanFilter.cs" />
     <Compile Include="Services\IndexingStatusReporter.cs" />
     <Compile Include="Services\LLMClient.cs" />
+    <Compile Include="Services\LLMClient.Http.cs" />
+    <Compile Include="Services\LLMClient.Request.cs" />
     <Compile Include="Services\SseStreamParser.cs" />
     <Compile Include="Services\MessageDispatcher.cs" />
     <Compile Include="Services\ModeRegistry.cs" />
@@ -179,6 +181,7 @@
     <Compile Include="Services\SymbolExtractor.cs" />
     <Compile Include="Services\SymbolReferenceExtractor.cs" />
     <Compile Include="Services\TextNormalization.cs" />
+    <Compile Include="Services\TlsCurlFallback.cs" />
     <Compile Include="Services\ToolApprovalService.cs" />
     <Compile Include="Services\StepExecutor.cs" />
     <Compile Include="Services\StepPlanner.cs" />
@@ -205,6 +208,9 @@
     <Compile Include="UI\NyoCoder.xaml.cs">
       <DependentUpon>NyoCoder.xaml</DependentUpon>
     </Compile>
+    <Compile Include="UI\NyoCoderControl.Chat.cs" />
+    <Compile Include="UI\NyoCoderControl.Input.cs" />
+    <Compile Include="UI\NyoCoderControl.Modes.cs" />
     <Compile Include="UI\OnboardingWizardForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -230,6 +236,8 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\ChatTurn.cs" />
+    <Compile Include="UI\ChatTurn.Blocks.cs" />
+    <Compile Include="UI\ChatTurn.Tags.cs" />
     <Compile Include="UI\ChatTurnView.cs" />
     <Compile Include="UI\ChatMessageDocumentBehavior.cs" />
     <Compile Include="UI\MarkdownHandler.cs" />
@@ -240,6 +248,12 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\ModesOptionsPageHost.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ModesOptionsPageHost.Editor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ModesOptionsPageHost.Model.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\AppearanceOptionsPageHost.cs">

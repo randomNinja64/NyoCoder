@@ -204,8 +204,7 @@ namespace NyoCoder
                 string httpBody = TryReadWebExceptionBody(ex);
 
                 // curl fallback for HTTPS/TLS failures on legacy .NET 4.0
-                string curlPath = CurlClient.GetCurlPath();
-                if (url.StartsWith("https:", StringComparison.OrdinalIgnoreCase) && File.Exists(curlPath))
+                if (TlsCurlFallback.CanAttempt(url, CurlClient.GetCurlPath(), ex))
                 {
                     int exitCode;
                     string body = CurlClient.PostJson(url, _apiKey, payload, out exitCode);

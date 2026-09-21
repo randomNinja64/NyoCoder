@@ -76,10 +76,7 @@ namespace NyoCoder
             {
                 string httpBody = TryReadWebExceptionBody(ex);
 
-                string curlPath = CurlClient.GetCurlPath();
-                if (url.StartsWith("https:", StringComparison.OrdinalIgnoreCase) &&
-                    File.Exists(curlPath) &&
-                    ShouldFallbackToCurl(ex))
+                if (TlsCurlFallback.CanAttempt(url, CurlClient.GetCurlPath(), ex))
                 {
                     int exitCode;
                     string body = CurlClient.GetJson(url, apiKey, out exitCode);
@@ -137,27 +134,6 @@ namespace NyoCoder
 
             ids.Sort(StringComparer.OrdinalIgnoreCase);
             return ids;
-        }
-
-        private static bool ShouldFallbackToCurl(Exception ex)
-        {
-            WebException webEx = ex as WebException;
-            if (webEx != null)
-                return webEx.Status == WebExceptionStatus.SecureChannelFailure
-                    || webEx.Status == WebExceptionStatus.TrustFailure
-                    || webEx.Status == WebExceptionStatus.ConnectFailure
-                    || webEx.Status == WebExceptionStatus.ConnectionClosed
-                    || webEx.Status == WebExceptionStatus.SendFailure
-                    || webEx.Status == WebExceptionStatus.ReceiveFailure
-                    || webEx.Status == WebExceptionStatus.Timeout
-                    || webEx.Status == WebExceptionStatus.ServerProtocolViolation
-                    || (webEx.InnerException != null &&
-                        webEx.InnerException.GetType().Name.Contains("Authentication"));
-
-            return ex.GetType().Name.Contains("Authentication")
-                || ex.GetType().Name.Contains("Security")
-                || ex.GetType().Name.Contains("IOException")
-                || (ex.Message != null && ex.Message.Contains("connection"));
         }
 
         private static string TryReadWebExceptionBody(Exception ex)

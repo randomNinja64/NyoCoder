@@ -20,7 +20,7 @@ namespace NyoCoder
 
         /// <summary>
         /// Sends a GET request using curl.exe and returns the response body. Used as an HTTPS/TLS
-        /// fallback for endpoints (e.g. /v1/models) where .NET's HttpWebRequest fails on legacy
+        /// fallback for endpoints (e.g. /models) where .NET's HttpWebRequest fails on legacy
         /// .NET 4.0. On failure sets <paramref name="exitCode"/> non-zero and returns diagnostic text.
         /// </summary>
         public static string GetJson(string fullUrl, string apiKey, out int exitCode)
@@ -101,7 +101,7 @@ namespace NyoCoder
                     + " -H \"Content-Type: application/json\""
                     + " -H \"Authorization: Bearer " + apiKey + "\""
                     + " --data-binary \"@\\\\.\\pipe\\" + pipeName + "\""
-                    + " \"" + serverUrl + "/v1/chat/completions\"";
+                    + " \"" + serverUrl + "/chat/completions\"";
 
                 LLMClient.LLMCompletionResponse parsed = default(LLMClient.LLMCompletionResponse);
                 bool parsedReceived = false;

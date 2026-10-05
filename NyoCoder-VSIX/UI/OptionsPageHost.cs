@@ -41,7 +41,7 @@ namespace NyoCoder
 
             this.lblLlmServer = new Label();
             this.lblLlmServer.AutoSize = true;
-            this.lblLlmServer.Text = "LLM Server (OpenAI Compatible):";
+            this.lblLlmServer.Text = "LLM Server (OpenAI Compatible; http(s)://url/v1):";
 
             this.txtLlmServer = new TextBox();
             this.txtLlmServer.Anchor = AnchorStyles.Left | AnchorStyles.Right;

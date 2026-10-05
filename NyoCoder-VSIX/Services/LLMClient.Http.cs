@@ -27,7 +27,7 @@ public partial class LLMClient
                 return completionResponse;
             }
 
-            var request = (HttpWebRequest)WebRequest.Create(llmEndpoint + "/v1/chat/completions");
+            var request = (HttpWebRequest)WebRequest.Create(llmEndpoint + "/chat/completions");
             request.Method = "POST";
             request.ContentType = "application/json";
             request.Headers.Add("Authorization", "Bearer " + apiKey);

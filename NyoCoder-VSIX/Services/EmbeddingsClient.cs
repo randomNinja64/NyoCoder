@@ -18,7 +18,7 @@ namespace NyoCoder
     }
 
     /// <summary>
-    /// Minimal client for an OpenAI-compatible <c>/v1/embeddings</c> endpoint. Mirrors the
+    /// Minimal client for an OpenAI-compatible <c>/embeddings</c> endpoint. Mirrors the
     /// TLS enablement and curl HTTPS fallback used by <see cref="LLMClient"/> so it works on
     /// legacy .NET 4.0 against llama.cpp / LM Studio / etc.
     /// </summary>
@@ -177,7 +177,7 @@ namespace NyoCoder
         private string PostEmbeddings(JObject payload, out string error)
         {
             error = null;
-            string url = _endpoint.TrimEnd('/') + "/v1/embeddings";
+            string url = _endpoint.TrimEnd('/') + "/embeddings";
 
             try
             {

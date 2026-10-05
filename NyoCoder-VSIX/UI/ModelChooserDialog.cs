@@ -6,7 +6,7 @@ using System.Windows.Forms;
 namespace NyoCoder
 {
     /// <summary>
-    /// Dialog that fetches models from an OpenAI-compatible <c>/v1/models</c> endpoint
+    /// Dialog that fetches models from an OpenAI-compatible <c>/models</c> endpoint
     /// and lets the user pick one.
     /// </summary>
     public class ModelChooserDialog : Form

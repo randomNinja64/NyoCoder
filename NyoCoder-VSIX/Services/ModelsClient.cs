@@ -8,7 +8,7 @@ using System.Text;
 namespace NyoCoder
 {
     /// <summary>
-    /// Thrown when listing models from an OpenAI-compatible <c>/v1/models</c> endpoint fails.
+    /// Thrown when listing models from an OpenAI-compatible <c>/models</c> endpoint fails.
     /// </summary>
     public class ModelsException : Exception
     {
@@ -17,7 +17,7 @@ namespace NyoCoder
     }
 
     /// <summary>
-    /// Minimal client for OpenAI-compatible <c>/v1/models</c>. Mirrors the TLS enablement and
+    /// Minimal client for OpenAI-compatible <c>/models</c>. Mirrors the TLS enablement and
     /// curl HTTPS fallback used by <see cref="EmbeddingsClient"/>.
     /// </summary>
     public static class ModelsClient
@@ -33,7 +33,7 @@ namespace NyoCoder
         }
 
         /// <summary>
-        /// Fetches model ids from <c>{baseUrl}/v1/models</c>. Throws <see cref="ModelsException"/>
+        /// Fetches model ids from <c>{baseUrl}/models</c>. Throws <see cref="ModelsException"/>
         /// if the server is unreachable or the response is invalid.
         /// </summary>
         public static IList<string> ListModels(string baseUrl, string apiKey)
@@ -41,7 +41,7 @@ namespace NyoCoder
             if (string.IsNullOrWhiteSpace(baseUrl))
                 throw new ModelsException("LLM server URL is empty.");
 
-            string url = baseUrl.Trim().TrimEnd('/') + "/v1/models";
+            string url = baseUrl.Trim().TrimEnd('/') + "/models";
             string key = apiKey ?? string.Empty;
             string body = GetModelsJson(url, key);
             return ParseModelIds(body);
@@ -83,13 +83,13 @@ namespace NyoCoder
                     if (exitCode == 0 && !string.IsNullOrEmpty(body))
                         return body;
                     throw new ModelsException(
-                        "Unable to reach /v1/models (curl): " + (body ?? httpBody ?? ex.Message),
+                        "Unable to reach /models (curl): " + (body ?? httpBody ?? ex.Message),
                         ex);
                 }
 
                 if (!string.IsNullOrEmpty(httpBody))
-                    throw new ModelsException("Unable to reach /v1/models: " + ex.Message + " — " + httpBody, ex);
-                throw new ModelsException("Unable to reach /v1/models: " + ex.Message, ex);
+                    throw new ModelsException("Unable to reach /models: " + ex.Message + " — " + httpBody, ex);
+                throw new ModelsException("Unable to reach /models: " + ex.Message, ex);
             }
         }
 

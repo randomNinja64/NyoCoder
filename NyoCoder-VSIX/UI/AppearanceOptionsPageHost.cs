@@ -51,16 +51,16 @@ namespace NyoCoder
             };
             cboToolOutputDisplay = MakeDisplayModeCombo();
 
-            AddRow(MakeSectionTitle("Chat:"), new Padding(0, 0, 0, 8), false);
+            AddRow(MakeSectionTitle("Chat"), new Padding(0, 0, 0, 12), false);
             AddRow(chkMarkdownParsing, new Padding(0, 0, 0, 12), true);
 
-            AddRow(MakeSectionTitle("Thinking:"), new Padding(0, 0, 0, 8), false);
+            AddRow(MakeSectionTitle("Thinking"), new Padding(0, 0, 0, 12), false);
             AddRow(lblThinkingDisplay, new Padding(0, 0, 0, 4), true);
             AddRow(cboThinkingDisplay, new Padding(0, 0, 0, 12), false);
 
-            AddRow(MakeSectionTitle("Tools:"), new Padding(0, 0, 0, 8), false);
+            AddRow(MakeSectionTitle("Tools"), new Padding(0, 0, 0, 12), false);
             AddRow(lblToolCallDisplay, new Padding(0, 0, 0, 4), true);
-            AddRow(cboToolCallDisplay, new Padding(0, 0, 0, 8), false);
+            AddRow(cboToolCallDisplay, new Padding(0, 0, 0, 12), false);
             AddRow(lblToolOutputDisplay, new Padding(0, 0, 0, 4), true);
             AddRow(cboToolOutputDisplay, new Padding(0, 0, 0, 0), false);
 

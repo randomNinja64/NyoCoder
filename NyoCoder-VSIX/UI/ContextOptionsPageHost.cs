@@ -48,7 +48,7 @@ namespace NyoCoder
             this.txtMaxOpenFilesInContext = new TextBox();
             this.txtMaxOpenFilesInContext.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
-            AddRow(MakeSectionTitle("Context:"), new Padding(0, 0, 0, 12), false);
+            AddRow(MakeSectionTitle("Context"), new Padding(0, 0, 0, 12), false);
             AddRow(this.lblContextWindowSize, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtContextWindowSize, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblMaxReadLines, new Padding(0, 0, 0, 4), true);

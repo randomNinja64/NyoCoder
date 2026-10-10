@@ -78,7 +78,7 @@ namespace NyoCoder
             this.txtUserAgent = new TextBox();
             this.txtUserAgent.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
-            AddRow(MakeSectionTitle("Web Search:"), new Padding(0, 0, 0, 12), false);
+            AddRow(MakeSectionTitle("Web Search"), new Padding(0, 0, 0, 12), false);
             AddRow(this.lblMaxLinks, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtMaxLinks, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblMaxSearchResults, new Padding(0, 0, 0, 4), true);

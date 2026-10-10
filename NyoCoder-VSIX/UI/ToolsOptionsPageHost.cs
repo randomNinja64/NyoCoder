@@ -62,7 +62,7 @@ namespace NyoCoder
 
             List<string> allTools = BuildAllToolNames(packages);
 
-            AddRow(MakeSectionTitle("Tools:"), new Padding(0, 0, 0, 8), false);
+            AddRow(MakeSectionTitle("Tools"), new Padding(0, 0, 0, 12), false);
             AddRow(MakeFieldLabel("Max consecutive tool failures (0 = off):"), new Padding(0, 0, 0, 4), true);
             _maxConsecutiveFailures = new NumericUpDown();
             _maxConsecutiveFailures.Minimum = 0;
@@ -73,7 +73,7 @@ namespace NyoCoder
             _toolList = MakeToolCheckList(allTools, defaultChecked: true);
             AddRow(_toolList, new Padding(0, 0, 0, 12), false);
 
-            AddRow(MakeSectionTitle("Tools Requiring Approval:"), new Padding(0, 0, 0, 8), false);
+            AddRow(MakeSectionTitle("Tools Requiring Approval:"), new Padding(0, 0, 0, 12), false);
             _approvalList = MakeToolCheckList(allTools, defaultChecked: false);
             AddRow(_approvalList, new Padding(0, 0, 0, 12), false);
 
@@ -83,14 +83,14 @@ namespace NyoCoder
                 if (pkg.Options.Count == 0)
                     continue;
 
-                AddRow(MakeSectionTitle(pkg.DisplayName + ":"), new Padding(0, 4, 0, 8), false);
+                AddRow(MakeSectionTitle(pkg.DisplayName + ":"), new Padding(0, 0, 0, 12), false);
 
                 foreach (ExternalToolRegistry.OptionDefinition opt in pkg.Options)
                 {
                     if (opt.Type == "bool")
                     {
                         CheckBox cb = MakeCheckBox(opt.Label);
-                        AddRow(cb, new Padding(0, 0, 0, 8), true);
+                        AddRow(cb, new Padding(0, 0, 0, 12), true);
                         _optionControls[opt.Name] = cb;
                     }
                     else
@@ -109,7 +109,7 @@ namespace NyoCoder
                 lblHint.AutoSize = true;
                 lblHint.ForeColor = SystemColors.GrayText;
                 lblHint.Text = "Drop external tool packages into: " + ExternalToolRegistry.ToolsDirectory;
-                AddRow(lblHint, new Padding(0, 8, 0, 0), true);
+                AddRow(lblHint, new Padding(0, 0, 0, 0), true);
             }
 
             this.layout.ResumeLayout(true);

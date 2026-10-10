@@ -149,32 +149,32 @@ namespace NyoCoder
             chkOnSolutionOpen = new CheckBox { AutoSize = true, Text = "Index on solution open" };
             chkOnSave = new CheckBox { AutoSize = true, Text = "Re-index changed files on save" };
 
-            AddRow(MakeSectionTitle("Indexing:"), new Padding(0, 0, 0, 12), false);
+            AddRow(MakeSectionTitle("Indexing"), new Padding(0, 0, 0, 12), false);
 
-            AddRow(MakeSectionTitle("Mode:"), new Padding(0, 0, 0, 4), false);
+            AddRow(MakeSectionTitle("Mode:"), new Padding(0, 0, 0, 12), false);
             AddRow(modePanel, new Padding(0, 0, 0, 12), false);
 
-            AddRow(MakeSectionTitle("Embeddings:"), new Padding(0, 0, 0, 4), false);
+            AddRow(MakeSectionTitle("Embeddings:"), new Padding(0, 0, 0, 12), false);
             AddRow(lblEndpoint, new Padding(0, 0, 0, 4), true);
-            AddRow(txtEndpoint, new Padding(0, 0, 0, 8), false);
+            AddRow(txtEndpoint, new Padding(0, 0, 0, 12), false);
             AddRow(lblModel, new Padding(0, 0, 0, 4), true);
-            AddRow(modelRow, new Padding(0, 0, 0, 8), false);
+            AddRow(modelRow, new Padding(0, 0, 0, 12), false);
             AddRow(lblApiKey, new Padding(0, 0, 0, 4), true);
-            AddRow(txtApiKey, new Padding(0, 0, 0, 8), false);
+            AddRow(txtApiKey, new Padding(0, 0, 0, 12), false);
             AddRow(lblChunkLines, new Padding(0, 0, 0, 4), true);
-            AddRow(numChunkLines, new Padding(0, 0, 0, 8), false);
+            AddRow(numChunkLines, new Padding(0, 0, 0, 12), false);
             AddRow(lblMaxChars, new Padding(0, 0, 0, 4), true);
-            AddRow(numMaxChars, new Padding(0, 0, 0, 8), false);
+            AddRow(numMaxChars, new Padding(0, 0, 0, 12), false);
             AddRow(lblMaxChunksTotal, new Padding(0, 0, 0, 4), true);
             AddRow(numMaxChunksTotal, new Padding(0, 0, 0, 12), false);
 
-            AddRow(MakeSectionTitle("Status:"), new Padding(0, 0, 0, 4), false);
+            AddRow(MakeSectionTitle("Status:"), new Padding(0, 0, 0, 12), false);
             AddRow(lblStatusBrief, new Padding(0, 0, 0, 4), true);
-            AddRow(lblStatusDetail, new Padding(0, 0, 0, 8), true);
+            AddRow(lblStatusDetail, new Padding(0, 0, 0, 12), true);
             AddRow(buttonPanel, new Padding(0, 0, 0, 12), false);
 
-            AddRow(MakeSectionTitle("When to index:"), new Padding(0, 0, 0, 4), false);
-            AddRow(chkOnSolutionOpen, new Padding(0, 0, 0, 4), true);
+            AddRow(MakeSectionTitle("When to index:"), new Padding(0, 0, 0, 12), false);
+            AddRow(chkOnSolutionOpen, new Padding(0, 0, 0, 12), true);
             AddRow(chkOnSave, new Padding(0, 0, 0, 0), true);
 
             this.ResumeLayout(false);

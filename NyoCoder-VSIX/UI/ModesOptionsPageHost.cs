@@ -103,7 +103,7 @@ namespace NyoCoder
 
         private void BuildContent()
         {
-            AddRow(MakeSectionTitle("Modes"), new Padding(0, 0, 0, 8), false);
+            AddRow(MakeSectionTitle("Modes"), new Padding(0, 0, 0, 12), false);
 
             TableLayoutPanel mainPanel = new TableLayoutPanel();
             mainPanel.ColumnCount = 2;
@@ -182,7 +182,7 @@ namespace NyoCoder
             _editorLayout.Controls.Add(_toolList, 0, 5);
 
             mainPanel.Controls.Add(_editorLayout, 1, 0);
-            AddRow(mainPanel, new Padding(0, 0, 0, 8), false);
+            AddRow(mainPanel, new Padding(0, 0, 0, 12), false);
 
             FlowLayoutPanel buttons = new FlowLayoutPanel();
             buttons.AutoSize = true;

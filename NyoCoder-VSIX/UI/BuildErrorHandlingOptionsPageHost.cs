@@ -74,13 +74,13 @@ namespace NyoCoder
                 Width = 100
             };
 
-            AddRow(MakeSectionTitle("Build Error Handling"), new Padding(0, 0, 0, 8), false);
+            AddRow(MakeSectionTitle("Build Error Handling"), new Padding(0, 0, 0, 12), false);
 
-            AddRow(MakeSectionTitle("Detection mode:"), new Padding(0, 0, 0, 4), false);
+            AddRow(MakeSectionTitle("Detection mode:"), new Padding(0, 0, 0, 12), false);
             AddRow(modePanel, new Padding(0, 0, 0, 12), false);
 
             AddRow(lblWaitSeconds, new Padding(0, 0, 0, 4), true);
-            AddRow(numWaitSeconds, new Padding(0, 0, 0, 8), false);
+            AddRow(numWaitSeconds, new Padding(0, 0, 0, 12), false);
             AddRow(lblMaxAttempts, new Padding(0, 0, 0, 4), true);
             AddRow(numMaxAttempts, new Padding(0, 0, 0, 0), false);
 

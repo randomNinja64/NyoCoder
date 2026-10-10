@@ -86,7 +86,7 @@ namespace NyoCoder
             foreach (string option in ReasoningEffortOptions)
                 this.cboReasoningEffort.Items.Add(option);
 
-            AddRow(MakeSectionTitle("Options:"), new Padding(0, 0, 0, 12), false);
+            AddRow(MakeSectionTitle("Options"), new Padding(0, 0, 0, 12), false);
             AddRow(this.lblApiKey, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtApiKey, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblLlmServer, new Padding(0, 0, 0, 4), true);

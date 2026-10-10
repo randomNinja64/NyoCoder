@@ -64,8 +64,20 @@ namespace NyoCoder
 
                 string output = ProcessRunner.RunCommand(grepExePath, args.ToString(), out exitCode, combineErrorOutput: false, timeoutMilliseconds: 60000);
 
-                if (exitCode == 0 && string.IsNullOrWhiteSpace(output))
+                // GNU grep: 0 = matches, 1 = no matches, >=2 = error.
+                // No matches is a normal result and must not count as a tool failure.
+                if (exitCode == 1 || (exitCode == 0 && string.IsNullOrWhiteSpace(output)))
+                {
+                    exitCode = 0;
                     return "No matches found for pattern: " + pattern;
+                }
+
+                if (exitCode != 0)
+                {
+                    if (string.IsNullOrWhiteSpace(output))
+                        return "Error: grep exited with code " + exitCode;
+                    return "Error: grep exited with code " + exitCode + ":\n" + output;
+                }
 
                 string[] lines = output.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
                 int maxLines = ConfigHandler.MaxReadLines;

@@ -131,6 +131,8 @@ public partial class LLMClient
 
         ChatBlockDisplayMode toolCallDisplay = ConfigHandler.GetToolCallDisplayMode();
         ChatBlockDisplayMode toolOutputDisplay = ConfigHandler.GetToolOutputDisplayMode();
+        int maxConsecutiveFailedToolCalls = ConfigHandler.GetMaxConsecutiveFailedToolCalls();
+        int consecutiveFailedToolCalls = 0;
 
         // Add user message
         ChatMessage userMsg = new ChatMessage
@@ -217,6 +219,7 @@ public partial class LLMClient
                     string toolContent;
                     string toolImage = null;
                     string toolImageMime = null;
+                    bool ran = false;
                     ApprovalResult approvalResult = ApprovalResult.Approved;
 
                     if (stopRequested != null && stopRequested())
@@ -284,14 +287,17 @@ public partial class LLMClient
                         else
                         {
                             // User approved - execute the tool
-                            ToolHandler.ExecuteToolCall(call, modeId, out toolContent, out exitCode, out toolImage, out toolImageMime);
+                            ran = ToolHandler.ExecuteToolCall(call, modeId, out toolContent, out exitCode, out toolImage, out toolImageMime);
                         }
                     }
                     else
                     {
                         // Execute the requested tool and capture its output
-                        ToolHandler.ExecuteToolCall(call, modeId, out toolContent, out exitCode, out toolImage, out toolImageMime);
+                        ran = ToolHandler.ExecuteToolCall(call, modeId, out toolContent, out exitCode, out toolImage, out toolImageMime);
                     }
+
+                    ConsecutiveToolFailures.Record(
+                        ref consecutiveFailedToolCalls, maxConsecutiveFailedToolCalls, ran, exitCode);
 
                     ChatMessage toolMsg = new ChatMessage
                     {
@@ -320,6 +326,17 @@ public partial class LLMClient
                         }
                     }
 
+                }
+
+                if (maxConsecutiveFailedToolCalls > 0
+                    && consecutiveFailedToolCalls >= maxConsecutiveFailedToolCalls)
+                {
+                    if (outputCallback != null)
+                    {
+                        if (startBlock != null) startBlock();
+                        outputCallback("[Stopped: " + consecutiveFailedToolCalls + " consecutive tool calls failed]\n");
+                    }
+                    break;
                 }
 
                 if (InjectPendingSteerMessages(dequeueSteerMessage, outputCallback, startBlock))

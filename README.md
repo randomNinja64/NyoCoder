@@ -53,6 +53,7 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
     - **Index on Solution Open** - Automatically index the solution when it is opened (default: enabled)
     - **Re-index Changed Files on Save** - Update the index when files are saved (default: enabled)
 - **Tools**
+  - **Max consecutive tool failures** - Maximum number of tool calls that can fail in a row before a session is halted (default `10`; `0` = off)
   - **Tools** - List of available tools and their enabled/disabled state
   - **Tools Requiring Approval** - List of tools and whether or not they require approval to run
   - **External Tool Settings** - If SimpleLLMChat tools are installed, their configuration options will be available here.

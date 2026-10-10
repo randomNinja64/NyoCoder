@@ -7,6 +7,7 @@ namespace NyoCoder
 {
     public class ToolsOptionsPageHost : OptionsPageHostBase
     {
+        private NumericUpDown _maxConsecutiveFailures;
         private CheckedListBox _toolList;
         private CheckedListBox _approvalList;
         private Dictionary<string, Control> _optionControls = new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
@@ -62,6 +63,13 @@ namespace NyoCoder
             List<string> allTools = BuildAllToolNames(packages);
 
             AddRow(MakeSectionTitle("Tools:"), new Padding(0, 0, 0, 8), false);
+            AddRow(MakeFieldLabel("Max consecutive tool failures (0 = off):"), new Padding(0, 0, 0, 4), true);
+            _maxConsecutiveFailures = new NumericUpDown();
+            _maxConsecutiveFailures.Minimum = 0;
+            _maxConsecutiveFailures.Maximum = 999;
+            _maxConsecutiveFailures.Value = 10;
+            _maxConsecutiveFailures.Width = 100;
+            AddRow(_maxConsecutiveFailures, new Padding(0, 0, 0, 12), false);
             _toolList = MakeToolCheckList(allTools, defaultChecked: true);
             AddRow(_toolList, new Padding(0, 0, 0, 12), false);
 
@@ -190,6 +198,10 @@ namespace NyoCoder
 
         public override void LoadFromConfig()
         {
+            int limit = ConfigHandler.GetMaxConsecutiveFailedToolCalls();
+            if (limit > (int)_maxConsecutiveFailures.Maximum)
+                limit = (int)_maxConsecutiveFailures.Maximum;
+            _maxConsecutiveFailures.Value = limit;
             ApplyFromConfig(ConfigHandler.GetDisabledTools(), ConfigHandler.GetToolsRequiringApproval());
             var toolOpts = new Dictionary<string, string>(ExternalToolRegistry.GetOptionDefaults(), StringComparer.OrdinalIgnoreCase);
             foreach (var kvp in ConfigHandler.GetAllValues())
@@ -201,6 +213,7 @@ namespace NyoCoder
         {
             List<string> disabled, approval;
             ReadToConfig(out disabled, out approval);
+            ConfigHandler.SetMaxConsecutiveFailedToolCalls((int)_maxConsecutiveFailures.Value);
             ConfigHandler.SetDisabledTools(disabled);
             ConfigHandler.SetToolsRequiringApproval(approval);
             foreach (var kvp in GetToolOptions())

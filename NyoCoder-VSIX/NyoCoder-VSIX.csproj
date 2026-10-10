@@ -161,6 +161,7 @@
     <Compile Include="Services\CodebaseIndex.cs" />
     <Compile Include="Services\CodebaseIndexer.cs" />
     <Compile Include="Services\ConfigHandler.cs" />
+    <Compile Include="Services\ConsecutiveToolFailures.cs" />
     <Compile Include="Services\ContextEngine.cs" />
     <Compile Include="Services\ConversationSteerer.cs" />
     <Compile Include="Services\CurlClient.cs" />

@@ -567,6 +567,18 @@ namespace NyoCoder
 			SetConfigValue("buildErrorFixMaxAttempts", value.ToString());
 		}
 
+		public static int GetMaxConsecutiveFailedToolCalls()
+		{
+			int value = GetConfigInt("maxConsecutiveFailedToolCalls", 10);
+			return value < 0 ? 0 : value;
+		}
+
+		public static void SetMaxConsecutiveFailedToolCalls(int value)
+		{
+			if (value < 0) value = 0;
+			SetConfigValue("maxConsecutiveFailedToolCalls", value.ToString());
+		}
+
 		// -------------------------------------------------------------------------
 		// INI read/write
 		// -------------------------------------------------------------------------
@@ -667,7 +679,7 @@ namespace NyoCoder
 				AppendSection(lines, ref firstSection, "Build Error Handling", config, written,
 					"buildErrorCheckMode", "buildErrorCheckWaitSeconds", "buildErrorFixMaxAttempts");
 
-				var toolKeys = new List<string> { "disabledTools", "toolsRequiringApproval" };
+				var toolKeys = new List<string> { "disabledTools", "maxConsecutiveFailedToolCalls", "toolsRequiringApproval" };
 				written.UnionWith(toolKeys);
 				foreach (string key in config.Keys)
 				{

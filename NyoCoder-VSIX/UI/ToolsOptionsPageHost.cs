@@ -8,6 +8,7 @@ namespace NyoCoder
     public class ToolsOptionsPageHost : OptionsPageHostBase
     {
         private NumericUpDown _maxConsecutiveFailures;
+        private CheckBox _selfImprovement;
         private CheckedListBox _toolList;
         private CheckedListBox _approvalList;
         private Dictionary<string, Control> _optionControls = new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
@@ -70,6 +71,9 @@ namespace NyoCoder
             _maxConsecutiveFailures.Value = 10;
             _maxConsecutiveFailures.Width = 100;
             AddRow(_maxConsecutiveFailures, new Padding(0, 0, 0, 12), false);
+            _selfImprovement = MakeCheckBox("Self-improvement (creates and updates skills)");
+            _selfImprovement.Checked = true;
+            AddRow(_selfImprovement, new Padding(0, 0, 0, 12), true);
             _toolList = MakeToolCheckList(allTools, defaultChecked: true);
             AddRow(_toolList, new Padding(0, 0, 0, 12), false);
 
@@ -202,6 +206,7 @@ namespace NyoCoder
             if (limit > (int)_maxConsecutiveFailures.Maximum)
                 limit = (int)_maxConsecutiveFailures.Maximum;
             _maxConsecutiveFailures.Value = limit;
+            _selfImprovement.Checked = ConfigHandler.GetSelfImprovementEnabled();
             ApplyFromConfig(ConfigHandler.GetDisabledTools(), ConfigHandler.GetToolsRequiringApproval());
             var toolOpts = new Dictionary<string, string>(ExternalToolRegistry.GetOptionDefaults(), StringComparer.OrdinalIgnoreCase);
             foreach (var kvp in ConfigHandler.GetAllValues())
@@ -214,6 +219,7 @@ namespace NyoCoder
             List<string> disabled, approval;
             ReadToConfig(out disabled, out approval);
             ConfigHandler.SetMaxConsecutiveFailedToolCalls((int)_maxConsecutiveFailures.Value);
+            ConfigHandler.SetSelfImprovementEnabled(_selfImprovement.Checked);
             ConfigHandler.SetDisabledTools(disabled);
             ConfigHandler.SetToolsRequiringApproval(approval);
             foreach (var kvp in GetToolOptions())

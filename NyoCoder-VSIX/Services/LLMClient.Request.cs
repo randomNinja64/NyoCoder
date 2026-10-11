@@ -99,7 +99,7 @@ public partial class LLMClient
         {
             List<string> enabledTools = ToolDefinitions.GetEnabledToolNames(modeId);
             if (SkillHandler.AnySkillToolEnabled(enabledTools))
-                systemPrompt += "\n\n" + SkillHandler.GetContext();
+                systemPrompt += "\n\n" + SkillHandler.GetContext(enabledTools);
             foreach (string injection in ExternalToolRegistry.GetContextInjections(enabledTools))
                 systemPrompt += "\n\n" + injection;
         }

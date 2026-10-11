@@ -10,15 +10,6 @@ namespace NyoCoder
 		private static Dictionary<string, string> configMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private static string configFilePath;
 
-		// Cached typed values — kept in sync by setters so callers pay no parsing cost
-		private static string _apiKey;
-		private static string _llmServer;
-		private static string _model;
-		private static int _maxReadLines = 500;
-		private static int _maxOpenFilesInContext = 20;
-		private static int? _contextWindowSize;
-		private static bool _autoRagEnabled = true;
-
 		/// <summary>
 		/// True when NyoCoder.ini was missing at init; cleared after the onboarding wizard saves.
 		/// </summary>
@@ -58,7 +49,6 @@ namespace NyoCoder
 		private static void LoadFromDisk()
 		{
 			configMap = LoadIni(configFilePath);
-			RefreshCachedValues();
 		}
 
 		public static void SaveConfig()
@@ -125,72 +115,80 @@ namespace NyoCoder
 		// Typed property getters/setters
 		// -------------------------------------------------------------------------
 
-		public static string GetApiKey()    { return _apiKey    ?? string.Empty; }
-		public static string GetLlmServer() { return _llmServer ?? string.Empty; }
-		public static string GetModel()     { return _model     ?? string.Empty; }
+		public static string GetApiKey()    { return GetConfigValue("apiKey"); }
+		public static string GetLlmServer() { return GetConfigValue("llmserver"); }
+		public static string GetModel()     { return GetConfigValue("model"); }
 
 		public static int MaxReadLines
 		{
-			get { return _maxReadLines; }
+			get { return GetConfigInt("maxReadLines", 500); }
 		}
 
 		public static int MaxOpenFilesInContext
 		{
-			get { return _maxOpenFilesInContext; }
+			get { return GetConfigInt("maxOpenFilesInContext", 20); }
 		}
 
 		public static int? ContextWindowSize
 		{
-			get { return _contextWindowSize; }
+			get
+			{
+				int value = GetConfigInt("contextWindowSize", 0);
+				return value > 0 ? (int?)value : null;
+			}
 		}
 
 		public static bool GetAutoRagEnabled()
 		{
-			return _autoRagEnabled;
+			return GetConfigValue("autoRag", "1") == "1";
 		}
 
 		public static void SetAutoRagEnabled(bool value)
 		{
-			_autoRagEnabled = value;
 			SetConfigValue("autoRag", value ? "1" : "0");
+		}
+
+		public static bool GetSelfImprovementEnabled()
+		{
+			return GetConfigValue("selfImprovement", "1") != "0";
+		}
+
+		public static void SetSelfImprovementEnabled(bool value)
+		{
+			SetConfigValue("selfImprovement", value ? "1" : "0");
 		}
 
 		public static void SetApiKey(string value)
 		{
-			_apiKey = value ?? string.Empty;
 			SetConfigValue("apiKey", value);
 		}
 
 		public static void SetLlmServer(string value)
 		{
-			_llmServer = value ?? string.Empty;
 			SetConfigValue("llmserver", value);
 		}
 
 		public static void SetModel(string value)
 		{
-			_model = value ?? string.Empty;
 			SetConfigValue("model", value);
 		}
 
 		public static void SetMaxReadLines(int value)
 		{
 			if (value <= 0) return;
-			_maxReadLines = value;
 			SetConfigValue("maxReadLines", value.ToString());
 		}
 
 		public static void SetMaxOpenFilesInContext(int value)
 		{
 			if (value <= 0) return;
-			_maxOpenFilesInContext = value;
 			SetConfigValue("maxOpenFilesInContext", value.ToString());
 		}
 
 		public static void SetContextWindowSize(int? value)
 		{
-			_contextWindowSize = (value.HasValue && value.Value > 0) ? value : (int?)null;
-			SetConfigValue("contextWindowSize", _contextWindowSize.HasValue ? _contextWindowSize.Value.ToString() : null);
+			int? stored = (value.HasValue && value.Value > 0) ? value : (int?)null;
+			SetConfigValue("contextWindowSize", stored.HasValue ? stored.Value.ToString() : null);
 		}
 
 		/// <summary>
@@ -583,18 +581,6 @@ namespace NyoCoder
 		// INI read/write
 		// -------------------------------------------------------------------------
 
-		private static void RefreshCachedValues()
-		{
-			_apiKey    = GetConfigValue("apiKey");
-			_llmServer = GetConfigValue("llmserver");
-			_model     = GetConfigValue("model");
-			_maxReadLines            = GetConfigInt("maxReadLines", 500);
-			_maxOpenFilesInContext   = GetConfigInt("maxOpenFilesInContext", 20);
-			int cws                  = GetConfigInt("contextWindowSize", 0);
-			_contextWindowSize       = cws > 0 ? (int?)cws : null;
-			_autoRagEnabled          = GetConfigValue("autoRag", "1") == "1";
-		}
-
 		private static Dictionary<string, string> LoadIni(string filename)
 		{
 			var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -679,7 +665,7 @@ namespace NyoCoder
 				AppendSection(lines, ref firstSection, "Build Error Handling", config, written,
 					"buildErrorCheckMode", "buildErrorCheckWaitSeconds", "buildErrorFixMaxAttempts");
 
-				var toolKeys = new List<string> { "disabledTools", "maxConsecutiveFailedToolCalls", "toolsRequiringApproval" };
+				var toolKeys = new List<string> { "disabledTools", "maxConsecutiveFailedToolCalls", "selfImprovement", "toolsRequiringApproval" };
 				written.UnionWith(toolKeys);
 				foreach (string key in config.Keys)
 				{

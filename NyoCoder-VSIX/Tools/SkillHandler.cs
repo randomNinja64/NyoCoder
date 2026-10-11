@@ -69,7 +69,30 @@ namespace NyoCoder
             return false;
         }
 
-        public static string GetContext()
+        /// <summary>
+        /// True when the mode can create or update a skill (not view-only).
+        /// </summary>
+        public static bool CanAuthorSkills(IEnumerable<string> enabledTools)
+        {
+            if (enabledTools == null)
+                return false;
+            foreach (string name in enabledTools)
+            {
+                if (string.Equals(name, "create_skill", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(name, "edit_skill", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(name, "edit_skill_file", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Skill listing and usage instructions for the system prompt.
+        /// Appends the self-improvement rule when it is enabled and this mode can author skills.
+        /// </summary>
+        public static string GetContext(IEnumerable<string> enabledTools)
         {
             List<SkillInfo> skills = DiscoverSkills();
             var sb = new StringBuilder();
@@ -81,17 +104,28 @@ namespace NyoCoder
             sb.AppendLine();
 
             if (skills.Count == 0)
-            {
                 sb.AppendLine("(no skills installed)");
-                return sb.ToString().Trim();
+            else
+            {
+                foreach (SkillInfo skill in skills)
+                {
+                    bool unused;
+                    sb.AppendLine(skill.FolderName + ": " + TruncateDescription(skill.Description, out unused));
+                }
             }
 
-            foreach (SkillInfo skill in skills)
-            {
-                bool unused;
-                sb.AppendLine(skill.FolderName + ": " + TruncateDescription(skill.Description, out unused));
-            }
+            if (ConfigHandler.GetSelfImprovementEnabled() && CanAuthorSkills(enabledTools))
+                AppendHarvestRule(sb);
             return sb.ToString().Trim();
+        }
+
+        private static void AppendHarvestRule(StringBuilder sb)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Self-improvement:");
+            sb.AppendLine("When you work out a non-trivial procedure (more than a single obvious step) and it has worked, save it before the final reply if it is likely to recur.");
+            sb.AppendLine("Update a skill you used when it was missing a step or had a wrong command. Otherwise create one.");
+            sb.AppendLine("Do not save one-off investigations, facts about the user, or a transcript of this chat. The skill must be usable with no memory of this conversation.");
         }
 
         public static string ViewSkill(string name, string relativePath)

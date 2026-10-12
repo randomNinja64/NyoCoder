@@ -4,6 +4,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.VisualStudio.Shell;
 
@@ -81,6 +82,10 @@ namespace NyoCoder
                 PagePadding = new Thickness(0), FontSize = _fontSize, PageWidth = _pageWidth
             };
             document.SetResourceReference(FlowDocument.ForegroundProperty, VsBrushes.WindowTextKey);
+            // Text is drawn into this brush. An opaque surface is what lets ClearType run.
+            document.SetResourceReference(FlowDocument.BackgroundProperty, VsBrushes.WindowKey);
+            // Display is the small-text mode: glyphs sit on whole pixels. An explicit document does not inherit this from the text box.
+            TextOptions.SetTextFormattingMode(document, TextFormattingMode.Display);
             return document;
         }
 

@@ -137,6 +137,7 @@
                  HorizontalContentAlignment="Stretch"
                  Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
                  Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
+                 UseLayoutRounding="True"
                  SizeChanged="ChatList_SizeChanged">
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">

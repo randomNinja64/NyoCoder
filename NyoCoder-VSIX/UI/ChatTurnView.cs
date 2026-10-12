@@ -108,10 +108,10 @@ namespace NyoCoder
                 IsUndoEnabled = false,
                 IsDocumentEnabled = true,
                 BorderThickness = new Thickness(0),
-                Background = Brushes.Transparent,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
             };
+            _editor.SetResourceReference(Control.BackgroundProperty, Microsoft.VisualStudio.Shell.VsBrushes.WindowKey);
             _editor.SetResourceReference(Control.ForegroundProperty, Microsoft.VisualStudio.Shell.VsBrushes.WindowTextKey);
             Style paragraph = new Style(typeof(Paragraph));
             paragraph.Setters.Add(new Setter(Block.MarginProperty, new Thickness(0)));

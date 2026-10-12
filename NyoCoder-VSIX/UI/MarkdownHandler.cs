@@ -9,7 +9,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Threading;
 using Microsoft.VisualStudio.Shell;
 
 namespace NyoCoder
@@ -253,11 +252,9 @@ namespace NyoCoder
 
         private static void AttachTooltip(Hyperlink hyperlink, string text)
         {
-            var tooltip = new ToolTip { Content = text, Placement = PlacementMode.Mouse };
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            timer.Tick += (s, e) => { timer.Stop(); tooltip.IsOpen = true; };
-            hyperlink.MouseEnter += (s, e) => timer.Start();
-            hyperlink.MouseLeave += (s, e) => { timer.Stop(); tooltip.IsOpen = false; };
+            hyperlink.ToolTip = text;
+            ToolTipService.SetInitialShowDelay(hyperlink, 1000);
+            ToolTipService.SetPlacement(hyperlink, PlacementMode.Mouse);
         }
 
         private static void OnHyperlinkClick(object sender, MouseButtonEventArgs e)

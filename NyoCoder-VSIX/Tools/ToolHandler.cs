@@ -92,8 +92,7 @@ public static class ToolHandler
                 case "write_file":
                     {
                         string filePath = GetRequiredArg(args, "file_path");
-                        string contentStr = JsonExtractString(args, "content");
-                        string content = string.IsNullOrEmpty(contentStr) ? "" : contentStr.Trim();
+                        string content = JsonExtractString(args, "content") ?? "";
                         string output = WriteFileTool.Write(filePath, content, out exitCode);
                         if (exitCode == 0)
                             CodebaseIndexer.RequestIndexFile(filePath);

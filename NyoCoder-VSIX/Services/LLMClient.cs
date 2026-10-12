@@ -442,27 +442,68 @@ public partial class LLMClient
         }
 
         string summary = SummarizeConversation(this.Conversation);
-
-        if (!string.IsNullOrEmpty(summary))
+        if (string.IsNullOrEmpty(summary))
         {
-            // Replace conversation with summary
-            this.Conversation.Clear();
-            this.Conversation.Add(new ChatMessage("user",
-                "[Previous conversation summary]\n" + summary +
-                "\n\n[Continue from this context. The user's original request is being processed.]"));
-
+            int dropped = DropOldestMessagesUntilFit(this.Conversation);
             if (outputCallback != null)
             {
-                if (startBlock != null) startBlock();
-                outputCallback("[Conversation summarized - continuing...]\n");
+                if (dropped > 0)
+                {
+                    if (startBlock != null) startBlock();
+                    outputCallback("[Summarization failed - dropped older messages]\n");
+                }
+                if (ShouldSummarize(GetConversationCharacterCount(this.Conversation)))
+                {
+                    if (startBlock != null) startBlock();
+                    outputCallback("[Summarization failed - current turn still exceeds the context window]\n");
+                }
             }
-
-            // Notify UI to reset character count
-            if (onSummarized != null)
-            {
+            if (dropped > 0 && onSummarized != null)
                 onSummarized(GetConversationCharacterCount(this.Conversation));
+            return;
+        }
+
+        // Replace conversation with summary
+        this.Conversation.Clear();
+        this.Conversation.Add(new ChatMessage("user",
+            "[Previous conversation summary]\n" + summary +
+            "\n\n[Continue from this context. The user's original request is being processed.]"));
+
+        if (outputCallback != null)
+        {
+            if (startBlock != null) startBlock();
+            outputCallback("[Conversation summarized - continuing...]\n");
+        }
+
+        // Notify UI to reset character count
+        if (onSummarized != null)
+            onSummarized(GetConversationCharacterCount(this.Conversation));
+    }
+
+    /// <summary>
+    /// Drops messages older than the latest user turn until usage is under the
+    /// summarize threshold. The latest user message and everything after it stay.
+    /// </summary>
+    private int DropOldestMessagesUntilFit(List<ChatMessage> conversation)
+    {
+        int keepFrom = 0;
+        for (int i = conversation.Count - 1; i >= 0; i--)
+        {
+            if (string.Equals(conversation[i].Role, "user", StringComparison.OrdinalIgnoreCase))
+            {
+                keepFrom = i;
+                break;
             }
         }
+
+        int dropped = 0;
+        while (keepFrom > 0 && ShouldSummarize(GetConversationCharacterCount(conversation)))
+        {
+            conversation.RemoveAt(0);
+            keepFrom--;
+            dropped++;
+        }
+        return dropped;
     }
 
     /// <summary>
@@ -484,7 +525,7 @@ public partial class LLMClient
     }
 
     /// <summary>
-    /// Calculates the total character count of a conversation.
+    /// Sum of message content, image data URLs, and tool-call name/arguments.
     /// </summary>
     internal int GetConversationCharacterCount(List<ChatMessage> conversation)
     {
@@ -492,9 +533,14 @@ public partial class LLMClient
         foreach (var msg in conversation)
         {
             if (!string.IsNullOrEmpty(msg.Content))
-            {
                 count += msg.Content.Length;
+
+            if (!string.IsNullOrEmpty(msg.Image))
+            {
+                string mime = string.IsNullOrEmpty(msg.ImageMime) ? "image/png" : msg.ImageMime;
+                count += ("data:" + mime + ";base64," + msg.Image).Length;
             }
+
             if (msg.ToolCalls != null)
             {
                 foreach (var toolCall in msg.ToolCalls)

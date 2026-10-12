@@ -106,7 +106,11 @@ namespace NyoCoder
         public void ApplyFontSize(double size)
         {
             _fontSize = size;
-            if (_document != null) _document.FontSize = size;
+            if (_document == null)
+                return;
+
+            _document.FontSize = size;
+            MarkdownHandler.ApplyHeaderFontSizes(_document, size);
         }
 
         public void SetPageWidth(double width)

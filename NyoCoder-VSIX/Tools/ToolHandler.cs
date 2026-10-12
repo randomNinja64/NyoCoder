@@ -296,6 +296,23 @@ public static class ToolHandler
     }
 
     /// <summary>
+    /// JSON-first parse of external tool stdout. Stderr is appended to the parsed text
+    /// so a JSON image result is kept when the tool also writes to stderr.
+    /// </summary>
+    public static void ParseToolStdout(string stdout, string stderr, out string text, out string imageBase64, out string imageMime)
+    {
+        ParseToolStdout(stdout, out text, out imageBase64, out imageMime);
+        if (string.IsNullOrEmpty(stderr))
+            return;
+        if (string.IsNullOrEmpty(text))
+            text = stderr;
+        else if (text.EndsWith("\n"))
+            text += stderr;
+        else
+            text += "\n" + stderr;
+    }
+
+    /// <summary>
     /// JSON-first parse of external tool stdout. On failure, entire stdout is plain text.
     /// </summary>
     public static void ParseToolStdout(string stdout, out string text, out string imageBase64, out string imageMime)

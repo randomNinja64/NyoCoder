@@ -31,6 +31,11 @@ namespace NyoCoder
         private static readonly Regex BacktickFencePattern = new Regex(@"^([^`]*:\s*)?(`{3,})([^`]*)$", RegexOptions.Compiled);
 
         /// <summary>
+        /// H1–H6 size relative to the document base font size.
+        /// </summary>
+        private static readonly double[] HeaderMultipliers = { 2.0, 1.667, 1.5, 1.333, 1.167, 1.0 };
+
+        /// <summary>
         /// Renders markdown in blocks at or after <paramref name="startBlockIndex"/>, then
         /// advances that index to the document's block count so later passes skip already-handled content.
         /// </summary>
@@ -84,7 +89,7 @@ namespace NyoCoder
                 if (activeBacktickFenceLength > 0)
                 {
                     paragraph.Background = codeBlockBrush;
-                    paragraph.FontFamily = codeFont;
+                    ApplyCodeBlockFont(paragraph, codeFont);
                     continue;
                 }
 
@@ -126,6 +131,20 @@ namespace NyoCoder
             startBlockIndex = blocks.Count;
         }
 
+        /// <summary>
+        /// Streaming insertion can freeze the chat font onto each run. Clear those
+        /// local values so the code-block font on the paragraph is what shows.
+        /// </summary>
+        private static void ApplyCodeBlockFont(Paragraph paragraph, FontFamily codeFont)
+        {
+            if (paragraph == null)
+                return;
+
+            paragraph.FontFamily = codeFont;
+            foreach (Inline inline in paragraph.Inlines)
+                inline.ClearValue(TextElement.FontFamilyProperty);
+        }
+
         private static void ConsolidateRuns(Paragraph paragraph)
         {
             List<Run> runs = paragraph.Inlines.OfType<Run>().ToList();
@@ -149,14 +168,36 @@ namespace NyoCoder
             int headerLevel = headerMatch.Groups[1].Value.Length;
             string headerText = headerMatch.Groups[2].Value.Trim();
 
-            double baseFontSize = document.FontSize > 0 ? document.FontSize : 12;
-            double[] headerMultipliers = { 2.0, 1.667, 1.5, 1.333, 1.167, 1.0 };
-            double fontSize = baseFontSize * headerMultipliers[Math.Min(headerLevel, 6) - 1];
-
-            paragraph.FontSize = fontSize;
+            // Tag so ApplyHeaderFontSizes can rescale when the chat font size changes.
+            paragraph.Tag = headerLevel;
+            double baseFontSize = document != null && document.FontSize > 0 ? document.FontSize : 12;
+            paragraph.FontSize = baseFontSize * HeaderMultipliers[Math.Min(headerLevel, 6) - 1];
             paragraph.FontWeight = FontWeights.Bold;
             paragraph.Inlines.Clear();
             paragraph.Inlines.Add(new Run(headerText));
+        }
+
+        /// <summary>
+        /// Recomputes markdown header font sizes from the document base size.
+        /// Headers store an absolute font size that does not follow document font changes.
+        /// </summary>
+        public static void ApplyHeaderFontSizes(FlowDocument document, double baseFontSize)
+        {
+            if (document == null || baseFontSize <= 0)
+                return;
+
+            foreach (Block block in document.Blocks)
+            {
+                Paragraph paragraph = block as Paragraph;
+                if (paragraph == null || !(paragraph.Tag is int))
+                    continue;
+
+                int headerLevel = (int)paragraph.Tag;
+                if (headerLevel < 1 || headerLevel > HeaderMultipliers.Length)
+                    continue;
+
+                paragraph.FontSize = baseFontSize * HeaderMultipliers[headerLevel - 1];
+            }
         }
 
         private static void ReplaceInRuns(Paragraph paragraph, Regex pattern, Func<Match, Inline> createInline)

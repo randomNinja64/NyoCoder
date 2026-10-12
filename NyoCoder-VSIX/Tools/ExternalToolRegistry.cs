@@ -16,7 +16,7 @@ namespace NyoCoder
     ///   1. Spawn: <executable> <tool_name>
     ///   2. Write UTF-8 JSON to stdin: { "config": {...}, "arguments": {...} }
     ///   3. Read stdout as JSON result { "text", "image"? }; plain text on parse failure.
-    ///      stderr is appended to the parse input if non-empty.
+    ///      stderr is appended to the parsed text so it does not break the JSON envelope.
     ///
     /// Context injectors (optional manifest field "context_injector"):
     ///   1. Spawn: <executable> <context_injector>
@@ -400,16 +400,27 @@ namespace NyoCoder
 
                 string stdinData = stdinPayload.ToString(Formatting.None);
 
-                string output = ProcessRunner.RunCommand(
-                    def.ExecutablePath,
-                    toolName,
-                    out exitCode,
-                    combineErrorOutput: true,
-                    stdinData: stdinData,
-                    workingDirectory: Path.GetDirectoryName(def.ExecutablePath));
+                ProcessRunResult result;
+                try
+                {
+                    result = ProcessRunner.Run(
+                        def.ExecutablePath,
+                        toolName,
+                        new ProcessRunOptions
+                        {
+                            StdinData = stdinData,
+                            WorkingDirectory = Path.GetDirectoryName(def.ExecutablePath)
+                        });
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException(
+                        "Failed to execute " + def.ExecutablePath + ": " + ex.Message, ex);
+                }
 
+                exitCode = result.ExitCode;
                 string text;
-                ToolHandler.ParseToolStdout(output, out text, out imageBase64, out imageMime);
+                ToolHandler.ParseToolStdout(result.StdOut, result.StdErr, out text, out imageBase64, out imageMime);
                 toolContent = ToolHandler.FormatCommandResult(toolName, text, exitCode);
             }
             catch (Exception ex)

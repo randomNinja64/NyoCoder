@@ -91,15 +91,29 @@ namespace NyoCoder
                 string jsonPart = line.Substring(6);
                 if (jsonPart == "[DONE]") break;
 
-                if (lastEvent == "error" || jsonPart.Contains("\"error\""))
+                if (lastEvent == "error")
                 {
-                    if (outputCallback != null)
-                    {
-                        if (startBlock != null) startBlock();
-                        outputCallback("[API Error] " + jsonPart.Trim() + "\n");
-                    }
-                    else
-                        Console.Write("\n[API Error] " + jsonPart.Trim() + "\n");
+                    ReportApiError(jsonPart, outputCallback, startBlock);
+                    lastEvent = null;
+                    continue;
+                }
+
+                JObject obj;
+                try
+                {
+                    obj = JObject.Parse(jsonPart);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                // A content delta whose text is "error" also contains that substring.
+                // Only a real error property is an API failure.
+                JToken errorToken = obj["error"];
+                if (errorToken != null && errorToken.Type != JTokenType.Null)
+                {
+                    ReportApiError(jsonPart, outputCallback, startBlock);
                     lastEvent = null;
                     continue;
                 }
@@ -108,7 +122,6 @@ namespace NyoCoder
 
                 try
                 {
-                    JObject obj = JObject.Parse(jsonPart);
                     JArray choices = (JArray)obj["choices"];
                     if (choices == null) continue;
 
@@ -237,6 +250,18 @@ namespace NyoCoder
             response.Content = output.ToString();
 
             return response;
+        }
+
+        private static void ReportApiError(string jsonPart, Action<string> outputCallback, Action startBlock)
+        {
+            string message = "[API Error] " + jsonPart.Trim() + "\n";
+            if (outputCallback != null)
+            {
+                if (startBlock != null) startBlock();
+                outputCallback(message);
+            }
+            else
+                Console.Write("\n" + message);
         }
 
         /// <summary>

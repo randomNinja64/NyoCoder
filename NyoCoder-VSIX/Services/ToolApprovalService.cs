@@ -29,7 +29,7 @@ namespace NyoCoder
         {
             if (_handler == null)
                 return ApprovalResult.Rejected;
-            return _handler(toolName, arguments);
+            return _handler(toolName, JevGate.PrefixConfidence(arguments));
         }
     }
 }

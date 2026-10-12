@@ -56,8 +56,13 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
   - **Max consecutive tool failures** - Maximum number of tool calls that can fail in a row before a session is halted (default `10`; `0` = off)
   - **Self-improvement (creates and updates skills)** - When enabled, skill context tells the agent to save a non-trivial procedure that worked, or to update a skill it used that was missing a step (default: on).
   - **Tools** - List of available tools and their enabled/disabled state
-  - **Tools Requiring Approval** - List of tools and whether or not they require approval to run
   - **External Tool Settings** - If SimpleLLMChat tools are installed, their configuration options will be available here.
+- **Tools - Approvals**
+  - **Approval** - Each tool's approval setting is **Auto**, **Manual**, or **None**. Auto asks a Jev-compatible endpoint whether that call should run. Manual prompts the user before the tool runs. None runs without asking for approval. **All auto**, **All manual**, and **All none** set every tool at once.
+  - **Show confidence level for automatic approvals** - Include the approval confidence level in chat (default: on)
+  - **Jev-Compatible URL** - Full Jev-compatible URL (e.g. `http://127.0.0.1:8080/v1/systemone` with llama.cpp)
+  - **Jev-Compatible API Key** - API key if the the endpoint requires one
+  - **Model** - Model name when the endpoint supports it
 - **Web Search**
   - **Maximum Links from Webpage** - Maximum number of unique links to include at the end of a webpage read (default: `40`)
   - **Maximum Search Results** - Maximum number of search results to retrieve (default: `20`)

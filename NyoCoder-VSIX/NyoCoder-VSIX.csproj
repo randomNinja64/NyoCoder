@@ -170,6 +170,7 @@
     <Compile Include="Services\FileHandler.cs" />
     <Compile Include="Services\FileScanFilter.cs" />
     <Compile Include="Services\IndexingStatusReporter.cs" />
+    <Compile Include="Services\JevDecisionClient.cs" />
     <Compile Include="Services\LLMClient.cs" />
     <Compile Include="Services\LLMClient.Http.cs" />
     <Compile Include="Services\LLMClient.Request.cs" />
@@ -231,6 +232,9 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\ToolsOptionsPageHost.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ApprovalsOptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\WebSearchOptionsPageHost.cs">

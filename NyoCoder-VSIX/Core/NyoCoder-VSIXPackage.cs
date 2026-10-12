@@ -13,6 +13,7 @@ namespace NyoCoder
     [ProvideOptionPage(typeof(OptionsPage), "NyoCoder", "General", 0, 0, true)]
     [ProvideOptionPage(typeof(ContextOptionsPage), "NyoCoder", "Context", 0, 0, true)]
     [ProvideOptionPage(typeof(ToolsOptionsPage), "NyoCoder", "Tools", 0, 0, true)]
+    [ProvideOptionPage(typeof(ApprovalsOptionsPage), "NyoCoder", "Tools - Approvals", 0, 0, true)]
     [ProvideOptionPage(typeof(WebSearchOptionsPage), "NyoCoder", "Web Search", 0, 0, true)]
     [ProvideOptionPage(typeof(IndexingOptionsPage), "NyoCoder", "Indexing", 0, 0, true)]
     [ProvideOptionPage(typeof(AppearanceOptionsPage), "NyoCoder", "Appearance", 0, 0, true)]

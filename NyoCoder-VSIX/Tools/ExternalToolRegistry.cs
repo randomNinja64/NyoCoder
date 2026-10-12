@@ -227,6 +227,21 @@ namespace NyoCoder
         /// <summary>
         /// Returns manifest-declared defaults for all option keys across all packages.
         /// </summary>
+        /// <summary>
+        /// Manifest description for a loaded external tool, or empty when the name is unknown.
+        /// </summary>
+        public static string GetToolDescription(string toolName)
+        {
+            if (string.IsNullOrEmpty(toolName))
+                return string.Empty;
+
+            EnsureLoaded();
+            ExternalToolDefinition def;
+            if (_tools.TryGetValue(toolName, out def))
+                return def.Description ?? string.Empty;
+            return string.Empty;
+        }
+
         public static Dictionary<string, string> GetOptionDefaults()
         {
             EnsureLoaded();

@@ -248,21 +248,116 @@ namespace NyoCoder
 
 	/// <summary>
 	/// Returns true when the tool should show the generic pre-execution approval prompt.
+	/// When the tool is set to automatic, Jev allow skips the prompt and Jev confirm asks
+	/// even if the tool is not on the manual approval list. File-edit tools still approve after preview.
 	/// </summary>
 	public static bool RequiresApprovalBeforeExecute(string toolName)
 	{
-		if (!ToolRequiresApproval(toolName))
+		if (ToolDefinitions.UsesAfterPreviewApproval(toolName))
 			return false;
-		return !ToolDefinitions.UsesAfterPreviewApproval(toolName);
+		if (JevGate.IsActive)
+			return !JevGate.Allowed;
+		return ToolRequiresApproval(toolName);
 	}
 
 	/// <summary>
 	/// Returns true when the tool should prompt after building a diff preview.
+	/// When the tool is set to automatic, Jev allow applies the edit and Jev confirm still shows the diff.
 	/// </summary>
 	public static bool RequiresApprovalAfterPreview(string toolName)
 	{
-		return ToolRequiresApproval(toolName)
-			&& ToolDefinitions.UsesAfterPreviewApproval(toolName);
+		if (!ToolDefinitions.UsesAfterPreviewApproval(toolName))
+			return false;
+		if (JevGate.IsActive)
+			return !JevGate.Allowed;
+		return ToolRequiresApproval(toolName);
+	}
+
+	/// <summary>
+	/// True when this tool is gated by a Jev-compatible endpoint instead of the manual list.
+	/// A missing per-tool list with <c>toolapprovalmode=auto</c> still means every tool.
+	/// </summary>
+	public static bool IsAutoToolApproval(string toolName)
+	{
+		if (string.IsNullOrEmpty(toolName))
+			return false;
+
+		string raw = GetConfigValue("autoApprovalTools");
+		if (!string.IsNullOrEmpty(raw))
+		{
+			if (string.Equals(raw, "null", StringComparison.OrdinalIgnoreCase))
+				return false;
+			foreach (string t in GetConfigList("autoApprovalTools"))
+			{
+				if (string.Equals(t, toolName, StringComparison.OrdinalIgnoreCase))
+					return true;
+			}
+			return false;
+		}
+
+		return string.Equals(
+			GetConfigValue("toolapprovalmode"),
+			"auto",
+			StringComparison.OrdinalIgnoreCase);
+	}
+
+	/// <summary>
+	/// Persists which tools use Jev. Writes "null" when none are automatic so defaults stay manual.
+	/// Clears the old global <c>toolapprovalmode</c> key.
+	/// </summary>
+	public static void SetAutoApprovalTools(List<string> tools)
+	{
+		string value = (tools != null && tools.Count > 0)
+			? string.Join(",", tools.ToArray())
+			: "null";
+		SetConfigValue("autoApprovalTools", value);
+		SetConfigValue("toolapprovalmode", null);
+	}
+
+	public static string GetJevBaseUrl()
+	{
+		return GetConfigValue("jevbaseurl");
+	}
+
+	public static void SetJevBaseUrl(string value)
+	{
+		SetConfigValue("jevbaseurl", string.IsNullOrWhiteSpace(value) ? null : value.Trim());
+	}
+
+	public static string GetJevApiKey()
+	{
+		return GetConfigValue("jevapikey");
+	}
+
+	public static void SetJevApiKey(string value)
+	{
+		SetConfigValue("jevapikey", string.IsNullOrEmpty(value) ? null : value);
+	}
+
+	public static string GetJevModel()
+	{
+		return GetConfigValue("jevmodel");
+	}
+
+	public static void SetJevModel(string value)
+	{
+		SetConfigValue("jevmodel", string.IsNullOrWhiteSpace(value) ? null : value.Trim());
+	}
+
+	/// <summary>
+	/// Whether automatic approvals include the endpoint's confidence in chat. Defaults to on.
+	/// </summary>
+	public static bool GetShowJevConfidence()
+	{
+		string raw = GetConfigValue("showjevconfidence");
+		if (string.IsNullOrEmpty(raw))
+			return true;
+		return raw == "1";
+	}
+
+	public static void SetShowJevConfidence(bool value)
+	{
+		SetConfigValue("showjevconfidence", value ? "1" : "0");
 	}
 
 	/// <summary>
@@ -665,7 +760,11 @@ namespace NyoCoder
 				AppendSection(lines, ref firstSection, "Build Error Handling", config, written,
 					"buildErrorCheckMode", "buildErrorCheckWaitSeconds", "buildErrorFixMaxAttempts");
 
-				var toolKeys = new List<string> { "disabledTools", "maxConsecutiveFailedToolCalls", "selfImprovement", "toolsRequiringApproval" };
+				var toolKeys = new List<string>
+				{
+					"disabledTools", "maxConsecutiveFailedToolCalls", "selfImprovement", "toolsRequiringApproval",
+					"toolapprovalmode", "autoApprovalTools", "jevbaseurl", "jevapikey", "jevmodel", "showjevconfidence"
+				};
 				written.UnionWith(toolKeys);
 				foreach (string key in config.Keys)
 				{

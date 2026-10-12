@@ -107,6 +107,23 @@ namespace NyoCoder
         }
 
         /// <summary>
+        /// Stored description for a built-in or external tool, or empty when the tool is unknown.
+        /// </summary>
+        public static string GetToolDescription(string toolName)
+        {
+            if (string.IsNullOrEmpty(toolName))
+                return string.Empty;
+
+            foreach (ToolEntry entry in BuiltInEntries())
+            {
+                if (string.Equals(entry.Name, toolName, StringComparison.OrdinalIgnoreCase))
+                    return entry.Description ?? string.Empty;
+            }
+
+            return ExternalToolRegistry.GetToolDescription(toolName);
+        }
+
+        /// <summary>
         /// Returns the names of all tools that would be sent to the LLM for the given mode.
         /// </summary>
         public static List<string> GetEnabledToolNames(string modeId = ModeIds.Agent)
@@ -140,12 +157,9 @@ namespace NyoCoder
             return BuildToolsArray(ModeIds.Agent);
         }
 
-        /// <summary>
-        /// Builds the JSON array of tool definitions filtered by chat mode.
-        /// </summary>
-        public static JArray BuildToolsArray(string modeId)
+        private static ToolEntry[] BuiltInEntries()
         {
-            ToolEntry[] definitions = new ToolEntry[]
+            return new ToolEntry[]
             {
                 new ToolEntry(
                     "run_shell_command",
@@ -358,10 +372,16 @@ namespace NyoCoder
                     new[] { "action" }
                 ),
             };
+        }
 
+        /// <summary>
+        /// Builds the JSON array of tool definitions filtered by chat mode.
+        /// </summary>
+        public static JArray BuildToolsArray(string modeId)
+        {
             JArray toolsArray = new JArray();
 
-            foreach (ToolEntry def in definitions)
+            foreach (ToolEntry def in BuiltInEntries())
             {
                 if (!ModeRegistry.IsToolEnabled(modeId, def.Name))
                     continue;

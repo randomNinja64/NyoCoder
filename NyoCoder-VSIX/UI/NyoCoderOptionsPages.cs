@@ -19,6 +19,11 @@ namespace NyoCoder
 
     [ClassInterface(ClassInterfaceType.AutoDual)]
     [ComVisible(true)]
+    [Guid("F1C6B8A4-9E27-4D53-B7A0-3C5E8F2D1B64")]
+    public class ApprovalsOptionsPage : ConfigDialogPage<ApprovalsOptionsPageHost> { }
+
+    [ClassInterface(ClassInterfaceType.AutoDual)]
+    [ComVisible(true)]
     [Guid("B2C3D4E5-F6A7-4B8C-9D0E-1F2A3B4C5D6E")]
     public class WebSearchOptionsPage : ConfigDialogPage<WebSearchOptionsPageHost> { }
 

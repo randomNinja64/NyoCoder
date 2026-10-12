@@ -120,7 +120,6 @@ public partial class LLMClient
         string userMessage,
         string image,
         Action<string> outputCallback = null,
-        Func<string, string, ApprovalResult> approvalCallback = null,
         Func<bool> stopRequested = null,
         Action<int> onSummarized = null,
         string modeId = ModeIds.Agent,
@@ -232,98 +231,104 @@ public partial class LLMClient
                         return;
                     }
 
-                    // Pre-execution approval (file-edit tools approve after diff preview instead)
-                    if (ConfigHandler.RequiresApprovalBeforeExecute(call.Name))
+                    bool autoApproval = ConfigHandler.IsAutoToolApproval(call.Name);
+                    try
                     {
-                        // Parse escape sequences for better display formatting
-                        string formattedArguments = call.Arguments
-                            .Replace("\\n", "\n")
-                            .Replace("\\r", "\r")
-                            .Replace("\\t", "\t")
-                            .Replace("\\\"", "\"")
-                            .Replace("\\'", "'")
-                            .Replace("\\\\", "\\");
-                        
-                        // Use approval callback if provided, otherwise fall back to MessageBox
-                        if (approvalCallback != null)
+                        if (autoApproval)
                         {
-                            approvalResult = approvalCallback(call.Name, formattedArguments);
-                        }
-                        else
-                        {
-                            string approvalMessage = "Run tool: " + call.Name + "\n\nWith arguments:\n" + formattedArguments;
-                            
-                            DialogResult result = MessageBox.Show(
-                                approvalMessage,
-                                "NyoCoder - Approve Tool?",
-                                MessageBoxButtons.YesNo,
-                                MessageBoxIcon.Question,
-                                MessageBoxDefaultButton.Button2
-                            );
-                            
-                            approvalResult = (result == DialogResult.Yes) ? ApprovalResult.Approved : ApprovalResult.Rejected;
-                        }
-
-                        if (approvalResult == ApprovalResult.Stopped)
-                        {
-                            // User stopped the session - break out of the conversation loop
-                            if (outputCallback != null)
+                            JevGateDecision decision = JevDecisionClient.Decide(
+                                call.Name,
+                                call.Arguments,
+                                ToolDefinitions.GetToolDescription(call.Name),
+                                RecentMessagesForDecision(this.Conversation));
+                            JevGate.Begin(decision, ConfigHandler.GetShowJevConfidence());
+                            if (JevGate.Allowed && outputCallback != null)
                             {
                                 if (startBlock != null) startBlock();
-                                outputCallback("[Session stopped by user]\n");
+                                outputCallback(JevGate.AutoAllowedLine(call.Name) + "\n");
                             }
-                            return; // Exit ProcessConversation
                         }
-                        else if (approvalResult == ApprovalResult.Rejected)
+
+                        // Pre-execution approval (file-edit tools approve after diff preview instead).
+                        // Automatic tools ask Jev first; confirm falls through to this prompt.
+                        if (ConfigHandler.RequiresApprovalBeforeExecute(call.Name))
                         {
-                            // User declined - return cancellation message
-                            exitCode = -1;
-                            toolContent = ToolHandler.FormatCommandResult(
-                                call.Name,
-                                "Tool execution was cancelled by the user.",
-                                exitCode
-                            );
+                            string formattedArguments = call.Arguments
+                                .Replace("\\n", "\n")
+                                .Replace("\\r", "\r")
+                                .Replace("\\t", "\t")
+                                .Replace("\\\"", "\"")
+                                .Replace("\\'", "'")
+                                .Replace("\\\\", "\\");
+
+                            approvalResult = ToolApprovalService.Request(call.Name, formattedArguments);
+
+                            if (approvalResult == ApprovalResult.Stopped)
+                            {
+                                // User stopped the session - break out of the conversation loop
+                                if (outputCallback != null)
+                                {
+                                    if (startBlock != null) startBlock();
+                                    outputCallback("[Session stopped by user]\n");
+                                }
+                                return; // Exit ProcessConversation
+                            }
+                            else if (approvalResult == ApprovalResult.Rejected)
+                            {
+                                // User declined - return cancellation message
+                                exitCode = -1;
+                                toolContent = ToolHandler.FormatCommandResult(
+                                    call.Name,
+                                    "Tool execution was cancelled by the user.",
+                                    exitCode
+                                );
+                            }
+                            else
+                            {
+                                // User approved - execute the tool
+                                ran = ToolHandler.ExecuteToolCall(call, modeId, out toolContent, out exitCode, out toolImage, out toolImageMime);
+                            }
                         }
                         else
                         {
-                            // User approved - execute the tool
+                            // Execute the requested tool and capture its output
                             ran = ToolHandler.ExecuteToolCall(call, modeId, out toolContent, out exitCode, out toolImage, out toolImageMime);
                         }
-                    }
-                    else
-                    {
-                        // Execute the requested tool and capture its output
-                        ran = ToolHandler.ExecuteToolCall(call, modeId, out toolContent, out exitCode, out toolImage, out toolImageMime);
-                    }
 
-                    ConsecutiveToolFailures.Record(
-                        ref consecutiveFailedToolCalls, maxConsecutiveFailedToolCalls, ran, exitCode);
+                        ConsecutiveToolFailures.Record(
+                            ref consecutiveFailedToolCalls, maxConsecutiveFailedToolCalls, ran, exitCode);
 
-                    ChatMessage toolMsg = new ChatMessage
-                    {
-                        Role = "tool",
-                        Content = toolContent,
-                        ToolCallId = call.Id,
-                        Image = toolImage,
-                        ImageMime = toolImageMime
-                    };
-                    this.Conversation.Add(toolMsg);
-
-                    if (exitCode == 0 && ToolDefinitions.IsFileModifyingTool(call.Name))
-                        FilesModifiedThisTurn = true;
-
-                    // Output tool result (Hidden = exit-code stub; Shown/Collapsed = full Expander markers)
-                    if (outputCallback != null)
-                    {
-                        if (startBlock != null) startBlock();
-                        if (toolOutputDisplay == ChatBlockDisplayMode.Hidden)
+                        ChatMessage toolMsg = new ChatMessage
                         {
-                            outputCallback("[tool output]\nExit Code: " + exitCode + "\n");
-                        }
-                        else
+                            Role = "tool",
+                            Content = toolContent,
+                            ToolCallId = call.Id,
+                            Image = toolImage,
+                            ImageMime = toolImageMime
+                        };
+                        this.Conversation.Add(toolMsg);
+
+                        if (exitCode == 0 && ToolDefinitions.IsFileModifyingTool(call.Name))
+                            FilesModifiedThisTurn = true;
+
+                        // Output tool result (Hidden = exit-code stub; Shown/Collapsed = full Expander markers)
+                        if (outputCallback != null)
                         {
-                            outputCallback("[tool output]\n" + (toolContent ?? "").TrimEnd() + "\n[/tool output]\n");
+                            if (startBlock != null) startBlock();
+                            if (toolOutputDisplay == ChatBlockDisplayMode.Hidden)
+                            {
+                                outputCallback("[tool output]\nExit Code: " + exitCode + "\n");
+                            }
+                            else
+                            {
+                                outputCallback("[tool output]\n" + (toolContent ?? "").TrimEnd() + "\n[/tool output]\n");
+                            }
                         }
+                    }
+                    finally
+                    {
+                        if (autoApproval)
+                            JevGate.Clear();
                     }
 
                 }
@@ -583,6 +588,42 @@ public partial class LLMClient
             includeContextInjections: false);
 
         return response.Content ?? string.Empty;
+    }
+
+    private static List<JevContextMessage> RecentMessagesForDecision(List<ChatMessage> conversation)
+    {
+        var selected = new List<JevContextMessage>();
+        if (conversation == null || conversation.Count == 0)
+            return selected;
+
+        int start = conversation.Count - JevDecisionClient.RecentMessageCount;
+        if (start < 0)
+            start = 0;
+        for (int i = start; i < conversation.Count; i++)
+            selected.Add(ToJevContextMessage(conversation[i]));
+        return selected;
+    }
+
+    private static JevContextMessage ToJevContextMessage(ChatMessage message)
+    {
+        string text = message.Content ?? string.Empty;
+        if (message.ToolCalls != null)
+        {
+            for (int i = 0; i < message.ToolCalls.Count; i++)
+            {
+                if (text.Length > 0)
+                    text += "\n";
+                text += (message.ToolCalls[i].Name ?? string.Empty)
+                    + " "
+                    + (message.ToolCalls[i].Arguments ?? string.Empty);
+            }
+        }
+
+        return new JevContextMessage
+        {
+            Role = message.Role ?? string.Empty,
+            Text = text
+        };
     }
 }
 }

@@ -171,7 +171,6 @@ namespace NyoCoder
                             {
                                 _appendText(text);
                             },
-                            ToolApprovalService.Request,
                             stopRequested: _stopRequested,
                             onSummarized: delegate(int newCharCount)
                             {

@@ -10,7 +10,6 @@ namespace NyoCoder
         private NumericUpDown _maxConsecutiveFailures;
         private CheckBox _selfImprovement;
         private CheckedListBox _toolList;
-        private CheckedListBox _approvalList;
         private Dictionary<string, Control> _optionControls = new Dictionary<string, Control>(StringComparer.OrdinalIgnoreCase);
 
         public ToolsOptionsPageHost()
@@ -77,10 +76,6 @@ namespace NyoCoder
             _toolList = MakeToolCheckList(allTools, defaultChecked: true);
             AddRow(_toolList, new Padding(0, 0, 0, 12), false);
 
-            AddRow(MakeSectionTitle("Tools Requiring Approval:"), new Padding(0, 0, 0, 12), false);
-            _approvalList = MakeToolCheckList(allTools, defaultChecked: false);
-            AddRow(_approvalList, new Padding(0, 0, 0, 12), false);
-
             // Per-package config sections
             foreach (ExternalToolRegistry.PackageInfo pkg in packages)
             {
@@ -141,20 +136,18 @@ namespace NyoCoder
             list.IntegralHeight = false;
             foreach (string toolName in allTools)
                 list.Items.Add(toolName, defaultChecked);
-            list.Height = Math.Max(104, (list.ItemHeight * Math.Max(1, Math.Min(allTools.Count, 8))) + 8);
+            list.Height = Math.Max(100, (list.ItemHeight * Math.Max(1, Math.Min(allTools.Count, 8))) + 2);
             return list;
         }
 
-        public void ApplyFromConfig(List<string> disabled, List<string> approval)
+        public void ApplyFromConfig(List<string> disabled)
         {
-            ApplyToolList(_toolList,    disabled, checkedWhenListed: false);
-            ApplyToolList(_approvalList, approval, checkedWhenListed: true);
+            ApplyToolList(_toolList, disabled, checkedWhenListed: false);
         }
 
-        public void ReadToConfig(out List<string> disabled, out List<string> approval)
+        public void ReadToConfig(out List<string> disabled)
         {
-            disabled = ReadToolList(_toolList,    wantChecked: false);
-            approval = ReadToolList(_approvalList, wantChecked: true);
+            disabled = ReadToolList(_toolList, wantChecked: false);
         }
 
         private static List<string> ReadToolList(CheckedListBox list, bool wantChecked)
@@ -207,7 +200,7 @@ namespace NyoCoder
                 limit = (int)_maxConsecutiveFailures.Maximum;
             _maxConsecutiveFailures.Value = limit;
             _selfImprovement.Checked = ConfigHandler.GetSelfImprovementEnabled();
-            ApplyFromConfig(ConfigHandler.GetDisabledTools(), ConfigHandler.GetToolsRequiringApproval());
+            ApplyFromConfig(ConfigHandler.GetDisabledTools());
             var toolOpts = new Dictionary<string, string>(ExternalToolRegistry.GetOptionDefaults(), StringComparer.OrdinalIgnoreCase);
             foreach (var kvp in ConfigHandler.GetAllValues())
                 toolOpts[kvp.Key] = kvp.Value;
@@ -216,12 +209,11 @@ namespace NyoCoder
 
         public override void SaveToConfig()
         {
-            List<string> disabled, approval;
-            ReadToConfig(out disabled, out approval);
+            List<string> disabled;
+            ReadToConfig(out disabled);
             ConfigHandler.SetMaxConsecutiveFailedToolCalls((int)_maxConsecutiveFailures.Value);
             ConfigHandler.SetSelfImprovementEnabled(_selfImprovement.Checked);
             ConfigHandler.SetDisabledTools(disabled);
-            ConfigHandler.SetToolsRequiringApproval(approval);
             foreach (var kvp in GetToolOptions())
                 ConfigHandler.SetConfigValue(kvp.Key, kvp.Value);
         }

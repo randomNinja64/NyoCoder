@@ -64,7 +64,6 @@ namespace NyoCoder
                     fixPrompt,
                     null,
                     appendText,
-                    ToolApprovalService.Request,
                     stopRequested: stopRequested,
                     onSummarized: onSummarized,
                     modeId: ModeIds.Debug,

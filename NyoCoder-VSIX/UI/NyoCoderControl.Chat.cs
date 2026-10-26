@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -8,15 +9,65 @@ namespace NyoCoder
 {
     public partial class NyoCoderControl
     {
+        // Streamed chunks waiting for the next UI flush. Guarded by _pendingLock.
+        private readonly object _pendingLock = new object();
+        private List<string> _pendingChunks = new List<string>();
+        private bool _flushScheduled;
+
         /// <summary>
         /// Appends text to the output pane. All chat output must use this method.
+        /// Chunks are coalesced and flushed at Background priority so a fast stream
+        /// cannot starve input: one flush (and one layout pass) covers every chunk
+        /// that arrived while the UI thread was busy.
         /// </summary>
         public void AppendText(string text)
         {
             if (string.IsNullOrEmpty(text))
                 return;
 
-            EditorService.InvokeOnUIThread(() => AppendTextInternal(text), Dispatcher);
+            lock (_pendingLock)
+            {
+                _pendingChunks.Add(text);
+                if (_flushScheduled)
+                    return;
+                _flushScheduled = true;
+            }
+
+            EditorService.BeginInvokeOnUIThread(FlushPendingText, Dispatcher, DispatcherPriority.Background);
+        }
+
+        /// <summary>
+        /// Writes all queued chunks to the current turn. Must be called on the UI thread.
+        /// </summary>
+        private void FlushPendingText()
+        {
+            List<string> chunks;
+            lock (_pendingLock)
+            {
+                _flushScheduled = false;
+                if (_pendingChunks.Count == 0)
+                    return;
+                chunks = _pendingChunks;
+                _pendingChunks = new List<string>();
+            }
+
+            // The tracker matches thinking markers by exact chunk, so feed it chunk by chunk.
+            foreach (string chunk in chunks)
+                _tokenTracker.OnTextAppended(chunk);
+
+            if (_currentTurn == null)
+                _currentTurn = AddTurn();
+
+            _currentTurn.AppendText(string.Concat(chunks.ToArray()));
+            ScrollChatToEnd();
+        }
+
+        private void DiscardPendingText()
+        {
+            lock (_pendingLock)
+            {
+                _pendingChunks.Clear();
+            }
         }
 
         /// <summary>
@@ -29,22 +80,13 @@ namespace NyoCoder
 
         private void StartOutputBlockInternal()
         {
+            FlushPendingText();
+
             if (_currentTurn == null)
                 return;
 
             _currentTurn.Complete();
             _currentTurn = null;
-        }
-
-        private void AppendTextInternal(string text)
-        {
-            _tokenTracker.OnTextAppended(text);
-
-            if (_currentTurn == null)
-                _currentTurn = AddTurn();
-
-            _currentTurn.AppendText(text);
-            ScrollChatToEnd();
         }
 
         /// <summary>
@@ -66,6 +108,7 @@ namespace NyoCoder
 
             EditorService.InvokeOnUIThread(() =>
             {
+                FlushPendingText();
                 foreach (ChatTurn turn in _chatTurns)
                 {
                     turn.ProcessMarkdown();
@@ -80,6 +123,7 @@ namespace NyoCoder
         {
             EditorService.InvokeOnUIThread(() =>
             {
+                DiscardPendingText();
                 StartOutputBlockInternal();
                 _chatTurns.Clear();
                 _currentTurn = null;

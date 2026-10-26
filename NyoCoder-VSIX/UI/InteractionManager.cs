@@ -164,11 +164,10 @@ namespace NyoCoder
             {
                 MinHeight = 23,
                 Margin = new Thickness(2),
-                VerticalContentAlignment = VerticalAlignment.Center,
-                ToolTip = "Type your own answer..."
+                VerticalContentAlignment = VerticalAlignment.Center
             };
             _questionOtherBox.KeyDown += QuestionOtherBox_KeyDown;
-            AddTextBoxRow(_questionOtherBox, CreateStandardButton("Submit", OnQuestionSubmitOther));
+            AddTextBoxRow(_questionOtherBox, "Type your own answer...", CreateStandardButton("Submit", OnQuestionSubmitOther));
             _buttonPanel.Children.Add(CreateStandardButton("Stop", OnStopButton));
 
             _buttonPanel.Visibility = Visibility.Visible;
@@ -242,11 +241,10 @@ namespace NyoCoder
             {
                 MinHeight = 23,
                 Margin = new Thickness(2),
-                VerticalContentAlignment = VerticalAlignment.Center,
-                ToolTip = "Type refinement feedback..."
+                VerticalContentAlignment = VerticalAlignment.Center
             };
             _questionOtherBox.KeyDown += PlanRefineBox_KeyDown;
-            AddTextBoxRow(_questionOtherBox, CreateStandardButton("Refine", OnPlanRefine));
+            AddTextBoxRow(_questionOtherBox, "Suggest plan changes...", CreateStandardButton("Refine", OnPlanRefine));
             _buttonPanel.Children.Add(CreateStandardButton("Cancel", OnPlanCancel));
 
             _buttonPanel.Visibility = Visibility.Visible;
@@ -313,12 +311,28 @@ namespace NyoCoder
             if (_showInputBar != null) _showInputBar();
         }
 
-        private void AddTextBoxRow(TextBox textBox, Button button)
+        private void AddTextBoxRow(TextBox textBox, string hint, Button button)
         {
+            // Grey hint text overlaid on the textbox, hidden once the user types.
+            var hintLabel = new TextBlock
+            {
+                Text = hint,
+                Foreground = SystemColors.GrayTextBrush,
+                Margin = new Thickness(6, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                IsHitTestVisible = false
+            };
+            textBox.TextChanged += (s, e) =>
+                hintLabel.Visibility = textBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            var textHost = new Grid();
+            textHost.Children.Add(textBox);
+            textHost.Children.Add(hintLabel);
+
             var row = new DockPanel();
             DockPanel.SetDock(button, Dock.Right);
             row.Children.Add(button);
-            row.Children.Add(textBox);
+            row.Children.Add(textHost);
             _buttonPanel.Children.Add(row);
         }
 

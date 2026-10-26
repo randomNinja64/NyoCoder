@@ -162,15 +162,13 @@ namespace NyoCoder
 
             _questionOtherBox = new TextBox
             {
-                MinWidth = 160,
-                MinHeight = 25,
+                MinHeight = 23,
                 Margin = new Thickness(2),
                 VerticalContentAlignment = VerticalAlignment.Center,
                 ToolTip = "Type your own answer..."
             };
             _questionOtherBox.KeyDown += QuestionOtherBox_KeyDown;
-            _buttonPanel.Children.Add(_questionOtherBox);
-            _buttonPanel.Children.Add(CreateStandardButton("Submit", OnQuestionSubmitOther));
+            AddTextBoxRow(_questionOtherBox, CreateStandardButton("Submit", OnQuestionSubmitOther));
             _buttonPanel.Children.Add(CreateStandardButton("Stop", OnStopButton));
 
             _buttonPanel.Visibility = Visibility.Visible;
@@ -242,15 +240,13 @@ namespace NyoCoder
 
             _questionOtherBox = new TextBox
             {
-                MinWidth = 160,
-                MinHeight = 25,
+                MinHeight = 23,
                 Margin = new Thickness(2),
                 VerticalContentAlignment = VerticalAlignment.Center,
                 ToolTip = "Type refinement feedback..."
             };
             _questionOtherBox.KeyDown += PlanRefineBox_KeyDown;
-            _buttonPanel.Children.Add(_questionOtherBox);
-            _buttonPanel.Children.Add(CreateStandardButton("Refine", OnPlanRefine));
+            AddTextBoxRow(_questionOtherBox, CreateStandardButton("Refine", OnPlanRefine));
             _buttonPanel.Children.Add(CreateStandardButton("Cancel", OnPlanCancel));
 
             _buttonPanel.Visibility = Visibility.Visible;
@@ -317,15 +313,35 @@ namespace NyoCoder
             if (_showInputBar != null) _showInputBar();
         }
 
+        private void AddTextBoxRow(TextBox textBox, Button button)
+        {
+            var row = new DockPanel();
+            DockPanel.SetDock(button, Dock.Right);
+            row.Children.Add(button);
+            row.Children.Add(textBox);
+            _buttonPanel.Children.Add(row);
+        }
+
         private static Button CreateStandardButton(string content, RoutedEventHandler clickHandler = null)
         {
+            var label = new TextBlock { Text = content, TextTrimming = TextTrimming.CharacterEllipsis };
             var button = new Button
             {
-                Content = content,
+                Content = label,
                 Margin = new Thickness(2),
-                Padding = new Thickness(8, 4, 8, 4),
-                MinWidth = 75,
-                MinHeight = 25
+                Padding = new Thickness(8, 2, 8, 2),
+                MinHeight = 23,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                ToolTip = content
+            };
+
+            // Only show the tooltip when the label is cut off: measure an unconstrained copy.
+            button.ToolTipOpening += (s, e) =>
+            {
+                var probe = new TextBlock { Text = content, FontFamily = label.FontFamily, FontSize = label.FontSize };
+                probe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                if (probe.DesiredSize.Width <= label.ActualWidth)
+                    e.Handled = true;
             };
 
             if (clickHandler != null)

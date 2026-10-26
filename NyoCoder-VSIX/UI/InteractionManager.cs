@@ -3,6 +3,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Microsoft.VisualStudio.Shell;
 
 namespace NyoCoder
 {
@@ -313,15 +314,19 @@ namespace NyoCoder
 
         private void AddTextBoxRow(TextBox textBox, string hint, Button button)
         {
+            textBox.SetResourceReference(Control.BackgroundProperty, VsBrushes.WindowKey);
+            textBox.SetResourceReference(Control.ForegroundProperty, VsBrushes.WindowTextKey);
+            textBox.SetResourceReference(TextBox.CaretBrushProperty, VsBrushes.WindowTextKey);
+
             // Grey hint text overlaid on the textbox, hidden once the user types.
             var hintLabel = new TextBlock
             {
                 Text = hint,
-                Foreground = SystemColors.GrayTextBrush,
                 Margin = new Thickness(6, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 IsHitTestVisible = false
             };
+            hintLabel.SetResourceReference(TextBlock.ForegroundProperty, VsBrushes.GrayTextKey);
             textBox.TextChanged += (s, e) =>
                 hintLabel.Visibility = textBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
 

@@ -32,8 +32,7 @@ namespace NyoCoder
         public static string GetSkillsDirectory()
         {
             return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "NyoCoder",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NyoCoder"),
                 "Skills");
         }
 
@@ -134,7 +133,7 @@ namespace NyoCoder
             if (skill == null)
                 throw new InvalidOperationException("skill does not exist: " + name);
 
-            if (!string.IsNullOrWhiteSpace(relativePath))
+            if (!TextNormalization.IsNullOrWhiteSpace(relativePath))
                 return ReadLinkedFile(skill, relativePath.Trim());
 
             string skillMd = File.ReadAllText(skill.SkillMdPath, Encoding.UTF8);
@@ -157,7 +156,7 @@ namespace NyoCoder
             ValidateNewSkillName(name);
             if (string.IsNullOrEmpty(description))
                 throw new ArgumentException("description is required.");
-            if (string.IsNullOrWhiteSpace(instructions))
+            if (TextNormalization.IsNullOrWhiteSpace(instructions))
                 throw new ArgumentException("instructions is required.");
 
             bool descriptionTruncated;
@@ -188,8 +187,8 @@ namespace NyoCoder
         public static string EditSkill(string name, string description, string instructions)
         {
             name = (name ?? "").Trim();
-            bool updateDescription = !string.IsNullOrWhiteSpace(description);
-            bool updateInstructions = !string.IsNullOrWhiteSpace(instructions);
+            bool updateDescription = !TextNormalization.IsNullOrWhiteSpace(description);
+            bool updateInstructions = !TextNormalization.IsNullOrWhiteSpace(instructions);
 
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("name is required.");
@@ -311,7 +310,7 @@ namespace NyoCoder
                     // Keep skill discoverable even if frontmatter is broken
                 }
 
-                if (string.IsNullOrWhiteSpace(description))
+                if (TextNormalization.IsNullOrWhiteSpace(description))
                     description = "(no description)";
 
                 results.Add(new SkillInfo
@@ -487,7 +486,7 @@ namespace NyoCoder
             foreach (string rawLine in lines)
             {
                 string line = rawLine.TrimEnd();
-                if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("#"))
+                if (TextNormalization.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("#"))
                     continue;
 
                 // Skip indented nested keys

@@ -321,7 +321,7 @@ public static class ToolHandler
         imageBase64 = null;
         imageMime = null;
 
-        if (string.IsNullOrWhiteSpace(stdout))
+        if (TextNormalization.IsNullOrWhiteSpace(stdout))
             return;
 
         string trimmed = stdout.Trim();
@@ -375,7 +375,7 @@ public static class ToolHandler
     // Parses a raw JSON string into a JObject once. Returns null on empty/invalid input.
     private static JObject ParseArguments(string arguments)
     {
-        if (string.IsNullOrWhiteSpace(arguments))
+        if (TextNormalization.IsNullOrWhiteSpace(arguments))
             return null;
         try
         {

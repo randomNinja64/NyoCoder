@@ -1,0 +1,94 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- VS 2005/2008 add-in. Built with a current MSBuild (the shared sources need a newer C#
+       compiler than VS 2005/2008 ship); the output targets CLR 2.0 / .NET 3.5. -->
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>NyoCoder</RootNamespace>
+    <AssemblyName>NyoCoder-Legacy</AssemblyName>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\NyoCoder-VSIX\Key.snk</AssemblyOriginatorKeyFile>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Deterministic>true</Deterministic>
+    <LangVersion>7.3</LangVersion>
+    <Platforms>AnyCPU</Platforms>
+    <Configurations>Debug;Release</Configurations>
+    <!-- Layout matches the Addins folder: NyoCoder-Legacy.AddIn next to a NyoCoder-Legacy\ folder. -->
+    <OutputPath>bin\$(Configuration)\NyoCoder-Legacy\</OutputPath>
+  </PropertyGroup>
+
+  <!-- VS interop assemblies ship with VS 2005/2008 (GAC); compile against them only. -->
+  <ItemGroup>
+    <PackageReference Include="EnvDTE" Version="8.0.2" ExcludeAssets="runtime" />
+    <PackageReference Include="EnvDTE80" Version="8.0.3" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.CommandBars" Version="8.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.OLE.Interop" Version="7.10.6071" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.Shell.Interop" Version="7.10.6072" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.TextManager.Interop" Version="7.10.6071" ExcludeAssets="runtime" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!-- Shared sources from the VS2010–2015 project. The MEF editor tagger (Editor\) and the
+       registered package are replaced by local files. -->
+  <ItemGroup>
+    <Compile Include="..\NyoCoder-VSIX\Core\**\*.cs" Exclude="..\NyoCoder-VSIX\Core\NyoCoder-VSIXPackage.cs" Link="Core\%(Filename)%(Extension)" />
+    <Compile Include="..\NyoCoder-VSIX\Services\**\*.cs" Link="Services\%(Filename)%(Extension)" />
+    <Compile Include="..\NyoCoder-VSIX\Tools\**\*.cs" Link="Tools\%(Filename)%(Extension)" />
+    <Compile Include="..\NyoCoder-VSIX\UI\**\*.cs" Exclude="..\NyoCoder-VSIX\UI\NyoCoder.xaml.cs" Link="UI\%(Filename)%(Extension)" />
+    <Compile Include="..\NyoCoder-VSIX\UI\NyoCoder.xaml.cs" Link="UI\NyoCoder.xaml.cs">
+      <DependentUpon>NyoCoder.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="..\NyoCoder-VSIX\Resources.Designer.cs" Link="Resources.Designer.cs">
+      <DependentUpon>Resources.resx</DependentUpon>
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <Compile Include="Core\*.cs;Editor\*.cs;UI\*.cs;Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Include="UI\NyoCoder.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\NyoCoder-VSIX\Resources.resx" Link="Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\NyoCoder-VSIX\Key.snk" Link="Key.snk" />
+    <None Include="NyoCoder-Legacy.AddIn" />
+  </ItemGroup>
+
+  <!-- Licenses and native helpers: copied next to the assembly. -->
+  <ItemGroup>
+    <Content Include="..\LICENSE.rtf" Link="LICENSE.rtf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\THIRD_PARTY_LICENSES\*.txt" Link="THIRD_PARTY_LICENSES\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\NyoCoder-VSIX\Dependencies\*.*" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Core" />
+    <Reference Include="System.Design" />
+    <Reference Include="System.Web" />
+    <Reference Include="WindowsFormsIntegration" />
+  </ItemGroup>
+
+  <!-- The .AddIn registration file and install scripts sit one level above the assembly folder. -->
+  <Target Name="CopyAddInFile" AfterTargets="Build">
+    <Copy SourceFiles="NyoCoder-Legacy.AddIn;Install-VS2005.bat;Install-VS2008.bat" DestinationFolder="$(OutDir).." SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

@@ -136,7 +136,7 @@ namespace NyoCoder
                         stepBody.Append("\n\nYou are now working on Step " + (stepIdx + 1) + ": \"" + stepTitle + "\"\n");
                         stepBody.Append("Focus on completing this step only.");
 
-                        string stepPrompt = !string.IsNullOrWhiteSpace(freshContext)
+                        string stepPrompt = !TextNormalization.IsNullOrWhiteSpace(freshContext)
                             ? freshContext + "\n\n---\n\n" + stepBody
                             : stepBody.ToString();
 
@@ -151,7 +151,7 @@ namespace NyoCoder
                             _startBlock();
                         }
                         if (rag != null && rag.Outcome == AutoRagContext.Status.Success
-                            && !string.IsNullOrWhiteSpace(rag.PromptBlock))
+                            && !TextNormalization.IsNullOrWhiteSpace(rag.PromptBlock))
                         {
                             stepPrompt = AutoRagContext.MergeIntoPrompt(stepPrompt, rag.PromptBlock);
                         }
@@ -199,7 +199,7 @@ namespace NyoCoder
                         for (int i = stepClient.Conversation.Count - 1; i >= 0; i--)
                         {
                             LLMClient.ChatMessage msg = stepClient.Conversation[i];
-                            if (msg.Role == "assistant" && !string.IsNullOrWhiteSpace(msg.Content))
+                            if (msg.Role == "assistant" && !TextNormalization.IsNullOrWhiteSpace(msg.Content))
                             {
                                 stepResult = msg.Content;
                                 break;

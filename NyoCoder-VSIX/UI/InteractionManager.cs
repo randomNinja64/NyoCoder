@@ -316,7 +316,9 @@ namespace NyoCoder
         {
             textBox.SetResourceReference(Control.BackgroundProperty, VsBrushes.WindowKey);
             textBox.SetResourceReference(Control.ForegroundProperty, VsBrushes.WindowTextKey);
+#if !NET35 // CaretBrush is WPF 4+; NyoCoder-Legacy keeps the default caret
             textBox.SetResourceReference(TextBox.CaretBrushProperty, VsBrushes.WindowTextKey);
+#endif
 
             // Grey hint text overlaid on the textbox, hidden once the user types.
             var hintLabel = new TextBlock

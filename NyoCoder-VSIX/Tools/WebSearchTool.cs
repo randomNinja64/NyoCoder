@@ -63,7 +63,7 @@ namespace NyoCoder
 
         private static string FinalizeSearch(string response, SearchResultParser parser, int maxSearchResults, out int exitCode)
         {
-            if (string.IsNullOrWhiteSpace(response))
+            if (TextNormalization.IsNullOrWhiteSpace(response))
             {
                 exitCode = -1;
                 return "";
@@ -85,7 +85,7 @@ namespace NyoCoder
         public static string ReadWebsite(string url, int maxContentLength, int maxLinks,
             string firecrawlEndpoint, string firecrawlApiKey, out int exitCode)
         {
-            if (!string.IsNullOrWhiteSpace(firecrawlEndpoint))
+            if (!TextNormalization.IsNullOrWhiteSpace(firecrawlEndpoint))
             {
                 string firecrawlText;
                 if (TryReadViaFirecrawl(url, firecrawlEndpoint, firecrawlApiKey,
@@ -103,7 +103,7 @@ namespace NyoCoder
             {
                 html = CurlExecute(url, out exitCode, combineErrorOutput: false, timeoutMilliseconds: ReadWebsiteTimeoutMs);
 
-                if (exitCode != 0 && string.IsNullOrWhiteSpace(html))
+                if (exitCode != 0 && TextNormalization.IsNullOrWhiteSpace(html))
                     return "Error fetching URL (curl exit " + exitCode + ").\n";
 
                 string text;
@@ -119,7 +119,7 @@ namespace NyoCoder
                         text = TruncateBody(text, maxContentLength);
                 }
 
-                if (string.IsNullOrWhiteSpace(text))
+                if (TextNormalization.IsNullOrWhiteSpace(text))
                     return "No readable content found.\n";
 
                 return text + "\n";
@@ -152,7 +152,7 @@ namespace NyoCoder
                     scrapeUrl, payload.ToString(Formatting.None), out exitCode,
                     false, ReadWebsiteTimeoutMs, FirecrawlAuthHeaders(apiKey));
 
-                if (exitCode != 0 || string.IsNullOrWhiteSpace(response))
+                if (exitCode != 0 || TextNormalization.IsNullOrWhiteSpace(response))
                     return false;
 
                 JObject root = JObject.Parse(response);
@@ -165,7 +165,7 @@ namespace NyoCoder
                     return false;
 
                 string markdown = data["markdown"] != null ? data["markdown"].ToString() : null;
-                if (string.IsNullOrWhiteSpace(markdown))
+                if (TextNormalization.IsNullOrWhiteSpace(markdown))
                     return false;
 
                 JObject metadata = data["metadata"] as JObject;
@@ -183,12 +183,12 @@ namespace NyoCoder
 
                 List<KeyValuePair<string, string>> links;
                 string body = MarkdownToReadableBody(markdown, maxLinks, out links);
-                if (string.IsNullOrWhiteSpace(body) && links.Count == 0)
+                if (TextNormalization.IsNullOrWhiteSpace(body) && links.Count == 0)
                     return false;
 
                 text = AssembleOutput(title, desc, body, links, maxContentLength);
                 exitCode = 0;
-                return !string.IsNullOrWhiteSpace(text);
+                return !TextNormalization.IsNullOrWhiteSpace(text);
             }
             catch
             {
@@ -204,7 +204,7 @@ namespace NyoCoder
                 return "";
             for (int i = 0; i < values.Length; i++)
             {
-                if (!string.IsNullOrWhiteSpace(values[i]))
+                if (!TextNormalization.IsNullOrWhiteSpace(values[i]))
                     return values[i].Trim();
             }
             return "";
@@ -256,7 +256,7 @@ namespace NyoCoder
             html = StripNonContentBlocks(html);
 
             Uri baseUri = null;
-            if (!string.IsNullOrWhiteSpace(pageUrl))
+            if (!TextNormalization.IsNullOrWhiteSpace(pageUrl))
                 Uri.TryCreate(pageUrl, UriKind.Absolute, out baseUri);
 
             List<KeyValuePair<string, string>> links = new List<KeyValuePair<string, string>>();
@@ -470,7 +470,7 @@ namespace NyoCoder
 
         private static string ResolveUrl(Uri baseUri, string href)
         {
-            if (string.IsNullOrWhiteSpace(href))
+            if (TextNormalization.IsNullOrWhiteSpace(href))
                 return "";
 
             if (baseUri != null)
@@ -485,7 +485,7 @@ namespace NyoCoder
 
         private static bool IsCollectableLink(string href)
         {
-            if (string.IsNullOrWhiteSpace(href))
+            if (TextNormalization.IsNullOrWhiteSpace(href))
                 return false;
 
             string trimmed = href.Trim();
@@ -604,19 +604,19 @@ namespace NyoCoder
             exitCode = 0;
 
             // SearXNG > Firecrawl > DDG > Wiby
-            if (!string.IsNullOrWhiteSpace(searxngInstance))
+            if (!TextNormalization.IsNullOrWhiteSpace(searxngInstance))
                 output = RunSearXNGSearch(query, searxngInstance, maxSearchResults, out exitCode);
 
-            if (string.IsNullOrWhiteSpace(output) && !string.IsNullOrWhiteSpace(firecrawlEndpoint))
+            if (TextNormalization.IsNullOrWhiteSpace(output) && !TextNormalization.IsNullOrWhiteSpace(firecrawlEndpoint))
                 output = RunFirecrawlSearch(query, firecrawlEndpoint, firecrawlApiKey, maxSearchResults, out exitCode);
 
-            if (string.IsNullOrWhiteSpace(output))
+            if (TextNormalization.IsNullOrWhiteSpace(output))
                 output = RunDDGSearch(query, maxSearchResults, out exitCode);
 
-            if (string.IsNullOrWhiteSpace(output))
+            if (TextNormalization.IsNullOrWhiteSpace(output))
                 output = RunWibySearch(query, maxSearchResults, out exitCode);
 
-            if (string.IsNullOrWhiteSpace(output))
+            if (TextNormalization.IsNullOrWhiteSpace(output))
                 output = "No results found.";
 
             return output;
@@ -688,7 +688,7 @@ namespace NyoCoder
         private static string RunFirecrawlSearch(string query, string endpoint, string apiKey,
             int maxSearchResults, out int exitCode)
         {
-            if (string.IsNullOrWhiteSpace(endpoint))
+            if (TextNormalization.IsNullOrWhiteSpace(endpoint))
             {
                 exitCode = -1;
                 return "";
@@ -717,7 +717,7 @@ namespace NyoCoder
 
         private static string[] FirecrawlAuthHeaders(string apiKey)
         {
-            return string.IsNullOrWhiteSpace(apiKey)
+            return TextNormalization.IsNullOrWhiteSpace(apiKey)
                 ? new string[0]
                 : new[] { "Authorization: Bearer " + apiKey.Trim() };
         }

@@ -387,7 +387,7 @@ namespace NyoCoder
 
                         try
                         {
-                            if (doc != null && !string.IsNullOrWhiteSpace(doc.FullName))
+                            if (doc != null && !TextNormalization.IsNullOrWhiteSpace(doc.FullName))
                             {
                                 // Mark the active document with an asterisk
                                 string marker = (_dte.ActiveDocument != null &&
@@ -411,7 +411,7 @@ namespace NyoCoder
                     context.AppendLine();
                 }
 
-                if (_dte != null && _dte.ActiveDocument != null && !string.IsNullOrWhiteSpace(_dte.ActiveDocument.FullName))
+                if (_dte != null && _dte.ActiveDocument != null && !TextNormalization.IsNullOrWhiteSpace(_dte.ActiveDocument.FullName))
                 {
                     string currentFilePath = _dte.ActiveDocument.FullName;
                     

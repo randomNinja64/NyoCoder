@@ -12,7 +12,7 @@ namespace NyoCoder
 
         public void Queue(string message)
         {
-            if (string.IsNullOrWhiteSpace(message))
+            if (TextNormalization.IsNullOrWhiteSpace(message))
                 return;
 
             lock (_lock)

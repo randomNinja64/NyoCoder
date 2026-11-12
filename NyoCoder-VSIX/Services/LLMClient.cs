@@ -57,7 +57,7 @@ public partial class LLMClient
         string model = ConfigHandler.GetModel();
 
         // Validate configuration - only LLM Server is required
-        if (string.IsNullOrWhiteSpace(llmServer))
+        if (TextNormalization.IsNullOrWhiteSpace(llmServer))
         {
             MessageBox.Show(
                 "Please configure the LLM Server in Tools > NyoCoder Options...",
@@ -68,11 +68,11 @@ public partial class LLMClient
         }
 
         // Use empty string for optional values if not provided
-        if (string.IsNullOrWhiteSpace(apiKey))
+        if (TextNormalization.IsNullOrWhiteSpace(apiKey))
         {
             apiKey = "";
         }
-        if (string.IsNullOrWhiteSpace(model))
+        if (TextNormalization.IsNullOrWhiteSpace(model))
         {
             model = "";
         }

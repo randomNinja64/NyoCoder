@@ -74,7 +74,9 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
 
 ## Installation
 
-The VSIX for the tool can be downloaded from "Releases". Download the appropriate version for your release of Visual Studio (2010-2015, or 2017+) and open it to install the extension.
+The tool can be downloaded from "Releases". Download the appropriate version for your release of Visual Studio (.zip for 2005-2008, VSIX for 2010-2015, or VSIX for 2017+) and open it to install the extension.
+
+For the 2005-2008 release, install using the appropriate .bat file.
 
 ## Usage
 

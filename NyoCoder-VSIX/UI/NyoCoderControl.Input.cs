@@ -165,7 +165,7 @@ namespace NyoCoder
         private void SubmitInputMessage()
         {
             string message = InputBox.Text.Trim();
-            if (string.IsNullOrWhiteSpace(message))
+            if (TextNormalization.IsNullOrWhiteSpace(message))
                 return;
 
             NyoCoder_VSIXPackage package = NyoCoder_VSIXPackage.Instance;

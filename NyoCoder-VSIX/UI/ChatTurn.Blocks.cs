@@ -45,7 +45,7 @@ namespace NyoCoder
             // expander is the next visible block (no blank line above it).
             Paragraph last = Document.Blocks.LastBlock as Paragraph;
             if (last != null
-                && string.IsNullOrWhiteSpace(new TextRange(last.ContentStart, last.ContentEnd).Text))
+                && TextNormalization.IsNullOrWhiteSpace(new TextRange(last.ContentStart, last.ContentEnd).Text))
             {
                 Document.Blocks.Remove(last);
             }

@@ -144,7 +144,7 @@ namespace NyoCoder
         public static string GetSystemPrompt(string id)
         {
             ModeDefinition mode = Get(id);
-            if (!string.IsNullOrWhiteSpace(mode.SystemPrompt))
+            if (!TextNormalization.IsNullOrWhiteSpace(mode.SystemPrompt))
                 return mode.SystemPrompt.Trim();
 
             return ModeDefaults.GetDefaultSystemPrompt(mode.Id);
@@ -209,7 +209,7 @@ namespace NyoCoder
 
         public static bool IsValidCustomModeId(string id)
         {
-            if (string.IsNullOrWhiteSpace(id))
+            if (TextNormalization.IsNullOrWhiteSpace(id))
                 return false;
             if (!Regex.IsMatch(id, "^[a-z][a-z0-9_-]*$"))
                 return false;
@@ -359,9 +359,9 @@ namespace NyoCoder
             var obj = new JObject();
             if (includeId)
                 obj["id"] = mode.Id ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(mode.DisplayName))
+            if (!TextNormalization.IsNullOrWhiteSpace(mode.DisplayName))
                 obj["displayName"] = mode.DisplayName;
-            if (!string.IsNullOrWhiteSpace(mode.SystemPrompt))
+            if (!TextNormalization.IsNullOrWhiteSpace(mode.SystemPrompt))
                 obj["systemPrompt"] = mode.SystemPrompt;
             obj["toolPolicy"] = mode.ToolPolicy == ModeToolPolicy.AllowList ? "allowlist" : "all";
             if (mode.Tools != null && mode.Tools.Length > 0)
@@ -422,7 +422,7 @@ namespace NyoCoder
             return new ModeDefinition
             {
                 Id = custom.Id,
-                DisplayName = string.IsNullOrWhiteSpace(custom.DisplayName)
+                DisplayName = TextNormalization.IsNullOrWhiteSpace(custom.DisplayName)
                     ? custom.Id
                     : custom.DisplayName.Trim(),
                 SystemPrompt = custom.SystemPrompt ?? string.Empty,
@@ -445,7 +445,7 @@ namespace NyoCoder
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (ModeDefinition mode in customModes)
             {
-                if (mode == null || string.IsNullOrWhiteSpace(mode.Id))
+                if (mode == null || TextNormalization.IsNullOrWhiteSpace(mode.Id))
                     throw new InvalidOperationException("Custom modes must have an id.");
 
                 string id = mode.Id.Trim();
@@ -455,7 +455,7 @@ namespace NyoCoder
                 if (!seen.Add(id))
                     throw new InvalidOperationException("Duplicate custom mode id: " + id);
 
-                if (string.IsNullOrWhiteSpace(mode.SystemPrompt))
+                if (TextNormalization.IsNullOrWhiteSpace(mode.SystemPrompt))
                     throw new InvalidOperationException("Custom mode '" + id + "' requires a system prompt.");
             }
 

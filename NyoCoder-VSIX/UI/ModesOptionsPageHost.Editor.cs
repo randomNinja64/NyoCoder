@@ -33,7 +33,7 @@ namespace NyoCoder
                 _displayNameBox.Text = mode.DisplayName ?? string.Empty;
                 _displayNameBox.ReadOnly = isBuiltIn;
 
-                string prompt = isBuiltIn && string.IsNullOrWhiteSpace(mode.SystemPrompt)
+                string prompt = isBuiltIn && TextNormalization.IsNullOrWhiteSpace(mode.SystemPrompt)
                     ? ModeDefaults.GetDefaultSystemPrompt(mode.Id)
                     : (mode.SystemPrompt ?? string.Empty);
                 _promptBox.Text = string.IsNullOrEmpty(prompt)

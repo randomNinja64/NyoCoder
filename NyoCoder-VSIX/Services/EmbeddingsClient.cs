@@ -60,7 +60,7 @@ namespace NyoCoder
         {
             string endpoint = ConfigHandler.GetEmbeddingsEndpoint();
             string model = ConfigHandler.GetEmbeddingsModel();
-            if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(model))
+            if (TextNormalization.IsNullOrWhiteSpace(endpoint) || TextNormalization.IsNullOrWhiteSpace(model))
                 return null;
             return new EmbeddingsClient(
                 endpoint,
@@ -237,7 +237,7 @@ namespace NyoCoder
                     using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
                     {
                         string body = reader.ReadToEnd();
-                        if (string.IsNullOrWhiteSpace(body))
+                        if (TextNormalization.IsNullOrWhiteSpace(body))
                             return null;
                         if (body.Length > 500)
                             return body.Substring(0, 500) + "...";

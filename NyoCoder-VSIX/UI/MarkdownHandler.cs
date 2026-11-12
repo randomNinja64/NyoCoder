@@ -337,7 +337,7 @@ namespace NyoCoder
                 return false;
 
             fenceLength = match.Groups[2].Value.Length;
-            hasInfoString = !string.IsNullOrWhiteSpace(match.Groups[3].Value);
+            hasInfoString = !TextNormalization.IsNullOrWhiteSpace(match.Groups[3].Value);
             return true;
         }
 

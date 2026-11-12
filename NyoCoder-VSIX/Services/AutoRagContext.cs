@@ -42,7 +42,7 @@ namespace NyoCoder
             if (!ConfigHandler.GetAutoRagEnabled())
                 return result;
 
-            if (string.IsNullOrWhiteSpace(query))
+            if (TextNormalization.IsNullOrWhiteSpace(query))
                 return result;
 
             IndexingMode mode = ConfigHandler.GetIndexingMode();
@@ -69,7 +69,7 @@ namespace NyoCoder
             {
                 EnvDTE80.DTE2 dte = EditorService.GetDte();
                 if (dte != null && dte.ActiveDocument != null
-                    && !string.IsNullOrWhiteSpace(dte.ActiveDocument.FullName))
+                    && !TextNormalization.IsNullOrWhiteSpace(dte.ActiveDocument.FullName))
                     activePath = dte.ActiveDocument.FullName;
             }
             catch { }
@@ -85,7 +85,7 @@ namespace NyoCoder
                 return result;
             }
 
-            if (hits == null || string.IsNullOrWhiteSpace(hits.FormattedText)
+            if (hits == null || TextNormalization.IsNullOrWhiteSpace(hits.FormattedText)
                 || hits.FilePaths == null || hits.FilePaths.Count == 0)
             {
                 result.Outcome = Status.NoHits;
@@ -130,10 +130,10 @@ namespace NyoCoder
         /// </summary>
         public static string MergeIntoPrompt(string basePrompt, string retrievedBlock)
         {
-            if (string.IsNullOrWhiteSpace(retrievedBlock))
+            if (TextNormalization.IsNullOrWhiteSpace(retrievedBlock))
                 return basePrompt ?? string.Empty;
 
-            if (string.IsNullOrWhiteSpace(basePrompt))
+            if (TextNormalization.IsNullOrWhiteSpace(basePrompt))
                 return retrievedBlock;
 
             // Prefer: editor context, then retrieved, then --- separator before user/step body

@@ -49,7 +49,7 @@ namespace NyoCoder
         /// </summary>
         internal static bool IsPlanFile(string path)
         {
-            if (string.IsNullOrWhiteSpace(path))
+            if (TextNormalization.IsNullOrWhiteSpace(path))
                 return false;
 
             string planPath = GetPath();

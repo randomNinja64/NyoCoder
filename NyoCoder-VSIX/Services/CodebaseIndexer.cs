@@ -483,7 +483,7 @@ namespace NyoCoder
                     sb.AppendLine(lines[i]);
 
                 string text = sb.ToString();
-                if (!string.IsNullOrWhiteSpace(text))
+                if (!TextNormalization.IsNullOrWhiteSpace(text))
                 {
                     yield return new ChunkInfo
                     {

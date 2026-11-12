@@ -10,5 +10,18 @@ namespace NyoCoder
             if (text == null) return null;
             return text.Replace("\r\n", "\n").Replace("\r", "\n");
         }
+
+        /// <summary>
+        /// string.IsNullOrWhiteSpace, which .NET 3.5 (NyoCoder-Legacy) does not have.
+        /// </summary>
+        internal static bool IsNullOrWhiteSpace(string text)
+        {
+            if (text == null) return true;
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (!char.IsWhiteSpace(text[i])) return false;
+            }
+            return true;
+        }
     }
 }

@@ -26,7 +26,7 @@ namespace NyoCoder
         public static string Search(string query, out int exitCode)
         {
             exitCode = 0;
-            if (string.IsNullOrWhiteSpace(query))
+            if (TextNormalization.IsNullOrWhiteSpace(query))
             {
                 exitCode = 1;
                 return "Error: 'query' is required.";
@@ -58,7 +58,7 @@ namespace NyoCoder
                 }
             }
 
-            if (hits != null && !string.IsNullOrWhiteSpace(hits.FormattedText))
+            if (hits != null && !TextNormalization.IsNullOrWhiteSpace(hits.FormattedText))
                 return hits.FormattedText;
 
             string reason = mode == IndexingMode.Off ? "Indexing is Off"

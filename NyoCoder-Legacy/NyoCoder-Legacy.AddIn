@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Extensibility xmlns="http://schemas.microsoft.com/AutomationExtensibility">
+  <HostApplication>
+    <Name>Microsoft Visual Studio</Name>
+    <Version>8.0</Version>
+  </HostApplication>
+  <HostApplication>
+    <Name>Microsoft Visual Studio</Name>
+    <Version>9.0</Version>
+  </HostApplication>
+  <Addin>
+    <FriendlyName>NyoCoder</FriendlyName>
+    <Description>AI-assisted coding for Visual Studio 2005 and 2008</Description>
+    <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
+    <FullClassName>NyoCoder.Connect</FullClassName>
+    <LoadBehavior>1</LoadBehavior>
+    <CommandPreload>0</CommandPreload>
+    <CommandLineSafe>0</CommandLineSafe>
+  </Addin>
+  <ToolsOptionsPage>
+    <Category Name="NyoCoder">
+      <SubCategory Name="General">
+        <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
+        <FullClassName>NyoCoder.GeneralOptionsControl</FullClassName>
+      </SubCategory>
+      <SubCategory Name="Context">
+        <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
+        <FullClassName>NyoCoder.ContextOptionsControl</FullClassName>
+      </SubCategory>
+      <SubCategory Name="Appearance">
+        <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
+        <FullClassName>NyoCoder.AppearanceOptionsControl</FullClassName>
+      </SubCategory>
+      <SubCategory Name="Modes">
+        <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
+        <FullClassName>NyoCoder.ModesOptionsControl</FullClassName>
+      </SubCategory>
+      <SubCategory Name="Build Error Handling">
+        <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
+        <FullClassName>NyoCoder.BuildErrorHandlingOptionsControl</FullClassName>
+      </SubCategory>
+      <SubCategory Name="Indexing">
+        <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
+        <FullClassName>NyoCoder.IndexingOptionsControl</FullClassName>
+      </SubCategory>
+      <SubCategory Name="Tools">
+        <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
+        <FullClassName>NyoCoder.ToolsOptionsControl</FullClassName>
+      </SubCategory>
+      <SubCategory Name="Tools - Approvals">
+        <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
+        <FullClassName>NyoCoder.ApprovalsOptionsControl</FullClassName>
+      </SubCategory>
+      <SubCategory Name="Web Search">
+        <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
+        <FullClassName>NyoCoder.WebSearchOptionsControl</FullClassName>
+      </SubCategory>
+    </Category>
+  </ToolsOptionsPage>
+</Extensibility>

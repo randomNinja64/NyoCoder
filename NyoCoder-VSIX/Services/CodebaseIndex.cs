@@ -60,7 +60,7 @@ namespace NyoCoder
         public static string GetIndexRootDir(string solutionKey)
         {
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            return Path.Combine(appData, "NyoCoder", "index", HashMd5Hex(solutionKey, lowercase: true));
+            return Path.Combine(Path.Combine(Path.Combine(appData, "NyoCoder"), "index"), HashMd5Hex(solutionKey, lowercase: true));
         }
 
         /// <summary>MD5 hex digest for fingerprints (content) or stable keys (paths).</summary>
@@ -297,7 +297,7 @@ namespace NyoCoder
         public List<SymbolEntry> SearchSymbols(string query, int topK)
         {
             List<SymbolEntry> results = new List<SymbolEntry>();
-            if (Symbols == null || Symbols.Count == 0 || string.IsNullOrWhiteSpace(query))
+            if (Symbols == null || Symbols.Count == 0 || TextNormalization.IsNullOrWhiteSpace(query))
                 return results;
 
             List<string> tokens = Tokenize(query);

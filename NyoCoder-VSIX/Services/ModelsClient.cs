@@ -38,7 +38,7 @@ namespace NyoCoder
         /// </summary>
         public static IList<string> ListModels(string baseUrl, string apiKey)
         {
-            if (string.IsNullOrWhiteSpace(baseUrl))
+            if (TextNormalization.IsNullOrWhiteSpace(baseUrl))
                 throw new ModelsException("LLM server URL is empty.");
 
             string url = baseUrl.Trim().TrimEnd('/') + "/models";
@@ -95,7 +95,7 @@ namespace NyoCoder
 
         private static IList<string> ParseModelIds(string body)
         {
-            if (string.IsNullOrWhiteSpace(body))
+            if (TextNormalization.IsNullOrWhiteSpace(body))
                 throw new ModelsException("Models response was empty.");
 
             JObject root;
@@ -151,7 +151,7 @@ namespace NyoCoder
                     using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
                     {
                         string body = reader.ReadToEnd();
-                        if (string.IsNullOrWhiteSpace(body))
+                        if (TextNormalization.IsNullOrWhiteSpace(body))
                             return null;
                         if (body.Length > 500)
                             return body.Substring(0, 500) + "...";

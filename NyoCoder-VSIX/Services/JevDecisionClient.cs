@@ -129,7 +129,7 @@ namespace NyoCoder
             IList<JevContextMessage> recentMessages)
         {
             string baseUrl = ConfigHandler.GetJevBaseUrl();
-            if (string.IsNullOrWhiteSpace(baseUrl))
+            if (TextNormalization.IsNullOrWhiteSpace(baseUrl))
                 return JevGateDecision.AskUser();
 
             string model = ConfigHandler.GetJevModel();
@@ -168,7 +168,7 @@ namespace NyoCoder
             questions["gate"] = gate;
 
             JObject payload = new JObject();
-            if (!string.IsNullOrWhiteSpace(model))
+            if (!TextNormalization.IsNullOrWhiteSpace(model))
                 payload["model"] = model.Trim();
             payload["state"] = state;
             payload["questions"] = questions;
@@ -205,7 +205,7 @@ namespace NyoCoder
         public static JevGateDecision ParseResponse(string body)
         {
             JevGateDecision decision = JevGateDecision.AskUser();
-            if (string.IsNullOrWhiteSpace(body))
+            if (TextNormalization.IsNullOrWhiteSpace(body))
                 return decision;
 
             JObject root;

@@ -66,7 +66,7 @@ namespace NyoCoder
 
                 // GNU grep: 0 = matches, 1 = no matches, >=2 = error.
                 // No matches is a normal result and must not count as a tool failure.
-                if (exitCode == 1 || (exitCode == 0 && string.IsNullOrWhiteSpace(output)))
+                if (exitCode == 1 || (exitCode == 0 && TextNormalization.IsNullOrWhiteSpace(output)))
                 {
                     exitCode = 0;
                     return "No matches found for pattern: " + pattern;
@@ -74,7 +74,7 @@ namespace NyoCoder
 
                 if (exitCode != 0)
                 {
-                    if (string.IsNullOrWhiteSpace(output))
+                    if (TextNormalization.IsNullOrWhiteSpace(output))
                         return "Error: grep exited with code " + exitCode;
                     return "Error: grep exited with code " + exitCode + ":\n" + output;
                 }

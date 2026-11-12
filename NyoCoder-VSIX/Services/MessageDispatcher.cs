@@ -109,7 +109,7 @@ namespace NyoCoder
             ContextEngine contextEngine = new ContextEngine(dte);
             string context = contextEngine.BuildUserPromptContext();
 
-            if (!string.IsNullOrWhiteSpace(context))
+            if (!TextNormalization.IsNullOrWhiteSpace(context))
             {
                 string prompt = context + "\n\n---\n\n" + query;
                 int hiddenDelta = prompt.Length - query.Length;
@@ -138,7 +138,7 @@ namespace NyoCoder
             }
 
             if (rag.Outcome == AutoRagContext.Status.Success
-                && !string.IsNullOrWhiteSpace(rag.PromptBlock))
+                && !TextNormalization.IsNullOrWhiteSpace(rag.PromptBlock))
             {
                 string merged = AutoRagContext.MergeIntoPrompt(prompt, rag.PromptBlock);
                 int delta = merged.Length - (prompt != null ? prompt.Length : 0);
@@ -298,7 +298,7 @@ namespace NyoCoder
                     // Prefer the plan file on disk (the source of truth); fall back to
                     // scraping the transcript if PLAN.md was never written.
                     string planText = PlanFile.ReadAll();
-                    if (string.IsNullOrWhiteSpace(planText))
+                    if (TextNormalization.IsNullOrWhiteSpace(planText))
                         planText = ExtractApprovedPlan(llmClient.Conversation);
 
                     // Drop planning transcript; agent starts with a fresh context seeded by the plan.
@@ -365,7 +365,7 @@ namespace NyoCoder
         /// </summary>
         private static string BuildPlanHandoffMessage(string planText)
         {
-            if (string.IsNullOrWhiteSpace(planText))
+            if (TextNormalization.IsNullOrWhiteSpace(planText))
             {
                 return "The approved plan could not be recovered from the planning conversation. "
                     + "Ask the user to restate the plan, then implement it. "
@@ -394,7 +394,7 @@ namespace NyoCoder
                 LLMClient.ChatMessage msg = conversation[i];
                 if (!string.Equals(msg.Role, "assistant", StringComparison.OrdinalIgnoreCase))
                     continue;
-                if (string.IsNullOrWhiteSpace(msg.Content))
+                if (TextNormalization.IsNullOrWhiteSpace(msg.Content))
                     continue;
 
                 if (lastAssistant == null)

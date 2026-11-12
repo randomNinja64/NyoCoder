@@ -78,7 +78,7 @@ namespace NyoCoder
             get
             {
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                return Path.Combine(appData, "NyoCoder", "tools");
+                return Path.Combine(Path.Combine(appData, "NyoCoder"), "tools");
             }
         }
 
@@ -275,7 +275,7 @@ namespace NyoCoder
                     continue;
 
                 string output = InvokeContextProvider(kvp.Key, kvp.Value);
-                if (!string.IsNullOrWhiteSpace(output))
+                if (!TextNormalization.IsNullOrWhiteSpace(output))
                     results.Add(output.Trim());
             }
 
@@ -409,7 +409,7 @@ namespace NyoCoder
 
                 JObject stdinPayload = new JObject();
                 stdinPayload["config"] = configObj;
-                stdinPayload["arguments"] = string.IsNullOrWhiteSpace(arguments)
+                stdinPayload["arguments"] = TextNormalization.IsNullOrWhiteSpace(arguments)
                     ? new JObject()
                     : JToken.Parse(arguments);
 

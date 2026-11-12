@@ -30,7 +30,7 @@ namespace NyoCoder
                     if (token == null || token.Type == JTokenType.Null)
                         continue;
                     string value = token.Type == JTokenType.String ? token.Value<string>() : token.ToString();
-                    if (!string.IsNullOrWhiteSpace(value))
+                    if (!TextNormalization.IsNullOrWhiteSpace(value))
                         options.Add(value);
                 }
             }

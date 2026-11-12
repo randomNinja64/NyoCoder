@@ -201,7 +201,7 @@ namespace NyoCoder
 
 		public static void SetReasoningEffort(string value)
 		{
-			SetConfigValue("reasoningeffort", string.IsNullOrWhiteSpace(value) ? null : value.Trim());
+			SetConfigValue("reasoningeffort", TextNormalization.IsNullOrWhiteSpace(value) ? null : value.Trim());
 		}
 
 	// -------------------------------------------------------------------------
@@ -321,7 +321,7 @@ namespace NyoCoder
 
 	public static void SetJevBaseUrl(string value)
 	{
-		SetConfigValue("jevbaseurl", string.IsNullOrWhiteSpace(value) ? null : value.Trim());
+		SetConfigValue("jevbaseurl", TextNormalization.IsNullOrWhiteSpace(value) ? null : value.Trim());
 	}
 
 	public static string GetJevApiKey()
@@ -341,7 +341,7 @@ namespace NyoCoder
 
 	public static void SetJevModel(string value)
 	{
-		SetConfigValue("jevmodel", string.IsNullOrWhiteSpace(value) ? null : value.Trim());
+		SetConfigValue("jevmodel", TextNormalization.IsNullOrWhiteSpace(value) ? null : value.Trim());
 	}
 
 	/// <summary>
@@ -449,7 +449,7 @@ namespace NyoCoder
 		public static string GetEmbeddingsEndpoint()
 		{
 			string endpoint = GetConfigValue("embeddingsEndpoint");
-			return string.IsNullOrWhiteSpace(endpoint) ? GetLlmServer() : endpoint.Trim();
+			return TextNormalization.IsNullOrWhiteSpace(endpoint) ? GetLlmServer() : endpoint.Trim();
 		}
 
 		public static string GetEmbeddingsModel()
@@ -461,7 +461,7 @@ namespace NyoCoder
 		public static string GetEmbeddingsApiKey()
 		{
 			string key = GetConfigValue("embeddingsApiKey");
-			return string.IsNullOrWhiteSpace(key) ? GetApiKey() : key.Trim();
+			return TextNormalization.IsNullOrWhiteSpace(key) ? GetApiKey() : key.Trim();
 		}
 
 		/// <summary>Raw configured embeddings API key (may be empty). Used by the options UI.</summary>

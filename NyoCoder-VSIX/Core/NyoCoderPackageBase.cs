@@ -270,7 +270,7 @@ namespace NyoCoder
             return null;
         }
 
-        private void SetupKeyboardBinding()
+        protected virtual void SetupKeyboardBinding()
         {
             try
             {

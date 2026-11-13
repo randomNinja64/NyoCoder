@@ -527,54 +527,86 @@ namespace NyoCoder
 
         internal static string BuildUnifiedDiff(string oldText, string newText, int maxLines)
         {
-            // Simple line-based diff (good enough for a preview)
-            string[] a = TextNormalization.NormalizeLineEndings(oldText ?? string.Empty).Split('\n');
-            string[] b = TextNormalization.NormalizeLineEndings(newText ?? string.Empty).Split('\n');
+            // Changed lines with a few unchanged lines around each group, like a unified diff.
+            const int Context = 3;
+            const int MaxDiffLines = 1000;
+
+            string[] a = string.IsNullOrEmpty(oldText) ? new string[0] : TextNormalization.NormalizeLineEndings(oldText).Split('\n');
+            string[] b = string.IsNullOrEmpty(newText) ? new string[0] : TextNormalization.NormalizeLineEndings(newText).Split('\n');
+
+            // Skip the unchanged start and end so the line diff only runs over the changed middle.
+            int prefix = 0;
+            while (prefix < a.Length && prefix < b.Length && a[prefix] == b[prefix])
+                prefix++;
+            int suffix = 0;
+            while (suffix < a.Length - prefix && suffix < b.Length - prefix && a[a.Length - 1 - suffix] == b[b.Length - 1 - suffix])
+                suffix++;
+
+            string[] midA = new string[a.Length - prefix - suffix];
+            string[] midB = new string[b.Length - prefix - suffix];
+            Array.Copy(a, prefix, midA, 0, midA.Length);
+            Array.Copy(b, prefix, midB, 0, midB.Length);
+
+            int lead = Math.Min(prefix, Context);
+            int trail = Math.Min(suffix, Context);
+            List<DiffOp> ops = new List<DiffOp>();
+            for (int k = prefix - lead; k < prefix; k++)
+                ops.Add(new DiffOp { Type = DiffOpType.Equal, Text = a[k] });
+            if (midA.Length > MaxDiffLines || midB.Length > MaxDiffLines)
+            {
+                // Too large to line-diff: show the old block followed by the new one.
+                foreach (string line in midA) ops.Add(new DiffOp { Type = DiffOpType.Delete, Text = line });
+                foreach (string line in midB) ops.Add(new DiffOp { Type = DiffOpType.Insert, Text = line });
+            }
+            else
+            {
+                ops.AddRange(ComputeLineDiff(midA, midB));
+            }
+            for (int k = a.Length - suffix; k < a.Length - suffix + trail; k++)
+                ops.Add(new DiffOp { Type = DiffOpType.Equal, Text = a[k] });
+
+            bool[] show = new bool[ops.Count];
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (ops[i].Type == DiffOpType.Equal)
+                    continue;
+                for (int k = Math.Max(0, i - Context); k <= Math.Min(ops.Count - 1, i + Context); k++)
+                    show[k] = true;
+            }
 
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("--- original");
             sb.AppendLine("+++ new");
 
-            int i = 0;
-            int j = 0;
+            int oldLine = prefix - lead + 1;
+            int newLine = oldLine;
             int linesOut = 0;
-
-            while (i < a.Length || j < b.Length)
+            bool inHunk = false;
+            for (int i = 0; i < ops.Count; i++)
             {
-                if (linesOut >= maxLines)
+                DiffOp op = ops[i];
+                if (show[i])
                 {
-                    sb.AppendLine("...(diff truncated)");
-                    break;
-                }
-
-                string la = i < a.Length ? a[i] : null;
-                string lb = j < b.Length ? b[j] : null;
-
-                if (la == lb)
-                {
-                    if (la != null)
+                    if (linesOut >= maxLines)
                     {
-                        sb.AppendLine(" " + la);
-                        linesOut++;
+                        sb.AppendLine("...(diff truncated)");
+                        break;
                     }
-                    i++;
-                    j++;
-                    continue;
+                    if (!inHunk)
+                        sb.AppendLine("@@ -" + oldLine + " +" + newLine + " @@");
+                    inHunk = true;
+
+                    string marker = op.Type == DiffOpType.Equal ? " " : op.Type == DiffOpType.Delete ? "-" : "+";
+                    sb.AppendLine(marker + op.Text);
+                    linesOut++;
+                }
+                else
+                {
+                    inHunk = false;
                 }
 
-                if (la != null)
-                {
-                    sb.AppendLine("-" + la);
-                    linesOut++;
-                    i++;
-                }
-
-                if (lb != null)
-                {
-                    sb.AppendLine("+" + lb);
-                    linesOut++;
-                    j++;
-                }
+                if (op.Type != DiffOpType.Insert) oldLine++;
+                if (op.Type != DiffOpType.Delete) newLine++;
             }
 
             return sb.ToString();

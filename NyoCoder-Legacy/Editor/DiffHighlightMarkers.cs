@@ -16,13 +16,15 @@ namespace NyoCoder
     internal static class DiffHighlightMarkers
     {
         private const int AdditionMarkerType = 15; // MARKERTYPE2.MARKER_EXSTENCIL ("Code Snippet Field")
-        private const int DeletionMarkerType = 5;  // MARKERTYPE.MARKER_CODESENSE_ERROR ("Syntax Error")
+        private static int _deletionMarkerType;    // custom "NyoCoder Deleted Text" marker; 0 if not registered
 
         private static readonly Dictionary<string, List<IVsTextLineMarker>> _markers =
             new Dictionary<string, List<IVsTextLineMarker>>(StringComparer.OrdinalIgnoreCase);
 
         internal static void Attach()
         {
+            _deletionMarkerType = DeletionMarkerType.Register();
+
             ToolHandler.OnDiffChangesPreview += (filePath, changes) =>
                 EditorService.BeginInvokeOnUIThread(() => ApplyHighlights(filePath, changes));
             ToolHandler.OnDiffPreviewCleared += filePath =>
@@ -52,7 +54,9 @@ namespace NyoCoder
 
                     int type = change.Type == SearchReplaceTool.ChangeType.Addition
                         ? AdditionMarkerType
-                        : DeletionMarkerType;
+                        : _deletionMarkerType;
+                    if (type == 0)
+                        continue;
 
                     IVsTextLineMarker[] marker = new IVsTextLineMarker[1];
                     if (lines.CreateLineMarker(type, startLine, startIndex, endLine, endIndex, null, marker) == 0 &&

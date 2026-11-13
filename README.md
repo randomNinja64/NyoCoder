@@ -78,6 +78,16 @@ The tool can be downloaded from "Releases". Download the appropriate version for
 
 For the 2005-2008 release, install using the appropriate .bat file.
 
+## Building
+
+To build the extension, the below is required:
+
+NyoCoder-Legacy (2005-2008) - Build NyoCoder-Legacy.sln with VS 2017+.
+NyoCoder-VSIX (2010-2015) - Build NyoCoder-VSIX.sln with VS 2010 with the VS 2010 SDK installed.
+NyoCoder-VSIX-2017 - Build NyoCoder-VSIX-2017.sln with VS 2017+.
+
+Before building, place `curl.exe`, `curl-ca-bundle.crt`, `grep.exe`, and any required DLLs (such as `libiconv2.dll`, `libintl3.dll`, `pcre3.dll`, `regex2.dll`) into `NyoCoder-VSIX\Dependencies`. These files are included in release builds but not in source.
+
 ## Usage
 
 The extension can be triggered through its tool window, the right-click menu with "Ask NyoCoder", or via the keybind Ctrl+Alt+N.

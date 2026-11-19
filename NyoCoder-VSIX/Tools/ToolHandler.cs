@@ -396,7 +396,7 @@ public static class ToolHandler
     // Runs shell commands on the OS
     private static string RunShellCommand(string command, out int exitCode)
     {
-        return ProcessRunner.RunCommand("cmd.exe", "/s /c " + command, out exitCode);
+        return ProcessRunner.RunCommand("cmd.exe", "/s /c \"" + command + "\"", out exitCode);
     }
 
     private static string JsonExtractString(JObject obj, string key)

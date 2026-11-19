@@ -205,7 +205,8 @@ public partial class LLMClient
                 ChatMessage assistantCall = new ChatMessage
                 {
                     Role = "assistant",
-                    Content = string.Empty,
+                    // Keep any text the model sent alongside the calls so it stays in history.
+                    Content = response.Content ?? string.Empty,
                     ToolCalls = response.ToolCalls
                 };
                 this.Conversation.Add(assistantCall);

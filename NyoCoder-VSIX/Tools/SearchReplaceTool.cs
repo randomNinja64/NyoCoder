@@ -110,7 +110,8 @@ namespace NyoCoder
 
             if (original == null)
             {
-                original = File.ReadAllText(expandedPath, Encoding.UTF8);
+                Encoding ignored;
+                original = TextNormalization.ReadDetectingEncoding(expandedPath, out ignored);
             }
 
             // Normalize line endings for consistent matching
@@ -362,7 +363,7 @@ namespace NyoCoder
             bool appliedToOpen = EditorService.TrySetOpenDocumentContent(res.NormalizedFilePath, res.NewContent, true);
             if (!appliedToOpen)
             {
-                File.WriteAllText(res.NormalizedFilePath, res.NewContent, Encoding.UTF8);
+                TextNormalization.WriteKeepingEncoding(res.NormalizedFilePath, res.NewContent);
             }
             return true;
         }

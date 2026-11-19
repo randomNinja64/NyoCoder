@@ -152,9 +152,9 @@ namespace NyoCoder
             Manifest.SemanticPresent = Vectors.Count > 0;
 
             File.WriteAllText(ManifestPath,
-                JsonConvert.SerializeObject(Manifest, Formatting.Indented), Encoding.UTF8);
+                JsonConvert.SerializeObject(Manifest, Formatting.Indented), new UTF8Encoding(false));
             File.WriteAllText(SymbolsPath,
-                JsonConvert.SerializeObject(Symbols), Encoding.UTF8);
+                JsonConvert.SerializeObject(Symbols), new UTF8Encoding(false));
             Vectors.Save(VectorsPath);
 
             // Legacy sidecar from the split symbols/references model.

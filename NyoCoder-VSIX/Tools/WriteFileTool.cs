@@ -23,7 +23,8 @@ namespace NyoCoder
                     if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                         Directory.CreateDirectory(directory);
 
-                    File.WriteAllText(expandedPath, newContent, Encoding.UTF8);
+                    // UTF-8 without a BOM: a BOM breaks the first line of .bat/.cmd files.
+                    File.WriteAllText(expandedPath, newContent, new UTF8Encoding(false));
                     EditorService.TryOpenFileInVisualStudio(expandedPath);
 
                     if (!ConfigHandler.RequiresApprovalAfterPreview("write_file"))
@@ -70,7 +71,10 @@ namespace NyoCoder
                 string originalRaw = null;
                 EditorService.TryReadOpenDocument(expandedPath, out originalRaw);
                 if (originalRaw == null)
-                    originalRaw = File.ReadAllText(expandedPath, Encoding.UTF8);
+                {
+                    Encoding ignored;
+                    originalRaw = TextNormalization.ReadDetectingEncoding(expandedPath, out ignored);
+                }
 
                 string normalizedOriginal = TextNormalization.NormalizeLineEndings(originalRaw);
                 string normalizedNew = TextNormalization.NormalizeLineEndings(newContent ?? string.Empty);
@@ -97,7 +101,7 @@ namespace NyoCoder
                 if (!ConfigHandler.RequiresApprovalAfterPreview("write_file"))
                 {
                     if (!EditorService.TrySetOpenDocumentContent(expandedPath, newContent, true))
-                        File.WriteAllText(expandedPath, newContent, Encoding.UTF8);
+                        File.WriteAllText(expandedPath, newContent, TextNormalization.EncodingForOverwrite(expandedPath));
                     return "File written successfully: " + expandedPath;
                 }
 
@@ -111,7 +115,7 @@ namespace NyoCoder
                     newContent,
                     () =>
                     {
-                        File.WriteAllText(expandedPath, newContent, Encoding.UTF8);
+                        File.WriteAllText(expandedPath, newContent, TextNormalization.EncodingForOverwrite(expandedPath));
                         return true;
                     });
 

@@ -76,8 +76,10 @@ namespace NyoCoder
             {
                 if (options.StdinData != null)
                 {
-                    process.StandardInput.Write(options.StdinData);
-                    process.StandardInput.Close();
+                    // Tools read stdin as UTF-8; Process.StandardInput would use the ANSI code page
+                    // because Visual Studio has no console.
+                    using (StreamWriter stdin = new StreamWriter(process.StandardInput.BaseStream, new UTF8Encoding(false)))
+                        stdin.Write(options.StdinData);
                 }
 
                 string output = "";

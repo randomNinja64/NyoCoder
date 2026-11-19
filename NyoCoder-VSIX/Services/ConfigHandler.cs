@@ -773,7 +773,7 @@ namespace NyoCoder
 				}
 				AppendSection(lines, ref firstSection, "Tools", config, written, toolKeys.ToArray());
 
-				File.WriteAllLines(filename, lines.ToArray(), Encoding.UTF8);
+				File.WriteAllLines(filename, lines.ToArray(), new UTF8Encoding(false));
 			}
 			catch { }
 		}

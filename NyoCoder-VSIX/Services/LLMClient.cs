@@ -502,8 +502,12 @@ public partial class LLMClient
             }
         }
 
+        // Keep dropping past any tool results at the front: a tool result whose
+        // assistant tool call was dropped is rejected by strict servers.
         int dropped = 0;
-        while (keepFrom > 0 && ShouldSummarize(GetConversationCharacterCount(conversation)))
+        while (keepFrom > 0
+            && (ShouldSummarize(GetConversationCharacterCount(conversation))
+                || string.Equals(conversation[0].Role, "tool", StringComparison.OrdinalIgnoreCase)))
         {
             conversation.RemoveAt(0);
             keepFrom--;

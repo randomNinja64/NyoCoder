@@ -404,7 +404,11 @@ namespace NyoCoder
             if (chunkBudget == 0)
                 return 0;
 
-            foreach (ChunkInfo ci in Chunk(content, chunkLines, overlap))
+            // What is left of the embedding character limit after the "File: ..." prefix.
+            int maxChars = ConfigHandler.GetEmbeddingsMaxChars()
+                - BuildEmbedText(workspaceRoot, file, string.Empty).Length;
+
+            foreach (ChunkInfo ci in Chunk(content, chunkLines, overlap, maxChars))
             {
                 if (chunkBudget <= 0)
                     break;
@@ -465,22 +469,30 @@ namespace NyoCoder
             public string Text;
         }
 
-        private static IEnumerable<ChunkInfo> Chunk(string content, int chunkLines, int overlap)
+        private static IEnumerable<ChunkInfo> Chunk(string content, int chunkLines, int overlap, int maxChars)
         {
             if (string.IsNullOrEmpty(content))
                 yield break;
 
             string[] lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             if (chunkLines < 1) chunkLines = 60;
-            int step = chunkLines - overlap;
-            if (step < 1) step = chunkLines;
 
-            for (int start = 0; start < lines.Length; start += step)
+            int start = 0;
+            while (start < lines.Length)
             {
-                int end = Math.Min(start + chunkLines, lines.Length);
+                // Close the chunk at chunkLines or at maxChars, whichever comes first, so the
+                // embedding character limit never cuts off lines that the next chunk does not cover.
+                int limit = Math.Min(start + chunkLines, lines.Length);
+                int end = start;
                 StringBuilder sb = new StringBuilder();
-                for (int i = start; i < end; i++)
-                    sb.AppendLine(lines[i]);
+                while (end < limit)
+                {
+                    if (maxChars > 0 && end > start
+                        && sb.Length + lines[end].Length + Environment.NewLine.Length > maxChars)
+                        break;
+                    sb.AppendLine(lines[end]);
+                    end++;
+                }
 
                 string text = sb.ToString();
                 if (!TextNormalization.IsNullOrWhiteSpace(text))
@@ -495,6 +507,9 @@ namespace NyoCoder
 
                 if (end >= lines.Length)
                     break;
+
+                // Step back by the overlap, unless the chunk was too short to allow it.
+                start = end - overlap > start ? end - overlap : end;
             }
         }
 

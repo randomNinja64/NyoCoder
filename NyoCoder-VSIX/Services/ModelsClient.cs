@@ -24,12 +24,7 @@ namespace NyoCoder
     {
         static ModelsClient()
         {
-            try
-            {
-                ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls
-                    | (SecurityProtocolType)768 | (SecurityProtocolType)3072 | (SecurityProtocolType)12288;
-            }
-            catch { }
+            TlsConfig.EnsureModernProtocols();
         }
 
         /// <summary>

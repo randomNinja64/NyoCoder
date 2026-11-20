@@ -27,19 +27,7 @@ public partial class LLMClient
         this.Conversation = new List<ChatMessage>();
 
         // Enable modern TLS protocols for HTTPS support
-        // .NET 4.0 only has named constant for Tls (1.0)
-        // Tls11 = 768, Tls12 = 3072 (numeric values used until .NET 4.5+)
-        // We use |= to ADD to existing protocols rather than replacing them
-        // This ensures fallback to older protocols if newer ones aren't available
-        try
-        {
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls | (SecurityProtocolType)768 | (SecurityProtocolType)3072 | (SecurityProtocolType)12288;
-        }
-        catch
-        {
-            // If setting TLS protocols fails, continue with system defaults
-            // This can happen on very old systems without TLS 1.2 support
-        }
+        TlsConfig.EnsureModernProtocols();
     }
 
     /// <summary>

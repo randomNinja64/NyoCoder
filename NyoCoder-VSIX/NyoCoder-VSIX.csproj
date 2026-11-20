@@ -183,6 +183,7 @@
     <Compile Include="Services\SymbolExtractor.cs" />
     <Compile Include="Services\SymbolReferenceExtractor.cs" />
     <Compile Include="Services\TextNormalization.cs" />
+    <Compile Include="Services\TlsConfig.cs" />
     <Compile Include="Services\TlsCurlFallback.cs" />
     <Compile Include="Services\ToolApprovalService.cs" />
     <Compile Include="Services\StepExecutor.cs" />

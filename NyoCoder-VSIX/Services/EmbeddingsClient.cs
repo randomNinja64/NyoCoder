@@ -44,12 +44,7 @@ namespace NyoCoder
             _model = (model ?? string.Empty).Trim();
             _maxChars = maxChars > 0 ? maxChars : 2048;
 
-            try
-            {
-                ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls
-                    | (SecurityProtocolType)768 | (SecurityProtocolType)3072 | (SecurityProtocolType)12288;
-            }
-            catch { }
+            TlsConfig.EnsureModernProtocols();
         }
 
         /// <summary>

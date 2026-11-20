@@ -523,7 +523,7 @@ public partial class LLMClient
     }
 
     /// <summary>
-    /// Sum of message content, image data URLs, and tool-call name/arguments.
+    /// Sum of message content, a flat estimate per image, and tool-call name/arguments.
     /// </summary>
     internal int GetConversationCharacterCount(List<ChatMessage> conversation)
     {
@@ -534,10 +534,7 @@ public partial class LLMClient
                 count += msg.Content.Length;
 
             if (!string.IsNullOrEmpty(msg.Image))
-            {
-                string mime = string.IsNullOrEmpty(msg.ImageMime) ? "image/png" : msg.ImageMime;
-                count += ("data:" + mime + ";base64," + msg.Image).Length;
-            }
+                count += ContextEngine.ImageCharEstimate;
 
             if (msg.ToolCalls != null)
             {

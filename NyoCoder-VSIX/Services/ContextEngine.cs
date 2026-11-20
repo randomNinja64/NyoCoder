@@ -33,6 +33,18 @@ namespace NyoCoder
             return overhead;
         }
 
+        public const int CharsPerToken = 3;
+
+        /// <summary>
+        /// Flat cost of one attached image. Providers bill images by resolution, not by
+        /// file size: a full-size screenshot is about 1,100-1,600 tokens on the standard
+        /// tiers of the major APIs, so the base64 length would overstate it many times over.
+        /// </summary>
+        public const int ImageTokenEstimate = 1500;
+
+        /// <summary>The image estimate in characters, for adding to a character count.</summary>
+        public const int ImageCharEstimate = ImageTokenEstimate * CharsPerToken;
+
         /// <summary>
         /// Calculates approximate token count from character count, including base overhead.
         /// Uses the standard approximation of 3 characters per token.
@@ -42,7 +54,7 @@ namespace NyoCoder
         public static int ApproximateTokens(int characterCount, string modeId = ModeIds.Agent)
         {
             int totalCharacters = characterCount + GetBaseCharacterOverhead(modeId);
-            return totalCharacters / 3;
+            return totalCharacters / CharsPerToken;
         }
 
         /// <summary>

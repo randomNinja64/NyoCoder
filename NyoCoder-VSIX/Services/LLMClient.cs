@@ -21,7 +21,7 @@ public partial class LLMClient
 
     public LLMClient(string llmEndpoint, string key, string mdl)
     {
-        this.llmEndpoint = llmEndpoint;
+        this.llmEndpoint = (llmEndpoint ?? string.Empty).Trim().TrimEnd('/');
         this.apiKey = key;
         this.model = mdl;
         this.Conversation = new List<ChatMessage>();

@@ -7,7 +7,7 @@ namespace NyoCoder
 {
 public static class FileHandler
 {
-    public static string ReadFile(string filename, out int exitCode, int lineOffset = 0)
+    public static string ReadFile(string filename, out int exitCode, int lineOffset = 1)
     {
         exitCode = 0;
 
@@ -23,8 +23,8 @@ public static class FileHandler
             }
 
             // Validate offset
-            if (lineOffset < 0)
-                lineOffset = 0;
+            if (lineOffset < 1)
+                lineOffset = 1;
 
             // Read the whole file (detecting its encoding, with an ANSI fallback for files
             // that are not UTF-8) so the reported total is the real line count.
@@ -40,22 +40,23 @@ public static class FileHandler
                 totalLines--; // a trailing newline ends the last line rather than starting a new one
 
             // Validate offset
-            if (lineOffset >= totalLines)
+            if (lineOffset > totalLines)
             {
                 exitCode = 1;
-                return "File has " + totalLines + " lines (0-indexed). Line offset " + lineOffset + " exceeds file length.";
+                return "File has " + totalLines + " lines. Line offset " + lineOffset + " exceeds file length.";
             }
 
             int maxLines = Math.Max(1, ConfigHandler.MaxReadLines);
             int maxContentLength = ConfigHandler.MaxFileContentLength;
 
+            int start = lineOffset - 1; // 0-based index of the first line
             StringBuilder body = new StringBuilder();
-            int end = lineOffset; // exclusive
+            int end = start; // exclusive
             string truncatedBy = null;
             string charLimit = "character limit (" + maxContentLength + ")";
             while (end < totalLines)
             {
-                if (end - lineOffset >= maxLines)
+                if (end - start >= maxLines)
                 {
                     truncatedBy = "line limit (" + maxLines + ")";
                     break;
@@ -86,7 +87,7 @@ public static class FileHandler
 
             // Build result with header
             StringBuilder result = new StringBuilder();
-            result.AppendLine("File has " + totalLines + " lines, reading lines " + lineOffset + "-" + (end - 1));
+            result.AppendLine("File has " + totalLines + " lines, reading lines " + lineOffset + "-" + end);
             result.AppendLine("---");
             result.Append(body.ToString());
 

@@ -176,7 +176,7 @@ namespace NyoCoder
                     new Dictionary<string, PropertyInfo>
                     {
                         { "file_path", new PropertyInfo("string", "The full path of the file to read. Supports environment variables like %USERPROFILE%, %APPDATA%, %TEMP%, etc.") },
-                        { "offset", new PropertyInfo("integer", "Line number to start reading from (0-indexed, default: 0). Use this to read different parts of large files. For example, offset " + ConfigHandler.MaxReadLines + " reads lines " + ConfigHandler.MaxReadLines + "-" + (ConfigHandler.MaxReadLines * 2 - 1) + ".") }
+                        { "offset", new PropertyInfo("integer", "Line number to start reading from (1-indexed, default: 1). Use this to read different parts of large files. For example, offset " + (ConfigHandler.MaxReadLines + 1) + " reads lines " + (ConfigHandler.MaxReadLines + 1) + "-" + (ConfigHandler.MaxReadLines * 2) + ".") }
                     },
                     new[] { "file_path" }
                 ),

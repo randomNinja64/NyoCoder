@@ -16,6 +16,7 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
 - **Context**
   - **Context Window Size** - If known, can be set here to enable automatic context summarization when context fills.
   - **Max File Lines to Read** - Max number of lines that the AI can read from a file at a time (default: `500`)
+  - **Maximum Processing Length for File Content** - Maximum number of characters to read from a file (default: `10000`)
   - **Max Open Files in Context** - Maximum number of open editor tabs to note in prompt context (default: `20`)
   - **Automatically Retrieve Context from Codebase (Auto-RAG)** - When enabled, retrieves up to 5 indexed codebase snippets for new chats and plan steps (default: on; requires a codebase index)
 - **Appearance**

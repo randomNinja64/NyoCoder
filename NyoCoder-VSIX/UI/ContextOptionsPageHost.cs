@@ -10,6 +10,8 @@ namespace NyoCoder
         private TextBox txtContextWindowSize;
         private Label lblMaxReadLines;
         private TextBox txtMaxReadLines;
+        private Label lblMaxFileContentLength;
+        private TextBox txtMaxFileContentLength;
         private Label lblMaxOpenFilesInContext;
         private TextBox txtMaxOpenFilesInContext;
 
@@ -41,6 +43,13 @@ namespace NyoCoder
             this.txtMaxReadLines = new TextBox();
             this.txtMaxReadLines.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
+            this.lblMaxFileContentLength = new Label();
+            this.lblMaxFileContentLength.AutoSize = true;
+            this.lblMaxFileContentLength.Text = "Maximum Processing Length for File Content:";
+
+            this.txtMaxFileContentLength = new TextBox();
+            this.txtMaxFileContentLength.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+
             this.lblMaxOpenFilesInContext = new Label();
             this.lblMaxOpenFilesInContext.AutoSize = true;
             this.lblMaxOpenFilesInContext.Text = "Max Open Files in Context:";
@@ -53,6 +62,8 @@ namespace NyoCoder
             AddRow(this.txtContextWindowSize, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblMaxReadLines, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtMaxReadLines, new Padding(0, 0, 0, 12), false);
+            AddRow(this.lblMaxFileContentLength, new Padding(0, 0, 0, 4), true);
+            AddRow(this.txtMaxFileContentLength, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblMaxOpenFilesInContext, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtMaxOpenFilesInContext, new Padding(0, 0, 0, 12), false);
             AddRow(this.chkAutoRag, new Padding(0, 0, 0, 0), true);
@@ -96,6 +107,18 @@ namespace NyoCoder
             set { txtMaxReadLines.Text = value.ToString(); }
         }
 
+        public int MaxFileContentLength
+        {
+            get
+            {
+                int result;
+                if (int.TryParse(txtMaxFileContentLength.Text, out result) && result > 0)
+                    return result;
+                return 10000;
+            }
+            set { txtMaxFileContentLength.Text = value.ToString(); }
+        }
+
         public int MaxOpenFilesInContext
         {
             get
@@ -113,6 +136,7 @@ namespace NyoCoder
             AutoRagEnabled = ConfigHandler.GetAutoRagEnabled();
             ContextWindowSize = ConfigHandler.ContextWindowSize;
             MaxReadLines = ConfigHandler.MaxReadLines;
+            MaxFileContentLength = ConfigHandler.MaxFileContentLength;
             MaxOpenFilesInContext = ConfigHandler.MaxOpenFilesInContext;
         }
 
@@ -121,6 +145,7 @@ namespace NyoCoder
             ConfigHandler.SetAutoRagEnabled(AutoRagEnabled);
             ConfigHandler.SetContextWindowSize(ContextWindowSize);
             ConfigHandler.SetMaxReadLines(MaxReadLines);
+            ConfigHandler.SetMaxFileContentLength(MaxFileContentLength);
             ConfigHandler.SetMaxOpenFilesInContext(MaxOpenFilesInContext);
         }
     }

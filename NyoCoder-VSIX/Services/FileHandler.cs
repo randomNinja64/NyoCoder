@@ -26,35 +26,18 @@ public static class FileHandler
             if (lineOffset < 0)
                 lineOffset = 0;
 
-            List<string> linesToReturn = new List<string>();
-            int totalLines = 0;
-            int currentLineIndex = 0;
+            // Read the whole file (detecting its encoding, with an ANSI fallback for files
+            // that are not UTF-8) so the reported total is the real line count.
+            Encoding ignored;
+            string content = TextNormalization.NormalizeLineEndings(
+                TextNormalization.ReadDetectingEncoding(filename, out ignored));
+            if (content.Length == 0)
+                return "File is empty (0 lines).";
 
-            // Read file line by line
-            using (StreamReader reader = new StreamReader(filename, Encoding.UTF8))
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    totalLines++;
-                    
-                    // Skip lines before the offset
-                    if (currentLineIndex < lineOffset)
-                    {
-                        currentLineIndex++;
-                        continue;
-                    }
-
-                    // Check if we've reached the limit
-                    if (linesToReturn.Count >= ConfigHandler.MaxReadLines)
-                    {
-                        break;
-                    }
-
-                    linesToReturn.Add(line);
-                    currentLineIndex++;
-                }
-            }
+            string[] allLines = content.Split('\n');
+            int totalLines = allLines.Length;
+            if (content.EndsWith("\n"))
+                totalLines--; // a trailing newline ends the last line rather than starting a new one
 
             // Validate offset
             if (lineOffset >= totalLines)
@@ -63,29 +46,54 @@ public static class FileHandler
                 return "File has " + totalLines + " lines (0-indexed). Line offset " + lineOffset + " exceeds file length.";
             }
 
-            // Build result with header
-            StringBuilder result = new StringBuilder();
-            int linesRead = linesToReturn.Count;
-            int endLine = lineOffset + linesRead - 1;
-            result.AppendLine("File has " + totalLines + " lines, reading lines " + lineOffset + "-" + endLine);
-            result.AppendLine("---");
-            
-            // Join lines with newlines (ReadLine removes them, so we add them back)
-            for (int i = 0; i < linesToReturn.Count; i++)
+            int maxLines = Math.Max(1, ConfigHandler.MaxReadLines);
+            int maxContentLength = ConfigHandler.MaxFileContentLength;
+
+            StringBuilder body = new StringBuilder();
+            int end = lineOffset; // exclusive
+            string truncatedBy = null;
+            string charLimit = "character limit (" + maxContentLength + ")";
+            while (end < totalLines)
             {
-                result.Append(linesToReturn[i]);
-                if (i < linesToReturn.Count - 1)
+                if (end - lineOffset >= maxLines)
                 {
-                    result.AppendLine();
+                    truncatedBy = "line limit (" + maxLines + ")";
+                    break;
                 }
+
+                string line = allLines[end];
+                if (body.Length > 0)
+                {
+                    if (body.Length >= maxContentLength)
+                    {
+                        truncatedBy = charLimit;
+                        break;
+                    }
+                    body.Append('\n');
+                }
+                end++;
+
+                // A line that does not fit is cut at the character limit, which ends the page.
+                int room = maxContentLength - body.Length;
+                if (line.Length > room)
+                {
+                    body.Append(line, 0, Math.Max(room, 0)).Append("...[line truncated]");
+                    truncatedBy = charLimit;
+                    break;
+                }
+                body.Append(line);
             }
 
-            // Check if we truncated (either hit max lines or stopped early)
-            bool wasTruncated = (lineOffset + linesRead < totalLines) || (linesRead >= ConfigHandler.MaxReadLines && currentLineIndex < totalLines);
-            if (wasTruncated)
+            // Build result with header
+            StringBuilder result = new StringBuilder();
+            result.AppendLine("File has " + totalLines + " lines, reading lines " + lineOffset + "-" + (end - 1));
+            result.AppendLine("---");
+            result.Append(body.ToString());
+
+            if (truncatedBy != null)
             {
                 result.AppendLine();
-                result.AppendLine("...[truncated]");
+                result.AppendLine("...[truncated: " + truncatedBy + "]");
             }
 
             return result.ToString();

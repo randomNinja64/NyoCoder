@@ -124,6 +124,15 @@ namespace NyoCoder
 			get { return GetConfigInt("maxReadLines", 500); }
 		}
 
+		public static int MaxFileContentLength
+		{
+			get
+			{
+				int value = GetConfigInt("maxFileContentLength", 10000);
+				return value > 0 ? value : 10000;
+			}
+		}
+
 		public static int MaxOpenFilesInContext
 		{
 			get { return GetConfigInt("maxOpenFilesInContext", 20); }
@@ -177,6 +186,12 @@ namespace NyoCoder
 		{
 			if (value <= 0) return;
 			SetConfigValue("maxReadLines", value.ToString());
+		}
+
+		public static void SetMaxFileContentLength(int value)
+		{
+			if (value <= 0) return;
+			SetConfigValue("maxFileContentLength", value.ToString());
 		}
 
 		public static void SetMaxOpenFilesInContext(int value)
@@ -746,7 +761,7 @@ namespace NyoCoder
 				AppendSection(lines, ref firstSection, "General", config, written,
 					"apiKey", "llmserver", "model", "reasoningeffort");
 				AppendSection(lines, ref firstSection, "Context", config, written,
-					"autoRag", "contextWindowSize", "maxOpenFilesInContext", "maxReadLines");
+					"autoRag", "contextWindowSize", "maxFileContentLength", "maxOpenFilesInContext", "maxReadLines");
 				AppendSection(lines, ref firstSection, "Appearance", config, written,
 					"markdownparsing", "thinkingdisplay", "toolcalldisplay", "tooloutputdisplay");
 				AppendSection(lines, ref firstSection, "Indexing", config, written,

@@ -34,7 +34,7 @@ namespace NyoCoder
 
                 StringBuilder args = new StringBuilder();
 
-                args.Append("-r ");
+                args.Append("-rn ");
 
                 if (!string.IsNullOrEmpty(caseInsensitive) &&
                     caseInsensitive.Trim().Equals("true", StringComparison.OrdinalIgnoreCase))

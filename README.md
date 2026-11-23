@@ -24,6 +24,7 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
   - **Thinking display** - How model reasoning appears in chat: **Shown**, **Collapsed**, or **Hidden** (default: Collapsed). Hidden shows a short `[thought for N seconds]` stub instead of the full reasoning.
   - **Tool call display** - How tool calls appear: **Shown**, **Collapsed**, or **Hidden** (default: Collapsed). Hidden shows an expanded tool-call header with the tool name only (no arguments).
   - **Tool output display** - How tool results appear: **Shown**, **Collapsed**, or **Hidden** (default: Shown). Hidden shows `[tool output]` with the exit code only.
+  - **Show confidence level for automatic approvals** - Include the approval confidence level in chat (default: on)
 - **Modes**
   - **Display name** - Label shown in the mode dropdown
   - **System prompt** - System prompt for selected mode
@@ -56,14 +57,11 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
 - **Tools**
   - **Max consecutive tool failures** - Maximum number of tool calls that can fail in a row before a session is halted (default `10`; `0` = off)
   - **Self-improvement (creates and updates skills)** - When enabled, skill context tells the agent to save a non-trivial procedure that worked, or to update a skill it used that was missing a step (default: on).
-  - **Tools** - List of available tools and their enabled/disabled state
+  - **Jev-Compatible URL (for Auto)** - Full Jev-compatible URL (e.g. `http://127.0.0.1:8080/v1/systemone` with llama.cpp)
+  - **Jev-Compatible API Key** - API key if the endpoint requires one
+  - **Jev Model** - Model to use (if supported by your endpoint)
+  - **Tools** - List of available tools and their state (**Always Run**, **Auto**, **Ask Me**, or **Off**) Always Run runs a tool without askign for approval. Auto automatically approves/denies a tool call based on the response of a Jev-compatible endpoint. Ask Me always prompts the user for manual approval. The **All always run**, **All auto**, **All ask me**, and **All off** buttons above the list set the state of every tool at once.
   - **External Tool Settings** - If SimpleLLMChat tools are installed, their configuration options will be available here.
-- **Tools - Approvals**
-  - **Approval** - Each tool's approval setting is **Auto**, **Manual**, or **None**. Auto asks a Jev-compatible endpoint whether that call should run. Manual prompts the user before the tool runs. None runs without asking for approval. **All auto**, **All manual**, and **All none** set every tool at once.
-  - **Show confidence level for automatic approvals** - Include the approval confidence level in chat (default: on)
-  - **Jev-Compatible URL** - Full Jev-compatible URL (e.g. `http://127.0.0.1:8080/v1/systemone` with llama.cpp)
-  - **Jev-Compatible API Key** - API key if the the endpoint requires one
-  - **Model** - Model name when the endpoint supports it
 - **Web Search**
   - **Maximum Links from Webpage** - Maximum number of unique links to include at the end of a webpage read (default: `40`)
   - **Maximum Search Results** - Maximum number of search results to retrieve (default: `20`)

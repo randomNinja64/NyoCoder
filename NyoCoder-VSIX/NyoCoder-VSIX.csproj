@@ -235,9 +235,6 @@
     <Compile Include="UI\ToolsOptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\ApprovalsOptionsPageHost.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
     <Compile Include="UI\WebSearchOptionsPageHost.cs">
       <SubType>UserControl</SubType>
     </Compile>

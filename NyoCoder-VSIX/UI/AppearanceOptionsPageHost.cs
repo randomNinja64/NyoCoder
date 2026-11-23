@@ -13,6 +13,7 @@ namespace NyoCoder
         private ComboBox cboToolCallDisplay;
         private Label lblToolOutputDisplay;
         private ComboBox cboToolOutputDisplay;
+        private CheckBox chkShowJevConfidence;
 
         public AppearanceOptionsPageHost()
         {
@@ -51,6 +52,13 @@ namespace NyoCoder
             };
             cboToolOutputDisplay = MakeDisplayModeCombo();
 
+            chkShowJevConfidence = new CheckBox
+            {
+                AutoSize = true,
+                Text = "Show confidence level for automatic approvals",
+                Checked = true
+            };
+
             AddRow(MakeSectionTitle("Chat"), new Padding(0, 0, 0, 12), false);
             AddRow(chkMarkdownParsing, new Padding(0, 0, 0, 12), true);
 
@@ -62,7 +70,8 @@ namespace NyoCoder
             AddRow(lblToolCallDisplay, new Padding(0, 0, 0, 4), true);
             AddRow(cboToolCallDisplay, new Padding(0, 0, 0, 12), false);
             AddRow(lblToolOutputDisplay, new Padding(0, 0, 0, 4), true);
-            AddRow(cboToolOutputDisplay, new Padding(0, 0, 0, 0), false);
+            AddRow(cboToolOutputDisplay, new Padding(0, 0, 0, 12), false);
+            AddRow(chkShowJevConfidence, new Padding(0, 0, 0, 0), true);
 
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -111,6 +120,7 @@ namespace NyoCoder
             ThinkingDisplayMode = ConfigHandler.GetThinkingDisplayMode();
             ToolCallDisplayMode = ConfigHandler.GetToolCallDisplayMode();
             ToolOutputDisplayMode = ConfigHandler.GetToolOutputDisplayMode();
+            chkShowJevConfidence.Checked = ConfigHandler.GetShowJevConfidence();
         }
 
         public override void SaveToConfig()
@@ -119,6 +129,7 @@ namespace NyoCoder
             ConfigHandler.SetThinkingDisplayMode(ThinkingDisplayMode);
             ConfigHandler.SetToolCallDisplayMode(ToolCallDisplayMode);
             ConfigHandler.SetToolOutputDisplayMode(ToolOutputDisplayMode);
+            ConfigHandler.SetShowJevConfidence(chkShowJevConfidence.Checked);
         }
 
         private static ChatBlockDisplayMode DisplayModeFromCombo(ComboBox combo)

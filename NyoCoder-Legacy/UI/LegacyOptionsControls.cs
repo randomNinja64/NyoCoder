@@ -44,6 +44,5 @@ namespace NyoCoder
     [ComVisible(true)] public class BuildErrorHandlingOptionsControl : LegacyOptionsControl<BuildErrorHandlingOptionsPage> { }
     [ComVisible(true)] public class IndexingOptionsControl : LegacyOptionsControl<IndexingOptionsPage> { }
     [ComVisible(true)] public class ToolsOptionsControl : LegacyOptionsControl<ToolsOptionsPage> { }
-    [ComVisible(true)] public class ApprovalsOptionsControl : LegacyOptionsControl<ApprovalsOptionsPage> { }
     [ComVisible(true)] public class WebSearchOptionsControl : LegacyOptionsControl<WebSearchOptionsPage> { }
 }

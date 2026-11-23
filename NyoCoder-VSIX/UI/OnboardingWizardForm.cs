@@ -17,7 +17,6 @@ namespace NyoCoder
         private static bool _suppressUntilNextEntry;
 
         private readonly Label _lblTitle;
-        private readonly Label _lblSubtitle;
         private readonly Panel _contentPanel;
         private readonly Button _btnBack;
         private readonly Button _btnNext;
@@ -41,7 +40,7 @@ namespace NyoCoder
             Panel header = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 58,
+                Height = 38,
                 BackColor = Color.White,
                 Padding = new Padding(14, 10, 14, 8)
             };
@@ -56,16 +55,6 @@ namespace NyoCoder
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            _lblSubtitle = new Label
-            {
-                AutoSize = false,
-                Dock = DockStyle.Fill,
-                ForeColor = SystemColors.GrayText,
-                Text = "Defaults are selected. You can change these later in Tools > Options.",
-                TextAlign = ContentAlignment.TopLeft
-            };
-
-            header.Controls.Add(_lblSubtitle);
             header.Controls.Add(_lblTitle);
 
             Panel headerRule = new Panel

@@ -47,10 +47,6 @@
         <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
         <FullClassName>NyoCoder.ToolsOptionsControl</FullClassName>
       </SubCategory>
-      <SubCategory Name="Tools - Approvals">
-        <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
-        <FullClassName>NyoCoder.ApprovalsOptionsControl</FullClassName>
-      </SubCategory>
       <SubCategory Name="Web Search">
         <Assembly>NyoCoder-Legacy\NyoCoder-Legacy.dll</Assembly>
         <FullClassName>NyoCoder.WebSearchOptionsControl</FullClassName>

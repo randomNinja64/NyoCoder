@@ -59,6 +59,8 @@ namespace NyoCoder
                     {
                         BitmapFrame icon = BitmapFrame.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
                         HistoryIcon.OpacityMask = new ImageBrush(icon);
+                        TokenStatusText.SizeChanged += (s, e) => SizeHistoryButton();
+                        HistoryButton.SizeChanged += (s, e) => FitHistoryIcon();
                         return;
                     }
                 }
@@ -66,9 +68,37 @@ namespace NyoCoder
             catch (Exception)
             {
             }
-            // No icon: a text button, sized to its text rather than a square.
-            HistoryButton.ClearValue(WidthProperty);
             HistoryButton.Content = "History";
+        }
+
+        /// <summary>
+        /// A square a little taller than the token text; equal negative margins let it overhang
+        /// into the bar's padding (3px), so the bar stays one text line tall.
+        /// </summary>
+        private void SizeHistoryButton()
+        {
+            const double overhang = 2;
+            double side = TokenStatusText.ActualHeight + 2 * overhang;
+            HistoryButton.Width = side;
+            HistoryButton.Height = side;
+            HistoryButton.Margin = new Thickness(6, -overhang, 0, -overhang);
+        }
+
+        /// <summary>
+        /// Scales the icon to the space inside the button: the toolbar style centers its
+        /// content rather than stretching it.
+        /// </summary>
+        private void FitHistoryIcon()
+        {
+            Thickness border = HistoryButton.BorderThickness;
+            Thickness padding = HistoryButton.Padding;
+            double inside = Math.Floor(Math.Min(
+                HistoryButton.ActualHeight - border.Top - border.Bottom - padding.Top - padding.Bottom,
+                HistoryButton.ActualWidth - border.Left - border.Right - padding.Left - padding.Right));
+            if (inside <= 0)
+                return;
+            HistoryIcon.Width = inside;
+            HistoryIcon.Height = inside;
         }
 
         private static bool IsHistoryEnabled()

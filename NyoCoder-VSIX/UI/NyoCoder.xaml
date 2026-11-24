@@ -122,15 +122,14 @@
                                TextTrimming="CharacterEllipsis"
                                Visibility="Collapsed"/>
                     <!-- Opens the chat history panel. The icon is masked in code (LoadHistoryIcon)
-                         and filled with the theme's text color. A square the height of the token
-                         text, so the bar keeps its height; the icon fills what's inside. -->
+                         and filled with the theme's text color. Sized in code (SizeHistoryButton):
+                         a square a little taller than the token text, overhanging into the bar's
+                         padding so the bar keeps its height, with the icon scaled to fill it. -->
                     <ToggleButton x:Name="HistoryButton"
                                   Grid.Column="2"
                                   Style="{DynamicResource {x:Static ToolBar.ToggleButtonStyleKey}}"
-                                  Width="{Binding ActualHeight, ElementName=TokenStatusText}"
-                                  Height="{Binding ActualHeight, ElementName=TokenStatusText}"
                                   Margin="6,0,0,0"
-                                  Padding="1"
+                                  Padding="0"
                                   VerticalAlignment="Center"
                                   Focusable="False"
                                   AutomationProperties.Name="History"
@@ -138,6 +137,9 @@
                                   Checked="HistoryButton_Checked"
                                   Unchecked="HistoryButton_Unchecked">
                         <Rectangle x:Name="HistoryIcon"
+                                   Width="10"
+                                   Height="10"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
                                    Fill="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"/>
                     </ToggleButton>
                 </Grid>

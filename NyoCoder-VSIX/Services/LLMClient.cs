@@ -69,11 +69,18 @@ public partial class LLMClient
         return new LLMClient(llmServer, apiKey, model);
     }
 
+    /// <summary>Between a user message's hidden context and the text the user typed.</summary>
+    internal const string ContextSeparator = "\n\n---\n\n";
+
     // Struct for chat messages
     public struct ChatMessage
     {
         public string Role;
         public string Content;
+
+        // Hidden context sent ahead of a user message (editor state, Auto-RAG snippets),
+        // kept apart so a saved chat shows only what was typed. Null when there is none.
+        public string Context;
         public string Image;
         public string ImageMime;
         public List<ToolHandler.ToolCall> ToolCalls;
@@ -83,6 +90,7 @@ public partial class LLMClient
         {
             Role = role;
             Content = content;
+            Context = null;
             ToolCallId = null;
             Image = null;
             ImageMime = null;
@@ -104,6 +112,14 @@ public partial class LLMClient
         }
     }
 
+    /// <summary>The text a message is sent with: its hidden context, if any, ahead of its content.</summary>
+    internal static string SentContent(ChatMessage message)
+    {
+        if (string.IsNullOrEmpty(message.Context))
+            return message.Content;
+        return message.Context + ContextSeparator + message.Content;
+    }
+
     public void ProcessConversation(
         string userMessage,
         string image,
@@ -112,7 +128,8 @@ public partial class LLMClient
         Action<int> onSummarized = null,
         string modeId = ModeIds.Agent,
         Func<string> dequeueSteerMessage = null,
-        Action startBlock = null)
+        Action startBlock = null,
+        string context = null)
     {
         FilesModifiedThisTurn = false;
 
@@ -126,6 +143,7 @@ public partial class LLMClient
         {
             Role = "user",
             Content = userMessage,
+            Context = context,
             Image = image
         };
         this.Conversation.Add(userMsg);
@@ -530,8 +548,9 @@ public partial class LLMClient
         int count = 0;
         foreach (var msg in conversation)
         {
-            if (!string.IsNullOrEmpty(msg.Content))
-                count += msg.Content.Length;
+            string content = SentContent(msg);
+            if (!string.IsNullOrEmpty(content))
+                count += content.Length;
 
             if (!string.IsNullOrEmpty(msg.Image))
                 count += ContextEngine.ImageCharEstimate;
@@ -578,6 +597,38 @@ public partial class LLMClient
             includeContextInjections: false);
 
         return response.Content ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Asks the model for a short chat title from the first exchange. Null when the
+    /// request fails. Silent and tool-free, like the summary.
+    /// </summary>
+    public string GenerateTitle(string prompt, string reply)
+    {
+        const int excerpt = 1000;
+        Func<string, string> cut = text =>
+            text == null ? string.Empty : text.Length <= excerpt ? text : text.Substring(0, excerpt);
+
+        List<ChatMessage> request = new List<ChatMessage>
+        {
+            new ChatMessage("user",
+                "Write a short title (3 to 6 words) for a chat that begins with the exchange below. " +
+                "Reply with the title only, no quotes or punctuation at the end.\n\n" +
+                "User: " + cut(prompt) + "\n\nAssistant: " + cut(reply))
+        };
+
+        LLMCompletionResponse response = sendMessages(
+            request,
+            outputCallback: null,
+            toolCallCallback: null,
+            stopRequested: null,
+            modeId: ModeIds.Agent,
+            startBlock: null,
+            includeTools: false,
+            includeContextInjections: false);
+        if (response.FinishReason == "request_failed")
+            return null;
+        return response.Content;
     }
 
     private static List<JevContextMessage> RecentMessagesForDecision(List<ChatMessage> conversation)

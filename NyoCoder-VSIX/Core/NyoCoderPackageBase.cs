@@ -183,6 +183,7 @@ namespace NyoCoder
                 CodebaseIndex.PublishStatus();
                 if (ConfigHandler.GetIndexOnSolutionOpen())
                     CodebaseIndexer.RequestReconcile();
+                NotifySolutionChanged();
             }
             catch { }
         }
@@ -193,8 +194,17 @@ namespace NyoCoder
             {
                 CodebaseIndex.Invalidate();
                 CodebaseIndex.PublishStatus();
+                NotifySolutionChanged();
             }
             catch { }
+        }
+
+        // Chats belong to a workspace: a new solution gets a new chat.
+        private void NotifySolutionChanged()
+        {
+            NyoCoderControl control = ToolWindowControl;
+            if (control != null)
+                control.OnSolutionChanged();
         }
 
         private void OnDocumentSaved(Document document)

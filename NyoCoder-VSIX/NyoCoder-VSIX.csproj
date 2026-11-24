@@ -156,8 +156,10 @@
     <Compile Include="Editor\DiffHighlightClassificationDefinitions.cs" />
     <Compile Include="Editor\DiffHighlightTagger.cs" />
     <!-- Services -->
+    <Compile Include="Services\AtomicFile.cs" />
     <Compile Include="Services\BuildErrorFixLoop.cs" />
     <Compile Include="Services\AutoRagContext.cs" />
+    <Compile Include="Services\ChatHistory.cs" />
     <Compile Include="Services\CodebaseIndex.cs" />
     <Compile Include="Services\CodebaseIndexer.cs" />
     <Compile Include="Services\ConfigHandler.cs" />
@@ -212,6 +214,7 @@
       <DependentUpon>NyoCoder.xaml</DependentUpon>
     </Compile>
     <Compile Include="UI\NyoCoderControl.Chat.cs" />
+    <Compile Include="UI\NyoCoderControl.History.cs" />
     <Compile Include="UI\NyoCoderControl.Input.cs" />
     <Compile Include="UI\NyoCoderControl.Modes.cs" />
     <Compile Include="UI\OnboardingWizardForm.cs">
@@ -286,6 +289,9 @@
     <EmbeddedResource Include="VSPackage.resx">
       <MergeWithCTO>true</MergeWithCTO>
       <ManifestResourceName>VSPackage</ManifestResourceName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\history.png">
+      <LogicalName>NyoCoder.History.png</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

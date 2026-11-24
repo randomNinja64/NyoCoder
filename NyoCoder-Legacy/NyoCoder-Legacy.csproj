@@ -65,6 +65,9 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="..\NyoCoder-VSIX\Resources\history.png" Link="Resources\history.png">
+      <LogicalName>NyoCoder.History.png</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

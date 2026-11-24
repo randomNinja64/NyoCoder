@@ -13,6 +13,7 @@ namespace NyoCoder
         private void ModeSelector_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             SyncTokenTrackerMode();
+            SaveModeChange();
         }
 
         private void RefreshModeSelector()

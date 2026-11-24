@@ -30,6 +30,16 @@ namespace NyoCoder
         private readonly Dispatcher _dispatcher;
         private bool _stepsChangedSubscribed;
 
+        /// <summary>
+        /// Called on the conversation thread when a turn ends (finished, stopped or failed),
+        /// before the input bar returns: the client, the message as typed, and whether the
+        /// turn started a new chat. The chat history saves here.
+        /// </summary>
+        internal Action<LLMClient, string, bool> TurnEnding;
+
+        /// <summary>Called on the conversation thread once a run is over and a new one can start.</summary>
+        internal Action RunFinished;
+
         internal MessageDispatcher(
             Action<string> appendText,
             Action startBlock,
@@ -111,7 +121,7 @@ namespace NyoCoder
 
             if (!TextNormalization.IsNullOrWhiteSpace(context))
             {
-                string prompt = context + "\n\n---\n\n" + query;
+                string prompt = context + LLMClient.ContextSeparator + query;
                 int hiddenDelta = prompt.Length - query.Length;
                 if (hiddenDelta > 0)
                     _addToCharacterCount(hiddenDelta);
@@ -171,13 +181,7 @@ namespace NyoCoder
 
                     if (isNewSession)
                     {
-                        StepPlanner.Initialize();
-                        if (!_stepsChangedSubscribed)
-                        {
-                            StepPlanner.Instance.StepsChanged += _onStepsChanged;
-                            _stepsChangedSubscribed = true;
-                        }
-
+                        BeginSession();
                         userMessage = ApplyAutoRag(userMessage, autoRagQuery);
                     }
 
@@ -185,15 +189,18 @@ namespace NyoCoder
                     _startBlock();
                     _appendText("Assistant: \n");
 
+                    string context;
+                    string typed = SplitContext(userMessage, autoRagQuery, out context);
                     llmClient.ProcessConversation(
-                        userMessage,
+                        typed,
                         attachedImage,
                         _appendText,
                         stopRequested: _stopRequested,
                         onSummarized: _resetCharacterCount,
                         modeId: modeId,
                         dequeueSteerMessage: _steerer.TryDequeue,
-                        startBlock: _startBlock
+                        startBlock: _startBlock,
+                        context: context
                     );
 
                     ApplyMarkdownIfEnabled();
@@ -230,6 +237,7 @@ namespace NyoCoder
                     }
 
                     _appendText(Environment.NewLine);
+                    NotifyTurnEnding(llmClient, autoRagQuery, isNewSession);
                     _showInputBar();
                     _scrollToBottom();
                 }
@@ -245,6 +253,7 @@ namespace NyoCoder
                             MessageBoxButton.OK,
                             MessageBoxImage.Error);
                     }, _dispatcher);
+                    NotifyTurnEnding(llmClient, builtMessage != null ? builtMessage.Query : string.Empty, isNewSession);
                     _showInputBar();
                     _scrollToBottom();
                 }
@@ -252,8 +261,57 @@ namespace NyoCoder
                 {
                     ToolApprovalService.Clear();
                     Interlocked.Exchange(ref package._isAiRunning, 0);
+                    Action finished = RunFinished;
+                    if (finished != null)
+                        finished();
                 }
             });
+        }
+
+        /// <summary>
+        /// Starts plan tracking for a chat: a new one, or a saved one being continued.
+        /// </summary>
+        internal void BeginSession()
+        {
+            StepPlanner.Initialize();
+            if (!_stepsChangedSubscribed)
+            {
+                StepPlanner.Instance.StepsChanged += _onStepsChanged;
+                _stepsChangedSubscribed = true;
+            }
+        }
+
+        /// <summary>
+        /// Splits a built prompt (context, separator, typed text) back into the typed text,
+        /// returned, and the hidden context ahead of it: null when there is none.
+        /// </summary>
+        private static string SplitContext(string prompt, string typed, out string context)
+        {
+            context = null;
+            if (string.IsNullOrEmpty(prompt) || string.IsNullOrEmpty(typed) || prompt == typed)
+                return prompt;
+
+            string tail = LLMClient.ContextSeparator + typed;
+            if (!prompt.EndsWith(tail, StringComparison.Ordinal))
+                return prompt;
+
+            context = prompt.Substring(0, prompt.Length - tail.Length);
+            return typed;
+        }
+
+        private void NotifyTurnEnding(LLMClient llmClient, string typedMessage, bool isNewSession)
+        {
+            Action<LLMClient, string, bool> handler = TurnEnding;
+            if (handler == null)
+                return;
+            try
+            {
+                handler(llmClient, typedMessage, isNewSession);
+            }
+            catch (Exception)
+            {
+                // Saving is best-effort; the turn itself is done.
+            }
         }
 
         private void ExecutePlan(StepPlanner planner, LLMClient llmClient)
@@ -315,15 +373,18 @@ namespace NyoCoder
                     _startBlock();
                     _appendLine("Assistant: ");
 
+                    string handoffContext;
+                    string handoffText = SplitContext(built.Prompt, built.Query, out handoffContext);
                     llmClient.ProcessConversation(
-                        built.Prompt,
+                        handoffText,
                         null,
                         _appendText,
                         stopRequested: _stopRequested,
                         onSummarized: _resetCharacterCount,
                         modeId: ModeIds.Agent,
                         dequeueSteerMessage: _steerer.TryDequeue,
-                        startBlock: _startBlock
+                        startBlock: _startBlock,
+                        context: handoffContext
                     );
 
                     ApplyMarkdownIfEnabled();

@@ -305,6 +305,16 @@ namespace NyoCoder
             if (_pendingWaitHandle != null) _pendingWaitHandle.Set();
         }
 
+        /// <summary>
+        /// Answers a pending approval, question or plan review as Stop, so a run
+        /// waiting on the user can end. Must be called on the UI thread.
+        /// </summary>
+        internal void CancelPending()
+        {
+            if (_pendingWaitHandle != null)
+                OnStopButton(null, null);
+        }
+
         private void HideInteractionUI()
         {
             _buttonPanel.Children.Clear();

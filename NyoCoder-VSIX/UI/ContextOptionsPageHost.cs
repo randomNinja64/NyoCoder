@@ -14,6 +14,9 @@ namespace NyoCoder
         private TextBox txtMaxFileContentLength;
         private Label lblMaxOpenFilesInContext;
         private TextBox txtMaxOpenFilesInContext;
+        private Label lblChatHistoryLimit;
+        private TextBox txtChatHistoryLimit;
+        private CheckBox chkChatTitlesByModel;
 
         public ContextOptionsPageHost()
         {
@@ -23,7 +26,7 @@ namespace NyoCoder
         private void InitializeComponent()
         {
             this.SuspendLayout();
-            InitLayout(380);
+            InitLayout(500);
 
             this.chkAutoRag = new CheckBox();
             this.chkAutoRag.AutoSize = true;
@@ -57,6 +60,17 @@ namespace NyoCoder
             this.txtMaxOpenFilesInContext = new TextBox();
             this.txtMaxOpenFilesInContext.Anchor = AnchorStyles.Left | AnchorStyles.Right;
 
+            this.lblChatHistoryLimit = new Label();
+            this.lblChatHistoryLimit.AutoSize = true;
+            this.lblChatHistoryLimit.Text = "Number of Recent Chat Sessions to Keep (per solution, 0 to disable):";
+
+            this.txtChatHistoryLimit = new TextBox();
+            this.txtChatHistoryLimit.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+
+            this.chkChatTitlesByModel = new CheckBox();
+            this.chkChatTitlesByModel.AutoSize = true;
+            this.chkChatTitlesByModel.Text = "Generate chat titles from model";
+
             AddRow(MakeSectionTitle("Context"), new Padding(0, 0, 0, 12), false);
             AddRow(this.lblContextWindowSize, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtContextWindowSize, new Padding(0, 0, 0, 12), false);
@@ -66,7 +80,10 @@ namespace NyoCoder
             AddRow(this.txtMaxFileContentLength, new Padding(0, 0, 0, 12), false);
             AddRow(this.lblMaxOpenFilesInContext, new Padding(0, 0, 0, 4), true);
             AddRow(this.txtMaxOpenFilesInContext, new Padding(0, 0, 0, 12), false);
-            AddRow(this.chkAutoRag, new Padding(0, 0, 0, 0), true);
+            AddRow(this.chkAutoRag, new Padding(0, 0, 0, 12), true);
+            AddRow(this.lblChatHistoryLimit, new Padding(0, 0, 0, 4), true);
+            AddRow(this.txtChatHistoryLimit, new Padding(0, 0, 0, 12), false);
+            AddRow(this.chkChatTitlesByModel, new Padding(0, 0, 0, 0), true);
 
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -131,6 +148,24 @@ namespace NyoCoder
             set { txtMaxOpenFilesInContext.Text = value.ToString(); }
         }
 
+        public int ChatHistoryLimit
+        {
+            get
+            {
+                int result;
+                if (int.TryParse(txtChatHistoryLimit.Text, out result) && result >= 0)
+                    return result;
+                return 50;
+            }
+            set { txtChatHistoryLimit.Text = value.ToString(); }
+        }
+
+        public bool ChatTitlesByModel
+        {
+            get { return chkChatTitlesByModel.Checked; }
+            set { chkChatTitlesByModel.Checked = value; }
+        }
+
         public override void LoadFromConfig()
         {
             AutoRagEnabled = ConfigHandler.GetAutoRagEnabled();
@@ -138,6 +173,8 @@ namespace NyoCoder
             MaxReadLines = ConfigHandler.MaxReadLines;
             MaxFileContentLength = ConfigHandler.MaxFileContentLength;
             MaxOpenFilesInContext = ConfigHandler.MaxOpenFilesInContext;
+            ChatHistoryLimit = ConfigHandler.GetChatHistoryLimit();
+            ChatTitlesByModel = ConfigHandler.GetChatTitlesByModel();
         }
 
         public override void SaveToConfig()
@@ -147,6 +184,8 @@ namespace NyoCoder
             ConfigHandler.SetMaxReadLines(MaxReadLines);
             ConfigHandler.SetMaxFileContentLength(MaxFileContentLength);
             ConfigHandler.SetMaxOpenFilesInContext(MaxOpenFilesInContext);
+            ConfigHandler.SetChatHistoryLimit(ChatHistoryLimit);
+            ConfigHandler.SetChatTitlesByModel(ChatTitlesByModel);
         }
     }
 }

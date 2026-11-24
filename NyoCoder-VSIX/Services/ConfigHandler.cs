@@ -51,9 +51,15 @@ namespace NyoCoder
 			configMap = LoadIni(configFilePath);
 		}
 
+		/// <summary>Raised after the options are saved, so open UI can follow them.</summary>
+		public static event Action Saved;
+
 		public static void SaveConfig()
 		{
 			SaveIni(configFilePath, configMap);
+			Action handler = Saved;
+			if (handler != null)
+				handler();
 		}
 
 		/// <summary>Marks onboarding complete after the setup wizard has written the INI.</summary>
@@ -155,6 +161,28 @@ namespace NyoCoder
 		public static void SetAutoRagEnabled(bool value)
 		{
 			SetConfigValue("autoRag", value ? "1" : "0");
+		}
+
+		/// <summary>Chats kept per workspace, oldest deleted first; 0 turns history off.</summary>
+		public static int GetChatHistoryLimit()
+		{
+			int value = GetConfigInt("chatHistoryLimit", 50);
+			return value < 0 ? 0 : value;
+		}
+
+		public static void SetChatHistoryLimit(int value)
+		{
+			SetConfigValue("chatHistoryLimit", (value < 0 ? 0 : value).ToString());
+		}
+
+		public static bool GetChatTitlesByModel()
+		{
+			return GetConfigValue("chatTitlesByModel", "1") == "1";
+		}
+
+		public static void SetChatTitlesByModel(bool value)
+		{
+			SetConfigValue("chatTitlesByModel", value ? "1" : "0");
 		}
 
 		public static bool GetSelfImprovementEnabled()
@@ -761,7 +789,8 @@ namespace NyoCoder
 				AppendSection(lines, ref firstSection, "General", config, written,
 					"apiKey", "llmserver", "model", "reasoningeffort");
 				AppendSection(lines, ref firstSection, "Context", config, written,
-					"autoRag", "contextWindowSize", "maxFileContentLength", "maxOpenFilesInContext", "maxReadLines");
+					"autoRag", "chatHistoryLimit", "chatTitlesByModel", "contextWindowSize", "maxFileContentLength",
+					"maxOpenFilesInContext", "maxReadLines");
 				AppendSection(lines, ref firstSection, "Appearance", config, written,
 					"markdownparsing", "thinkingdisplay", "toolcalldisplay", "tooloutputdisplay");
 				AppendSection(lines, ref firstSection, "Indexing", config, written,

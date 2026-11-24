@@ -77,6 +77,9 @@
       <MergeWithCTO>true</MergeWithCTO>
       <ManifestResourceName>VSPackage</ManifestResourceName>
     </EmbeddedResource>
+    <EmbeddedResource Include="..\NyoCoder-VSIX\Resources\history.png" Link="Resources\history.png">
+      <LogicalName>NyoCoder.History.png</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

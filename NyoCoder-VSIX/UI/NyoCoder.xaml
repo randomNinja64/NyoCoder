@@ -105,17 +105,41 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="TokenStatusText"
                                Grid.Column="0"
+                               VerticalAlignment="Center"
                                Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
                                Text="Tokens: 0"/>
+                    <!-- Cut short, not wrapped, when the window is narrow -->
                     <TextBlock x:Name="StepStatusText"
                                Grid.Column="1"
+                               VerticalAlignment="Center"
                                Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
                                Margin="12,0,0,0"
                                HorizontalAlignment="Right"
+                               TextTrimming="CharacterEllipsis"
                                Visibility="Collapsed"/>
+                    <!-- Opens the chat history panel. The icon is masked in code (LoadHistoryIcon)
+                         and filled with the theme's text color. A square the height of the token
+                         text, so the bar keeps its height; the icon fills what's inside. -->
+                    <ToggleButton x:Name="HistoryButton"
+                                  Grid.Column="2"
+                                  Style="{DynamicResource {x:Static ToolBar.ToggleButtonStyleKey}}"
+                                  Width="{Binding ActualHeight, ElementName=TokenStatusText}"
+                                  Height="{Binding ActualHeight, ElementName=TokenStatusText}"
+                                  Margin="6,0,0,0"
+                                  Padding="1"
+                                  VerticalAlignment="Center"
+                                  Focusable="False"
+                                  AutomationProperties.Name="History"
+                                  ToolTipService.ShowOnDisabled="True"
+                                  Checked="HistoryButton_Checked"
+                                  Unchecked="HistoryButton_Unchecked">
+                        <Rectangle x:Name="HistoryIcon"
+                                   Fill="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"/>
+                    </ToggleButton>
                 </Grid>
                 <Grid x:Name="SubagentStatusRow"
                       Margin="0,2,0,0"
@@ -245,5 +269,103 @@
                 </Border>
             </StackPanel>
         </Border>
+
+        <!-- Chat history: the workspace's saved chats, newest first, over the chat and input
+             bar while open. Click or Enter opens one; right-click for Export and Delete. -->
+        <DockPanel x:Name="HistoryPanel"
+                   Grid.Row="1"
+                   Grid.RowSpan="3"
+                   Visibility="Collapsed"
+                   Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
+                   PreviewKeyDown="HistoryPanel_PreviewKeyDown">
+            <Border DockPanel.Dock="Top"
+                    Background="{DynamicResource {x:Static vsfx:VsBrushes.CommandBarGradientBeginKey}}"
+                    Padding="6,3">
+                <DockPanel>
+                    <!-- Flat like the History button; negative margins keep the header
+                         the same height as the tokens bar. -->
+                    <Button DockPanel.Dock="Right"
+                            Content="Close"
+                            Style="{DynamicResource {x:Static ToolBar.ButtonStyleKey}}"
+                            Margin="6,-2,0,-2"
+                            Padding="6,0"
+                            Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"
+                            Click="HistoryCloseButton_Click"/>
+                    <TextBlock Text="Chat History"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource {x:Static vsfx:VsBrushes.ToolWindowTextKey}}"/>
+                </DockPanel>
+            </Border>
+            <Grid>
+                <ListBox x:Name="HistoryList"
+                         BorderThickness="0"
+                         Padding="2"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         HorizontalContentAlignment="Stretch"
+                         Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"
+                         Background="{DynamicResource {x:Static vsfx:VsBrushes.WindowKey}}"
+                         KeyDown="HistoryList_KeyDown"
+                         ContextMenuOpening="HistoryList_ContextMenuOpening">
+                    <!-- Items are added when it opens (see HistoryList_ContextMenuOpening). -->
+                    <ListBox.ContextMenu>
+                        <ContextMenu/>
+                    </ListBox.ContextMenu>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="4,3"/>
+                            <Setter Property="ToolTip" Value="{Binding Title}"/>
+                            <EventSetter Event="MouseLeftButtonUp" Handler="HistoryItem_MouseLeftButtonUp"/>
+                            <!-- Own template: the theme's selection highlight fades when the list
+                                 loses focus. The open chat (IsCurrent) is highlighted always;
+                                 hover and the keyboard selection get a faint tint. -->
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Grid SnapsToDevicePixels="True">
+                                            <Border x:Name="Tint"
+                                                    Background="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"
+                                                    Opacity="0.2"
+                                                    Visibility="Collapsed"/>
+                                            <Border x:Name="Bd"
+                                                    Background="Transparent"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Tint" Property="Visibility" Value="Visible"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Tint" Property="Visibility" Value="Visible"/>
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                                <Setter TargetName="Bd" Property="Background"
+                                                        Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"/>
+                                                <Setter Property="Foreground"
+                                                        Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"/>
+                                            </DataTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock x:Name="HistoryEmptyText"
+                           Text="(empty)"
+                           Margin="8"
+                           TextWrapping="Wrap"
+                           Opacity="0.65"
+                           IsHitTestVisible="False"
+                           Foreground="{DynamicResource {x:Static vsfx:VsBrushes.WindowTextKey}}"/>
+            </Grid>
+        </DockPanel>
     </Grid>
 </UserControl>

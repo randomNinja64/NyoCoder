@@ -128,6 +128,7 @@ namespace NyoCoder
                 _chatTurns.Clear();
                 _currentTurn = null;
                 _tokenTracker.Reset();
+                ResetSession();
 
                 // Reset step planner display
                 if (StepPlanner.Instance != null)
@@ -145,7 +146,7 @@ namespace NyoCoder
         private void RefreshStepDisplay()
         {
             StepPlanner planner = StepPlanner.Instance;
-            if (planner == null || planner.Steps.Count == 0)
+            if (planner == null || !HasUnfinishedStep(planner))
             {
                 CollapseStepStatus();
                 return;
@@ -154,6 +155,17 @@ namespace NyoCoder
             StepStatusText.Text = planner.GetStepIndicator();
             StepStatusText.ToolTip = planner.GetDetailedTooltip();
             StepStatusText.Visibility = Visibility.Visible;
+        }
+
+        // The counter goes once every step is done, failed or skipped.
+        private static bool HasUnfinishedStep(StepPlanner planner)
+        {
+            foreach (PlanStep step in planner.Steps)
+            {
+                if (step.Status == StepStatus.Pending || step.Status == StepStatus.InProgress)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>

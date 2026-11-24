@@ -10,13 +10,14 @@ public partial class LLMClient
     {
         JObject msgObj = new JObject();
         msgObj["role"] = msg.Role;
+        string text = SentContent(msg);
 
         if (!string.IsNullOrEmpty(msg.ToolCallId))
             msgObj["tool_call_id"] = msg.ToolCallId;
 
         if (msg.ToolCalls != null && msg.ToolCalls.Count > 0)
         {
-            msgObj["content"] = msg.Content ?? "";
+            msgObj["content"] = text ?? "";
             JArray toolCallsArray = new JArray();
 
             foreach (var call in msg.ToolCalls)
@@ -39,11 +40,11 @@ public partial class LLMClient
         {
             JArray contentArray = new JArray();
 
-            if (!string.IsNullOrEmpty(msg.Content))
+            if (!string.IsNullOrEmpty(text))
             {
                 JObject textPart = new JObject();
                 textPart["type"] = "text";
-                textPart["text"] = msg.Content;
+                textPart["text"] = text;
                 contentArray.Add(textPart);
             }
 
@@ -70,7 +71,7 @@ public partial class LLMClient
         }
         else
         {
-            msgObj["content"] = msg.Content ?? "";
+            msgObj["content"] = text ?? "";
         }
 
         return msgObj;

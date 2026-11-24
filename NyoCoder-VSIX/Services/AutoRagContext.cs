@@ -137,7 +137,7 @@ namespace NyoCoder
                 return retrievedBlock;
 
             // Prefer: editor context, then retrieved, then --- separator before user/step body
-            const string separator = "\n\n---\n\n";
+            const string separator = LLMClient.ContextSeparator;
             int sep = basePrompt.IndexOf(separator, StringComparison.Ordinal);
             if (sep >= 0)
             {

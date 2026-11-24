@@ -83,6 +83,7 @@ namespace NyoCoder
             RefreshModeSelector();
             ModeRegistry.ModesChanged += OnModesChanged;
             ModeSelector.SelectionChanged += ModeSelector_SelectionChanged;
+            InitializeHistory();
 
             // Keep the persistent indexing status bar in sync with the shared reporter. This
             // control is created once for the life of the tool window, so we subscribe once and

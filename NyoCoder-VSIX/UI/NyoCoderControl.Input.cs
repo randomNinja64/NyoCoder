@@ -223,6 +223,7 @@ namespace NyoCoder
                 package.LlmClient = llmClient;
                 ClearOutput();
             }
+            NameChatFrom(message);
 
             string userMessageDisplay = message;
             if (!string.IsNullOrEmpty(attachedImage))

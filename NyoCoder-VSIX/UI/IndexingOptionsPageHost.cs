@@ -109,7 +109,7 @@ namespace NyoCoder
                 Width = 120
             };
 
-            Label lblMaxChars = new Label { AutoSize = true, Text = "Max characters per embedding (longer text is truncated):" };
+            Label lblMaxChars = new Label { AutoSize = true, Text = "Max characters per embedding (longer lines are skipped):" };
             numMaxChars = new NumericUpDown
             {
                 Minimum = 256,

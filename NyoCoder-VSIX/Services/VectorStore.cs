@@ -13,6 +13,8 @@ namespace NyoCoder
         public string File;
         public int StartLine;
         public int EndLine;
+        /// <summary>Hash of the embedded text: a re-chunked file reuses the vector of an unchanged chunk.</summary>
+        public string Hash;
         public float[] Embedding;
 
         /// <summary>Cached L2 norm of <see cref="Embedding"/> (not serialized).</summary>
@@ -63,6 +65,15 @@ namespace NyoCoder
         {
             _vectors.Clear();
             _dimension = 0;
+        }
+
+        /// <summary>The chunks of one file (case-insensitive path match, like <see cref="RemoveByFile"/>).</summary>
+        public List<ChunkVector> GetByFile(string file)
+        {
+            if (string.IsNullOrEmpty(file))
+                return new List<ChunkVector>();
+            return _vectors.FindAll(v =>
+                string.Equals(v.File, file, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>Removes all chunks belonging to the given file. Returns the number removed.</summary>
@@ -162,9 +173,10 @@ namespace NyoCoder
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
-            using (FileStream fs = new FileStream(path, FileMode.Create, FileAccess.Write))
-            using (BinaryWriter writer = new BinaryWriter(fs, Encoding.UTF8))
+            AtomicFile.Write(path, stream =>
             {
+                // Not disposed: that would close the stream before AtomicFile flushes it.
+                BinaryWriter writer = new BinaryWriter(stream, Encoding.UTF8);
                 writer.Write(_dimension);
                 writer.Write(_vectors.Count);
 
@@ -173,12 +185,14 @@ namespace NyoCoder
                     writer.Write(v.File ?? string.Empty);
                     writer.Write(v.StartLine);
                     writer.Write(v.EndLine);
+                    writer.Write(v.Hash ?? string.Empty);
                     int len = v.Embedding != null ? v.Embedding.Length : 0;
                     writer.Write(len);
                     for (int i = 0; i < len; i++)
                         writer.Write(v.Embedding[i]);
                 }
-            }
+                writer.Flush();
+            });
         }
 
         /// <summary>Loads a vector store from disk. Returns an empty store if the file is missing or invalid.</summary>
@@ -203,6 +217,7 @@ namespace NyoCoder
                         v.File = reader.ReadString();
                         v.StartLine = reader.ReadInt32();
                         v.EndLine = reader.ReadInt32();
+                        v.Hash = reader.ReadString();
                         int len = reader.ReadInt32();
                         float[] embedding = new float[len];
                         for (int i = 0; i < len; i++)

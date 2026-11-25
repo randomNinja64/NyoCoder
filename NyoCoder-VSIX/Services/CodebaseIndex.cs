@@ -151,11 +151,14 @@ namespace NyoCoder
             Manifest.Dimension = Vectors.Dimension;
             Manifest.SemanticPresent = Vectors.Count > 0;
 
-            File.WriteAllText(ManifestPath,
-                JsonConvert.SerializeObject(Manifest, Formatting.Indented), new UTF8Encoding(false));
-            File.WriteAllText(SymbolsPath,
-                JsonConvert.SerializeObject(Symbols), new UTF8Encoding(false));
+            // Each file is swapped in whole, manifest last: if a write fails, the old
+            // manifest only makes the next run re-index what changed, whereas a new manifest
+            // over old data would mark files indexed that have no symbols or vectors.
             Vectors.Save(VectorsPath);
+            AtomicFile.WriteAllBytes(SymbolsPath,
+                new UTF8Encoding(false).GetBytes(JsonConvert.SerializeObject(Symbols)));
+            AtomicFile.WriteAllBytes(ManifestPath,
+                new UTF8Encoding(false).GetBytes(JsonConvert.SerializeObject(Manifest, Formatting.Indented)));
 
             // Legacy sidecar from the split symbols/references model.
             try
@@ -183,6 +186,21 @@ namespace NyoCoder
         }
 
         // ── Mutation helpers (used by the indexer) ─────────────────────
+
+        /// <summary>
+        /// A file's stored embeddings by text hash, taken before the file is re-indexed so
+        /// unchanged chunks keep their vectors.
+        /// </summary>
+        internal Dictionary<string, float[]> GetFileEmbeddingsByHash(string file)
+        {
+            var byHash = new Dictionary<string, float[]>(StringComparer.Ordinal);
+            foreach (ChunkVector v in Vectors.GetByFile(file))
+            {
+                if (!string.IsNullOrEmpty(v.Hash))
+                    byHash[v.Hash] = v.Embedding;
+            }
+            return byHash;
+        }
 
         /// <summary>Removes all symbols, vectors, and the manifest entry for a single file.</summary>
         internal void RemoveFileData(string file)

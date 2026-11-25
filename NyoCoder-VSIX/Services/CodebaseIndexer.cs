@@ -183,12 +183,14 @@ namespace NyoCoder
                     continue;
                 }
 
+                // Taken before the file's data is removed: unchanged chunks keep their vectors.
+                Dictionary<string, float[]> previous = index.GetFileEmbeddingsByHash(file);
                 List<SymbolEntry> symbols = AddFileSymbols(index, file, content, removeExisting: !rebuildAll);
 
                 int chunkCount = 0;
                 if (semantic)
-                    chunkCount = CollectChunks(file, content, symbols, workspaceRoot, chunkLines, overlap,
-                        ref chunkBudget, embedChunks, embedTexts);
+                    chunkCount = CollectChunks(index, file, content, symbols, previous, workspaceRoot,
+                        chunkLines, overlap, ref chunkBudget, embedChunks, embedTexts);
 
                 index.Manifest.Files[file] = BuildManifestEntry(hash, mtime, symbols.Count, chunkCount);
                 changedContents[file] = content;
@@ -265,6 +267,13 @@ namespace NyoCoder
             if (content == null)
                 return;
 
+            // Taken before the file's data is removed: unchanged chunks keep their vectors,
+            // unless they came from a different embeddings model.
+            string currentModel = ConfigHandler.GetEmbeddingsModel();
+            Dictionary<string, float[]> previous =
+                string.Equals(index.Manifest.EmbeddingsModel, currentModel, StringComparison.Ordinal)
+                    ? index.GetFileEmbeddingsByHash(path)
+                    : null;
             List<SymbolEntry> symbols = AddFileSymbols(index, path, content, removeExisting: true);
 
             int chunkCount = 0;
@@ -275,8 +284,8 @@ namespace NyoCoder
                 List<string> texts = new List<string>();
                 List<ChunkVector> chunks = new List<ChunkVector>();
                 int chunkBudget = int.MaxValue;
-                CollectChunks(path, content, symbols, index.WorkspaceRoot, chunkLines, overlap,
-                    ref chunkBudget, chunks, texts);
+                chunkCount = CollectChunks(index, path, content, symbols, previous, index.WorkspaceRoot,
+                    chunkLines, overlap, ref chunkBudget, chunks, texts);
 
                 int added;
                 string embedFailure = ApplyEmbeddings(embeddings, chunks, texts, index, out added);
@@ -285,8 +294,7 @@ namespace NyoCoder
                     AbandonUnsavedIndex("Embeddings failed: " + embedFailure + " (index not saved).");
                     return;
                 }
-                chunkCount = added;
-                index.Manifest.EmbeddingsModel = ConfigHandler.GetEmbeddingsModel();
+                index.Manifest.EmbeddingsModel = currentModel;
             }
 
             index.Manifest.Files[path] = BuildManifestEntry(
@@ -395,8 +403,14 @@ namespace NyoCoder
             }
         }
 
+        /// <summary>
+        /// Chunks a file. A chunk whose text hash is in <paramref name="previous"/> (the file's
+        /// embeddings before this pass) keeps that vector and goes straight into the index; the
+        /// rest are queued for embedding. Returns the file's chunk count.
+        /// </summary>
         private static int CollectChunks(
-            string file, string content, List<SymbolEntry> symbols, string workspaceRoot,
+            CodebaseIndex index, string file, string content, List<SymbolEntry> symbols,
+            Dictionary<string, float[]> previous, string workspaceRoot,
             int chunkLines, int overlap, ref int chunkBudget,
             List<ChunkVector> embedChunks, List<string> embedTexts)
         {
@@ -412,8 +426,25 @@ namespace NyoCoder
             {
                 if (chunkBudget <= 0)
                     break;
-                embedChunks.Add(new ChunkVector { File = file, StartLine = ci.Start, EndLine = ci.End });
-                embedTexts.Add(BuildEmbedText(workspaceRoot, file, ci.Text));
+                string text = BuildEmbedText(workspaceRoot, file, ci.Text);
+                ChunkVector vector = new ChunkVector
+                {
+                    File = file,
+                    StartLine = ci.Start,
+                    EndLine = ci.End,
+                    Hash = CodebaseIndex.HashMd5Hex(text, lowercase: false)
+                };
+                float[] embedding;
+                if (previous != null && previous.TryGetValue(vector.Hash, out embedding))
+                {
+                    vector.Embedding = embedding;
+                    index.AddChunk(vector);
+                }
+                else
+                {
+                    embedChunks.Add(vector);
+                    embedTexts.Add(text);
+                }
                 chunkCount++;
                 chunkBudget--;
             }

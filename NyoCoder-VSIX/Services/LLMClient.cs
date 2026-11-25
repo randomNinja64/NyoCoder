@@ -449,9 +449,13 @@ public partial class LLMClient
         if (!ShouldSummarize(startChars, modeId))
             return;
 
-        // Clearing alone is silent: the token counter shows it.
         if (ClearOldToolOutputs(this.Conversation, modeId))
         {
+            if (outputCallback != null)
+            {
+                if (startBlock != null) startBlock();
+                outputCallback("[Conversation compacted - continuing...]\n");
+            }
             if (onSummarized != null)
                 onSummarized(GetConversationCharacterCount(this.Conversation));
             return;
@@ -460,7 +464,7 @@ public partial class LLMClient
         if (outputCallback != null)
         {
             if (startBlock != null) startBlock();
-            outputCallback("[Context usage high - summarizing conversation...]\n");
+            outputCallback("[Context usage high - compacting conversation...]\n");
         }
 
         int keepFrom = RecentKeepStart(this.Conversation, KeepRecentChars());
@@ -478,12 +482,12 @@ public partial class LLMClient
                 if (dropped > 0)
                 {
                     if (startBlock != null) startBlock();
-                    outputCallback("[Summarization failed - dropped older messages]\n");
+                    outputCallback("[Compaction failed - dropped older messages]\n");
                 }
                 if (ShouldSummarize(GetConversationCharacterCount(this.Conversation), modeId))
                 {
                     if (startBlock != null) startBlock();
-                    outputCallback("[Summarization failed - current turn still exceeds the context window]\n");
+                    outputCallback("[Compaction failed - current turn still exceeds the context window]\n");
                 }
             }
             int endChars = GetConversationCharacterCount(this.Conversation);
@@ -497,7 +501,7 @@ public partial class LLMClient
         if (outputCallback != null)
         {
             if (startBlock != null) startBlock();
-            outputCallback("[Conversation summarized - continuing...]\n");
+            outputCallback("[Conversation compacted - continuing...]\n");
         }
 
         // Notify UI to reset character count

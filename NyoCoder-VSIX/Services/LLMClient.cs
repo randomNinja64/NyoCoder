@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Text;
 using System.Windows.Forms;
 
 namespace NyoCoder
@@ -412,21 +413,24 @@ public partial class LLMClient
     }
 
     /// <summary>
-    /// Injects queued steering messages as user turns. Returns true if any were injected.
-    /// Must only be called when the conversation is in a valid state (after a full tool
-    /// batch or after an assistant text message — never between tool_call and tool results).
+    /// Injects queued steering messages as one user turn (several queued messages are
+    /// joined, since some chat templates reject two user messages in a row). Returns true
+    /// if any were injected. Must only be called when the conversation is in a valid state
+    /// (after a full tool batch or after an assistant text message — never between
+    /// tool_call and tool results).
     /// </summary>
     private bool InjectPendingSteerMessages(Func<string> dequeueSteer, Action<string> outputCallback, Action startBlock = null)
     {
         if (dequeueSteer == null)
             return false;
 
-        bool injected = false;
+        StringBuilder joined = new StringBuilder();
         string msg;
         while (!string.IsNullOrEmpty(msg = dequeueSteer()))
         {
-            injected = true;
-            this.Conversation.Add(new ChatMessage("user", msg));
+            if (joined.Length > 0)
+                joined.Append("\n\n");
+            joined.Append(msg);
             if (outputCallback != null)
             {
                 if (startBlock != null) startBlock();
@@ -434,7 +438,11 @@ public partial class LLMClient
             }
         }
 
-        return injected;
+        if (joined.Length == 0)
+            return false;
+
+        this.Conversation.Add(new ChatMessage("user", joined.ToString()));
+        return true;
     }
 
     /// <summary>

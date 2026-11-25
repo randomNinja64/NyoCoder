@@ -142,43 +142,90 @@ namespace NyoCoder
                 return;
 
             // Titles name saved chats, so only with history on; and not if stopped.
-            string modelTitle = null;
+            // The reply is read here, on the conversation thread that owns the list.
+            string firstReply = null;
             if (isNewSession && !StopRequested && ConfigHandler.GetChatTitlesByModel())
-                modelTitle = TitleFromFirstReply(llmClient, typedMessage);
+                firstReply = LatestAssistantReply(llmClient);
 
             EditorService.InvokeOnUIThread(() =>
             {
                 if (_discardTurn)
                     return;
-                if (modelTitle != null)
-                    _sessionTitle = modelTitle;
                 SaveSession(llmClient);
+                if (firstReply != null)
+                    StartTitleGeneration(llmClient, typedMessage, firstReply);
             }, Dispatcher);
         }
 
-        /// <summary>
-        /// A title the model writes from the first exchange. Null on any failure,
-        /// which keeps the first-message title.
-        /// </summary>
-        private static string TitleFromFirstReply(LLMClient llmClient, string prompt)
+        private static string LatestAssistantReply(LLMClient llmClient)
         {
-            string reply = null;
             List<LLMClient.ChatMessage> conversation = llmClient.Conversation;
-            for (int i = conversation.Count - 1; i >= 0 && reply == null; i--)
+            for (int i = conversation.Count - 1; i >= 0; i--)
             {
                 if (conversation[i].Role == "assistant" && !TextNormalization.IsNullOrWhiteSpace(conversation[i].Content))
-                    reply = conversation[i].Content;
+                    return conversation[i].Content;
             }
-            if (reply == null)
-                return null;
+            return null;
+        }
 
+        // The chat whose model title arrived mid-run; OnRunFinished saves it.
+        private string _titleSavePendingPath;
+
+        /// <summary>
+        /// Asks the model for a title in the background, so the turn ends (and the input
+        /// bar returns) without waiting for it. The chat is already saved under its
+        /// first-message title; the model's title replaces it when it arrives, unless the
+        /// user has left the chat. Any failure keeps the first-message title. UI thread.
+        /// </summary>
+        private void StartTitleGeneration(LLMClient llmClient, string prompt, string reply)
+        {
+            string path = _sessionPath;
+            if (path == null)
+                return;
+
+            Thread thread = new Thread(() =>
+            {
+                string title;
+                try
+                {
+                    title = ChatHistory.CleanModelTitle(llmClient.GenerateTitle(prompt, reply));
+                }
+                catch (Exception)
+                {
+                    return;
+                }
+                if (title == null)
+                    return;
+
+                EditorService.BeginInvokeOnUIThread(() => ApplyModelTitle(llmClient, path, title), Dispatcher);
+            });
+            thread.IsBackground = true;
+            thread.Name = "NyoCoder chat title";
+            thread.Start();
+        }
+
+        // UI thread. Turns start on the UI thread, so a run can't begin during the save.
+        private void ApplyModelTitle(LLMClient llmClient, string path, string title)
+        {
+            NyoCoder_VSIXPackage package = NyoCoder_VSIXPackage.Instance;
+            if (package == null || _sessionPath != path || package.LlmClient != llmClient)
+                return; // left the chat
+
+            _sessionTitle = title;
+            if (IsAiRunning(package))
+            {
+                // A turn is running: its end-of-turn save takes the title, or, if it
+                // was already past that, OnRunFinished saves it.
+                _titleSavePendingPath = path;
+                return;
+            }
             try
             {
-                return ChatHistory.CleanModelTitle(llmClient.GenerateTitle(prompt, reply));
+                SaveSession(llmClient);
             }
             catch (Exception)
             {
-                return null;
+                // Best-effort, like the end-of-turn save.
             }
         }
 
@@ -284,6 +331,18 @@ namespace NyoCoder
             {
                 Action then = _afterRun;
                 _afterRun = null;
+
+                // A model title that arrived mid-run, after its turn-end save. Not for a
+                // discarded turn: saving now would keep the turn the user left.
+                string titlePath = _titleSavePendingPath;
+                _titleSavePendingPath = null;
+                NyoCoder_VSIXPackage package = NyoCoder_VSIXPackage.Instance;
+                if (titlePath != null && !_discardTurn && titlePath == _sessionPath && package != null)
+                {
+                    try { SaveSession(package.LlmClient); }
+                    catch (Exception) { }
+                }
+
                 _discardTurn = false;
                 if (then != null)
                     then();

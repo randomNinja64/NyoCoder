@@ -424,9 +424,10 @@ namespace NyoCoder
             if (chunkBudget == 0)
                 return 0;
 
-            // What is left of the embedding character limit after the "File: ..." prefix.
-            int maxChars = ConfigHandler.GetEmbeddingsMaxChars()
-                - BuildEmbedText(workspaceRoot, file, string.Empty).Length;
+            // What is left of the embedding character limit after the "File: ..." prefix. A prefix
+            // as long as the limit leaves no room (not "no limit"): the file then has no chunks.
+            int maxChars = Math.Max(1, ConfigHandler.GetEmbeddingsMaxChars()
+                - BuildEmbedText(workspaceRoot, file, string.Empty).Length);
 
             foreach (ChunkInfo ci in Chunk(content, symbols, chunkLines, overlap, maxChars))
             {

@@ -158,6 +158,7 @@ public partial class LLMClient
                     if (startBlock != null) startBlock();
                     outputCallback("[Session stopped by user]\n");
                 }
+                EndStoppedTurn(null);
                 return;
             }
 
@@ -203,6 +204,8 @@ public partial class LLMClient
                     if (startBlock != null) startBlock();
                     outputCallback("[Session stopped by user]\n");
                 }
+                // Keep the text streamed so far; half-streamed tool calls are dropped.
+                EndStoppedTurn(response.Content);
                 return;
             }
 
@@ -236,6 +239,7 @@ public partial class LLMClient
                             if (startBlock != null) startBlock();
                             outputCallback("[Session stopped by user]\n");
                         }
+                        EndStoppedTurn(null);
                         return;
                     }
 
@@ -279,6 +283,7 @@ public partial class LLMClient
                                     if (startBlock != null) startBlock();
                                     outputCallback("[Session stopped by user]\n");
                                 }
+                                EndStoppedTurn(null);
                                 return; // Exit ProcessConversation
                             }
                             else if (approvalResult == ApprovalResult.Rejected)
@@ -410,6 +415,60 @@ public partial class LLMClient
 
             break;
         }
+    }
+
+    /// <summary>
+    /// Leaves a stopped turn in a state every server accepts, so the saved chat can be
+    /// reopened and continued: each tool call that got no result gets a "cancelled"
+    /// result (strict servers reject a tool call without one), and then the text streamed
+    /// so far is kept as the reply. With no text, a trailing user message (this turn's
+    /// prompt or a steer) is dropped, since a following prompt would make two user
+    /// messages in a row. A summary message is kept: it holds the earlier conversation.
+    /// </summary>
+    private void EndStoppedTurn(string partialReply)
+    {
+        List<ChatMessage> conversation = this.Conversation;
+
+        int callIndex = -1;
+        for (int i = conversation.Count - 1; i >= 0 && callIndex < 0; i--)
+        {
+            if (IsRole(conversation[i], "user"))
+                break;
+            if (IsRole(conversation[i], "assistant") && conversation[i].ToolCalls != null
+                && conversation[i].ToolCalls.Count > 0)
+                callIndex = i;
+        }
+        if (callIndex >= 0)
+        {
+            Dictionary<string, bool> answered = new Dictionary<string, bool>();
+            for (int i = callIndex + 1; i < conversation.Count; i++)
+            {
+                if (IsRole(conversation[i], "tool") && conversation[i].ToolCallId != null)
+                    answered[conversation[i].ToolCallId] = true;
+            }
+            foreach (ToolHandler.ToolCall call in conversation[callIndex].ToolCalls)
+            {
+                if (call.Id != null && answered.ContainsKey(call.Id))
+                    continue;
+                conversation.Add(new ChatMessage
+                {
+                    Role = "tool",
+                    Content = ToolHandler.FormatCommandResult(call.Name, "Tool execution was cancelled by the user.", -1),
+                    ToolCallId = call.Id
+                });
+            }
+        }
+
+        if (!string.IsNullOrEmpty(partialReply))
+        {
+            conversation.Add(new ChatMessage("assistant", partialReply));
+            return;
+        }
+
+        int last = conversation.Count - 1;
+        if (last >= 0 && IsRole(conversation[last], "user")
+            && !(conversation[last].Content ?? string.Empty).StartsWith(SummaryHeader, StringComparison.Ordinal))
+            conversation.RemoveAt(last);
     }
 
     /// <summary>

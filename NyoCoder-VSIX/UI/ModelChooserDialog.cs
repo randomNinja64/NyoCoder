@@ -40,14 +40,15 @@ namespace NyoCoder
             this.MinimizeBox = false;
             this.ShowInTaskbar = false;
             this.StartPosition = FormStartPosition.CenterParent;
-            this.ClientSize = new Size(300, 240);
+            // Sizes are 96-DPI pixels, scaled to the display (see DpiScale).
+            this.ClientSize = new Size(DpiScale.Px(300), DpiScale.Px(240));
             this.Font = SystemFonts.MessageBoxFont;
 
             lblStatus = new Label
             {
                 AutoSize = false,
                 Dock = DockStyle.Top,
-                Height = 24,
+                Height = DpiScale.Px(24),
                 Text = "Loading models...",
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(4, 0, 0, 0)
@@ -65,8 +66,8 @@ namespace NyoCoder
                 Text = "OK",
                 DialogResult = DialogResult.None,
                 Enabled = false,
-                Width = 80,
-                Height = 26
+                Width = DpiScale.Px(80),
+                Height = DpiScale.Px(26)
             };
             btnOk.Click += OnOkClick;
 
@@ -74,15 +75,15 @@ namespace NyoCoder
             {
                 Text = "Cancel",
                 DialogResult = DialogResult.Cancel,
-                Width = 80,
-                Height = 26
+                Width = DpiScale.Px(80),
+                Height = DpiScale.Px(26)
             };
 
             FlowLayoutPanel buttonPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
                 FlowDirection = FlowDirection.RightToLeft,
-                Height = 40,
+                Height = DpiScale.Px(40),
                 Padding = new Padding(8, 6, 8, 6),
                 WrapContents = false
             };

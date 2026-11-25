@@ -96,10 +96,11 @@ namespace NyoCoder
             UpdateWrappingWidths();
         }
 
-        private const int MainPanelHeight = 210;
-        private const int PromptHeight = 88;
-        private const int AllowListPromptHeight = 64;
-        private const int ToolListHeight = 60;
+        // 96-DPI pixels scaled to the display; fixed sizes would clip at high DPI.
+        private static readonly int MainPanelHeight = DpiScale.Px(210);
+        private static readonly int PromptHeight = DpiScale.Px(88);
+        private static readonly int AllowListPromptHeight = DpiScale.Px(64);
+        private static readonly int ToolListHeight = DpiScale.Px(60);
 
         private void BuildContent()
         {

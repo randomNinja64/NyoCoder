@@ -283,7 +283,8 @@ namespace NyoCoder
             stack.Padding = new Padding(0, 4, 0, 4);
             stack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-            const int rowHeight = 23;
+            // 96-DPI pixels scaled to the display; a fixed 23 clips the text at high DPI.
+            int rowHeight = DpiScale.Px(23);
             foreach (string toolName in allTools)
             {
                 TableLayoutPanel line = new TableLayoutPanel();

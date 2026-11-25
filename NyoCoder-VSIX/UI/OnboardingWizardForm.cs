@@ -26,6 +26,12 @@ namespace NyoCoder
         private readonly string[] _stepTitles;
         private int _stepIndex;
 
+        // Sizes are 96-DPI pixels, scaled to the display (see DpiScale).
+        private static int Px(int pixels)
+        {
+            return DpiScale.Px(pixels);
+        }
+
         private OnboardingWizardForm()
         {
             Text = "NyoCoder Setup";
@@ -34,13 +40,13 @@ namespace NyoCoder
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             ShowInTaskbar = false;
-            ClientSize = new Size(500, 360);
+            ClientSize = new Size(Px(500), Px(360));
             Font = SystemFonts.MessageBoxFont;
 
             Panel header = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 38,
+                Height = Px(38),
                 BackColor = Color.White,
                 Padding = new Padding(14, 10, 14, 8)
             };
@@ -49,7 +55,7 @@ namespace NyoCoder
             {
                 AutoSize = false,
                 Dock = DockStyle.Top,
-                Height = 20,
+                Height = Px(20),
                 Font = new Font(Font, FontStyle.Bold),
                 ForeColor = SystemColors.ControlText,
                 TextAlign = ContentAlignment.MiddleLeft
@@ -82,7 +88,7 @@ namespace NyoCoder
             Panel buttonBar = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 40,
+                Height = Px(40),
                 BackColor = SystemColors.Control
             };
 
@@ -91,7 +97,7 @@ namespace NyoCoder
                 Text = "Cancel",
                 DialogResult = DialogResult.None,
                 Anchor = AnchorStyles.Right | AnchorStyles.Top,
-                Size = new Size(75, 23),
+                Size = new Size(Px(75), Px(23)),
                 TabIndex = 2
             };
             _btnCancel.Click += OnCancelClick;
@@ -100,7 +106,7 @@ namespace NyoCoder
             {
                 Text = "Next >",
                 Anchor = AnchorStyles.Right | AnchorStyles.Top,
-                Size = new Size(75, 23),
+                Size = new Size(Px(75), Px(23)),
                 TabIndex = 1
             };
             _btnNext.Click += OnNextClick;
@@ -109,7 +115,7 @@ namespace NyoCoder
             {
                 Text = "< Back",
                 Anchor = AnchorStyles.Right | AnchorStyles.Top,
-                Size = new Size(75, 23),
+                Size = new Size(Px(75), Px(23)),
                 Enabled = false,
                 TabIndex = 0
             };

@@ -153,19 +153,14 @@ public partial class LLMClient
         {
             if (stopRequested != null && stopRequested())
             {
-                if (outputCallback != null)
-                {
-                    if (startBlock != null) startBlock();
-                    outputCallback("[Session stopped by user]\n");
-                }
-                EndStoppedTurn(null);
+                EndStoppedTurn(null, outputCallback, startBlock);
                 return;
             }
 
             // Check context usage before every LLM call — not just after tool batches.
             // This covers text-only turns, the first call of a turn, and subagent
             // step conversations whose prompts may already exceed the threshold.
-            TrySummarizeConversation(outputCallback, onSummarized, startBlock, modeId);
+            TrySummarizeConversation(outputCallback, onSummarized, startBlock, modeId, stopRequested);
 
             // Stream tool calls with explicit open/close markers for the chat UI.
             // Hidden: announce name only (no argument body); Expander starts expanded in ChatTurn.
@@ -199,13 +194,8 @@ public partial class LLMClient
 
             if ((stopRequested != null && stopRequested()) || response.FinishReason == "stopped")
             {
-                if (outputCallback != null)
-                {
-                    if (startBlock != null) startBlock();
-                    outputCallback("[Session stopped by user]\n");
-                }
                 // Keep the text streamed so far; half-streamed tool calls are dropped.
-                EndStoppedTurn(response.Content);
+                EndStoppedTurn(response.Content, outputCallback, startBlock);
                 return;
             }
 
@@ -234,12 +224,7 @@ public partial class LLMClient
 
                     if (stopRequested != null && stopRequested())
                     {
-                        if (outputCallback != null)
-                        {
-                            if (startBlock != null) startBlock();
-                            outputCallback("[Session stopped by user]\n");
-                        }
-                        EndStoppedTurn(null);
+                        EndStoppedTurn(null, outputCallback, startBlock);
                         return;
                     }
 
@@ -277,14 +262,8 @@ public partial class LLMClient
 
                             if (approvalResult == ApprovalResult.Stopped)
                             {
-                                // User stopped the session - break out of the conversation loop
-                                if (outputCallback != null)
-                                {
-                                    if (startBlock != null) startBlock();
-                                    outputCallback("[Session stopped by user]\n");
-                                }
-                                EndStoppedTurn(null);
-                                return; // Exit ProcessConversation
+                                EndStoppedTurn(null, outputCallback, startBlock);
+                                return;
                             }
                             else if (approvalResult == ApprovalResult.Rejected)
                             {
@@ -368,7 +347,7 @@ public partial class LLMClient
                 }
 
                 // Check if we need to summarize before the next LLM call
-                TrySummarizeConversation(outputCallback, onSummarized, startBlock, modeId);
+                TrySummarizeConversation(outputCallback, onSummarized, startBlock, modeId, stopRequested);
 
                 // Check if a plan was just created — break so the caller can orchestrate step execution
                 if (StepPlanner.Instance != null && StepPlanner.Instance.PlanRequiresExecution)
@@ -425,8 +404,14 @@ public partial class LLMClient
     /// prompt or a steer) is dropped, since a following prompt would make two user
     /// messages in a row. A summary message is kept: it holds the earlier conversation.
     /// </summary>
-    private void EndStoppedTurn(string partialReply)
+    private void EndStoppedTurn(string partialReply, Action<string> outputCallback, Action startBlock)
     {
+        if (outputCallback != null)
+        {
+            if (startBlock != null) startBlock();
+            outputCallback("[Session stopped by user]\n");
+        }
+
         List<ChatMessage> conversation = this.Conversation;
 
         int callIndex = -1;
@@ -510,7 +495,7 @@ public partial class LLMClient
     /// in place. Either way the UI is notified via <paramref name="onSummarized"/>.
     /// Safe to call before every LLM request.
     /// </summary>
-    private void TrySummarizeConversation(Action<string> outputCallback, Action<int> onSummarized, Action startBlock, string modeId)
+    private void TrySummarizeConversation(Action<string> outputCallback, Action<int> onSummarized, Action startBlock, string modeId, Func<bool> stopRequested)
     {
         int startChars = GetConversationCharacterCount(this.Conversation);
         if (!ShouldSummarize(startChars, modeId))
@@ -535,7 +520,12 @@ public partial class LLMClient
         }
 
         int keepFrom = RecentKeepStart(this.Conversation, KeepRecentChars());
-        string summary = SummarizeConversation(this.Conversation.GetRange(0, keepFrom));
+        string summary = SummarizeConversation(this.Conversation.GetRange(0, keepFrom), stopRequested);
+
+        // Stopped mid-summary: leave the conversation as it was; the turn ends next.
+        if (stopRequested != null && stopRequested())
+            return;
+
         if (string.IsNullOrEmpty(summary))
         {
             int dropped = DropOldestMessagesUntilFit(this.Conversation, modeId);
@@ -831,7 +821,7 @@ public partial class LLMClient
     /// Appends a summary request to the conversation, gets the summary, and returns it.
     /// The summary LLM call is silent (no chat streaming), tool-free, and omits skill/external-tool prompt injections.
     /// </summary>
-    public string SummarizeConversation(List<ChatMessage> conversation)
+    public string SummarizeConversation(List<ChatMessage> conversation, Func<bool> stopRequested = null)
     {
         if (conversation == null || conversation.Count == 0)
             return string.Empty;
@@ -847,7 +837,7 @@ public partial class LLMClient
             summaryConversation,
             outputCallback: null,
             toolCallCallback: null,
-            stopRequested: null,
+            stopRequested: stopRequested,
             modeId: ModeIds.Agent,
             startBlock: null,
             includeTools: false,

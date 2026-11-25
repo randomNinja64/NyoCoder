@@ -35,25 +35,30 @@ public partial class LLMClient
             byte[] payloadBytes = Encoding.UTF8.GetBytes(payload.ToString(Formatting.None));
             request.ContentLength = payloadBytes.Length;
 
-            using (var stream = request.GetRequestStream())
+            // Stop aborts the request even while it waits on the server (e.g. a long prompt
+            // before the first token), where the stream parser can't check the flag.
+            Action abort = () => { try { request.Abort(); } catch { } };
+            using (StopSignal.OnStop(abort))
             {
-                stream.Write(payloadBytes, 0, payloadBytes.Length);
-            }
+                using (var stream = request.GetRequestStream())
+                {
+                    stream.Write(payloadBytes, 0, payloadBytes.Length);
+                }
 
-            using (var httpResponse = (HttpWebResponse)request.GetResponse())
-            using (var responseStream = httpResponse.GetResponseStream())
-            using (var reader = new StreamReader(responseStream, Encoding.UTF8))
-            {
-                Action<string> onReasoningChunk;
-                Action<int> onReasoningSummary;
-                SseStreamParser.CreateReasoningCallbacks(outputCallback, startBlock, out onReasoningChunk, out onReasoningSummary);
+                using (var httpResponse = (HttpWebResponse)request.GetResponse())
+                using (var responseStream = httpResponse.GetResponseStream())
+                using (var reader = new StreamReader(responseStream, Encoding.UTF8))
+                {
+                    Action<string> onReasoningChunk;
+                    Action<int> onReasoningSummary;
+                    SseStreamParser.CreateReasoningCallbacks(outputCallback, startBlock, out onReasoningChunk, out onReasoningSummary);
 
-                completionResponse = SseStreamParser.Parse(
-                    reader, outputCallback, toolCallCallback, stopRequested,
-                    () => { try { request.Abort(); } catch { } },
-                    onReasoningChunk: onReasoningChunk,
-                    onReasoningSummary: onReasoningSummary,
-                    startBlock: startBlock);
+                    completionResponse = SseStreamParser.Parse(
+                        reader, outputCallback, toolCallCallback, stopRequested, abort,
+                        onReasoningChunk: onReasoningChunk,
+                        onReasoningSummary: onReasoningSummary,
+                        startBlock: startBlock);
+                }
             }
         }
         catch (Exception ex)

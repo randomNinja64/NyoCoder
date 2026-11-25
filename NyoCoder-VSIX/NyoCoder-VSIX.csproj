@@ -182,6 +182,7 @@
     <Compile Include="Services\ModelsClient.cs" />
     <Compile Include="Services\PlanFile.cs" />
     <Compile Include="Services\ProcessRunner.cs" />
+    <Compile Include="Services\StopSignal.cs" />
     <Compile Include="Services\SymbolExtractor.cs" />
     <Compile Include="Services\SymbolReferenceExtractor.cs" />
     <Compile Include="Services\TextNormalization.cs" />

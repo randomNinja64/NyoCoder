@@ -16,8 +16,6 @@ namespace NyoCoder
     /// </summary>
     public partial class NyoCoderControl : UserControl
     {
-        private volatile bool _stopRequested;
-
         // Image attachment
         private string _attachedImageBase64;
 
@@ -152,10 +150,17 @@ namespace NyoCoder
             _tokenTracker.AddToCharacterCount(delta);
         }
 
+        /// <summary>
+        /// Setting true also aborts whatever the run is blocked on (see <see cref="StopSignal"/>).
+        /// </summary>
         public bool StopRequested
         {
-            get { return _stopRequested; }
-            set { _stopRequested = value; }
+            get { return StopSignal.Requested; }
+            set
+            {
+                if (value) StopSignal.Request();
+                else StopSignal.Reset();
+            }
         }
 
     }

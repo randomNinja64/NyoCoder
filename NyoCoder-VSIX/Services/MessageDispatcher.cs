@@ -174,6 +174,7 @@ namespace NyoCoder
             ThreadPool.QueueUserWorkItem(delegate
             {
                 ToolApprovalService.Bind(_interactionManager.RequestToolApproval);
+                IDisposable stopScope = StopSignal.RunScope();
                 try
                 {
                     string userMessage = builtMessage != null ? builtMessage.Prompt : string.Empty;
@@ -259,6 +260,7 @@ namespace NyoCoder
                 }
                 finally
                 {
+                    stopScope.Dispose();
                     ToolApprovalService.Clear();
                     Interlocked.Exchange(ref package._isAiRunning, 0);
                     Action finished = RunFinished;

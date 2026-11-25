@@ -72,14 +72,26 @@ namespace NyoCoder
             if (!string.IsNullOrEmpty(options.WorkingDirectory))
                 psi.WorkingDirectory = options.WorkingDirectory;
 
+            // Stop kills the process (not its children: a GUI app or build it started keeps
+            // running, and the pipe drain below stops waiting for it).
+            bool stopped = false;
             using (Process process = Process.Start(psi))
+            using (StopSignal.OnStop(() => { stopped = true; try { process.Kill(); } catch { } }))
             {
                 if (options.StdinData != null)
                 {
                     // Tools read stdin as UTF-8; Process.StandardInput would use the ANSI code page
                     // because Visual Studio has no console.
-                    using (StreamWriter stdin = new StreamWriter(process.StandardInput.BaseStream, new UTF8Encoding(false)))
-                        stdin.Write(options.StdinData);
+                    try
+                    {
+                        using (StreamWriter stdin = new StreamWriter(process.StandardInput.BaseStream, new UTF8Encoding(false)))
+                            stdin.Write(options.StdinData);
+                    }
+                    catch (IOException)
+                    {
+                        // Stop killed the process before it read all of stdin.
+                        if (!stopped) throw;
+                    }
                 }
 
                 string output = "";
@@ -122,6 +134,9 @@ namespace NyoCoder
                 outThread.Join(500);
                 errThread.Join(500);
 
+                if (stopped)
+                    error += (error.Length > 0 && !error.EndsWith("\n") ? "\n" : "") + "[Stopped by user]\n";
+
                 return new ProcessRunResult
                 {
                     ExitCode = process.ExitCode,
@@ -150,6 +165,7 @@ namespace NyoCoder
                 ProcessStartInfo psi = CreateStartInfo(fileName, arguments, redirectStdin: false);
 
                 using (Process process = Process.Start(psi))
+                using (StopSignal.OnStop(() => { try { process.Kill(); } catch { } }))
                 {
                     Thread pipeThread = StartNamedPipeFeed(pipeServer, stdinBytes);
 

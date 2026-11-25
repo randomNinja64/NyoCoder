@@ -69,7 +69,7 @@ namespace NyoCoder
             string lastEvent = null;
             string line;
 
-            while ((line = reader.ReadLine()) != null)
+            while ((line = ReadLineUnlessStopped(reader, stopRequested)) != null)
             {
                 if (stopRequested != null && stopRequested())
                 {
@@ -248,8 +248,29 @@ namespace NyoCoder
 
             response.ToolCalls.AddRange(partialToolCalls.Values);
             response.Content = output.ToString();
+            if (stopRequested != null && stopRequested())
+                response.FinishReason = "stopped";
 
             return response;
+        }
+
+        /// <summary>
+        /// Reads the next line. When Stop aborted the request or killed curl, the read fails
+        /// or the stream ends; either way that is the end of the stream, so the text received
+        /// so far is kept.
+        /// </summary>
+        private static string ReadLineUnlessStopped(TextReader reader, Func<bool> stopRequested)
+        {
+            try
+            {
+                return reader.ReadLine();
+            }
+            catch
+            {
+                if (stopRequested != null && stopRequested())
+                    return null;
+                throw;
+            }
         }
 
         private static void ReportApiError(string jsonPart, Action<string> outputCallback, Action startBlock)

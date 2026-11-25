@@ -125,6 +125,13 @@ namespace NyoCoder
                         parsedReceived = true;
                     });
 
+                // Stop killed curl: keep what streamed, not curl's failure.
+                if (stopRequested != null && stopRequested())
+                {
+                    parsed.FinishReason = "stopped";
+                    return parsed;
+                }
+
                 if (result.ExitCode != 0)
                 {
                     return new LLMClient.LLMCompletionResponse(

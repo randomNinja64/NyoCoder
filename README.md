@@ -51,8 +51,8 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
     - **Embeddings Model** - Embeddings model name (required for Semantic mode)
     - **Embeddings API Key** - API key for the embeddings endpoint (blank = use **API Key**)
     - **Chunk Size** - Lines of code per embedding chunk (default: `60`)
-    - **Max Characters per Embedding** - Maximum length of chunk to be embedded, longer values will be truncated (default: `2048`)
-    - **Max Embedding Chunks** - Maximum number of text embedding chunks to create during a full workspace index in Semantic mode; per-file save re-indexes are not limited (default: `20000`)
+    - **Max Characters per Embedding** - Maximum length of chunk to be embedded; single line chunks longer than this limit are omitted from being embedded (default: `2048`)
+    - **Max Embedding Chunks** - Maximum number of text embedding chunks to store in the index in Semantic mode (default: `20000`)
   - **When to Index**
     - **Index on Solution Open** - Automatically index the solution when it is opened (default: enabled)
     - **Re-index Changed Files on Save** - Update the index when files are saved (default: enabled)
@@ -62,7 +62,7 @@ On first use, if `%APPDATA%\NyoCoder\NyoCoder.ini` does not exist, a setup wizar
   - **Jev-Compatible URL (for Auto)** - Full Jev-compatible URL (e.g. `http://127.0.0.1:8080/v1/systemone` with llama.cpp)
   - **Jev-Compatible API Key** - API key if the endpoint requires one
   - **Jev Model** - Model to use (if supported by your endpoint)
-  - **Tools** - List of available tools and their state (**Always Run**, **Auto**, **Ask Me**, or **Off**) Always Run runs a tool without askign for approval. Auto automatically approves/denies a tool call based on the response of a Jev-compatible endpoint. Ask Me always prompts the user for manual approval. The **All always run**, **All auto**, **All ask me**, and **All off** buttons above the list set the state of every tool at once.
+  - **Tools** - List of available tools and their state (**Always Run**, **Auto**, **Ask Me**, or **Off**) Always Run runs a tool without asking for approval. Auto automatically approves/denies a tool call based on the response of a Jev-compatible endpoint. Ask Me always prompts the user for manual approval. The **All always run**, **All auto**, **All ask me**, and **All off** buttons above the list set the state of every tool at once.
   - **External Tool Settings** - If SimpleLLMChat tools are installed, their configuration options will be available here.
 - **Web Search**
   - **Maximum Links from Webpage** - Maximum number of unique links to include at the end of a webpage read (default: `40`)

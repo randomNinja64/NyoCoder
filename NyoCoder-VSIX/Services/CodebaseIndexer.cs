@@ -592,13 +592,23 @@ namespace NyoCoder
             return !TextNormalization.IsNullOrWhiteSpace(text);
         }
 
-        /// <summary>Overlapping fixed-size line windows over lines [from, to).</summary>
+        /// <summary>
+        /// Overlapping fixed-size line windows over lines [from, to). A single line longer
+        /// than <paramref name="maxChars"/> fits in no chunk (chunks are line ranges), so it is
+        /// left out of the index; this keeps maxChars a hard limit on every chunk.
+        /// </summary>
         private static IEnumerable<ChunkInfo> WindowChunks(
             string[] lines, int from, int to, int chunkLines, int overlap, int maxChars)
         {
             int start = from;
             while (start < to)
             {
+                if (maxChars > 0 && lines[start].Length + Environment.NewLine.Length > maxChars)
+                {
+                    start++;
+                    continue;
+                }
+
                 // Close the chunk at chunkLines or at maxChars, whichever comes first, so the
                 // embedding character limit never cuts off lines that the next chunk does not cover.
                 int limit = Math.Min(start + chunkLines, to);
@@ -606,7 +616,7 @@ namespace NyoCoder
                 StringBuilder sb = new StringBuilder();
                 while (end < limit)
                 {
-                    if (maxChars > 0 && end > start
+                    if (maxChars > 0
                         && sb.Length + lines[end].Length + Environment.NewLine.Length > maxChars)
                         break;
                     sb.AppendLine(lines[end]);
@@ -627,8 +637,10 @@ namespace NyoCoder
                 if (end >= to)
                     break;
 
-                // Step back by the overlap, unless the chunk was too short to allow it.
-                start = end - overlap > start ? end - overlap : end;
+                // Step back by the overlap, unless the chunk was too short to allow it or it
+                // stopped at an overlong line (stepping back would only repeat the overlap).
+                bool nextIsOverlong = maxChars > 0 && lines[end].Length + Environment.NewLine.Length > maxChars;
+                start = end - overlap > start && !nextIsOverlong ? end - overlap : end;
             }
         }
 

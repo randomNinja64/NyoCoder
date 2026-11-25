@@ -13,7 +13,6 @@ namespace NyoCoder
     {
         private const int MaxResults = 10;
         private const int MaxCallersShown = 6;
-        private const int SnippetLines = 10;
         private const string StaleNote = "({0} stale result(s) to missing files were dropped; consider re-indexing.)";
 
         /// <summary>Result of an index search (semantic or symbol). Null fields mean no hits.</summary>
@@ -218,19 +217,21 @@ namespace NyoCoder
                 files.Add(path);
         }
 
+        /// <summary>
+        /// The whole indexed chunk. Its size is bounded at index time: the chunker keeps
+        /// every chunk within embeddingsMaxChars.
+        /// </summary>
         private static string ReadSnippet(string file, int startLine, int endLine)
         {
             try
             {
                 string[] lines = File.ReadAllLines(file);
                 int from = Math.Max(1, startLine);
-                int to = Math.Min(Math.Min(endLine, from + SnippetLines - 1), lines.Length);
+                int to = Math.Min(endLine, lines.Length);
 
                 var sb = new StringBuilder();
                 for (int i = from; i <= to; i++)
                     sb.AppendLine("    " + lines[i - 1]);
-                if (endLine > to)
-                    sb.AppendLine("    ...");
                 return sb.ToString().TrimEnd();
             }
             catch { return null; }

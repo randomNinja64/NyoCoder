@@ -183,14 +183,14 @@ namespace NyoCoder
                     continue;
                 }
 
-                int symbolCount = AddFileSymbols(index, file, content, removeExisting: !rebuildAll);
+                List<SymbolEntry> symbols = AddFileSymbols(index, file, content, removeExisting: !rebuildAll);
 
                 int chunkCount = 0;
                 if (semantic)
-                    chunkCount = CollectChunks(file, content, workspaceRoot, chunkLines, overlap,
+                    chunkCount = CollectChunks(file, content, symbols, workspaceRoot, chunkLines, overlap,
                         ref chunkBudget, embedChunks, embedTexts);
 
-                index.Manifest.Files[file] = BuildManifestEntry(hash, mtime, symbolCount, chunkCount);
+                index.Manifest.Files[file] = BuildManifestEntry(hash, mtime, symbols.Count, chunkCount);
                 changedContents[file] = content;
             }
 
@@ -265,7 +265,7 @@ namespace NyoCoder
             if (content == null)
                 return;
 
-            int symbolCount = AddFileSymbols(index, path, content, removeExisting: true);
+            List<SymbolEntry> symbols = AddFileSymbols(index, path, content, removeExisting: true);
 
             int chunkCount = 0;
             if (semantic)
@@ -275,7 +275,7 @@ namespace NyoCoder
                 List<string> texts = new List<string>();
                 List<ChunkVector> chunks = new List<ChunkVector>();
                 int chunkBudget = int.MaxValue;
-                CollectChunks(path, content, index.WorkspaceRoot, chunkLines, overlap,
+                CollectChunks(path, content, symbols, index.WorkspaceRoot, chunkLines, overlap,
                     ref chunkBudget, chunks, texts);
 
                 int added;
@@ -290,7 +290,7 @@ namespace NyoCoder
             }
 
             index.Manifest.Files[path] = BuildManifestEntry(
-                CodebaseIndex.HashMd5Hex(content, lowercase: false), SafeMtime(path), symbolCount, chunkCount);
+                CodebaseIndex.HashMd5Hex(content, lowercase: false), SafeMtime(path), symbols.Count, chunkCount);
             RebuildReferencesForFile(index, path, content);
             FinalizeIndex(index, embedError);
         }
@@ -349,13 +349,13 @@ namespace NyoCoder
             return null;
         }
 
-        private static int AddFileSymbols(CodebaseIndex index, string file, string content, bool removeExisting)
+        private static List<SymbolEntry> AddFileSymbols(CodebaseIndex index, string file, string content, bool removeExisting)
         {
             if (removeExisting)
                 index.RemoveFileData(file);
             List<SymbolEntry> symbols = SymbolExtractor.Extract(file, content);
             index.AddSymbols(symbols);
-            return symbols.Count;
+            return symbols;
         }
 
         private static void RebuildReferencesForFile(CodebaseIndex index, string file, string content)
@@ -396,7 +396,7 @@ namespace NyoCoder
         }
 
         private static int CollectChunks(
-            string file, string content, string workspaceRoot,
+            string file, string content, List<SymbolEntry> symbols, string workspaceRoot,
             int chunkLines, int overlap, ref int chunkBudget,
             List<ChunkVector> embedChunks, List<string> embedTexts)
         {
@@ -408,7 +408,7 @@ namespace NyoCoder
             int maxChars = ConfigHandler.GetEmbeddingsMaxChars()
                 - BuildEmbedText(workspaceRoot, file, string.Empty).Length;
 
-            foreach (ChunkInfo ci in Chunk(content, chunkLines, overlap, maxChars))
+            foreach (ChunkInfo ci in Chunk(content, symbols, chunkLines, overlap, maxChars))
             {
                 if (chunkBudget <= 0)
                     break;
@@ -469,7 +469,16 @@ namespace NyoCoder
             public string Text;
         }
 
-        private static IEnumerable<ChunkInfo> Chunk(string content, int chunkLines, int overlap, int maxChars)
+        /// <summary>
+        /// Splits a file into chunks that start at symbol definitions where possible. The
+        /// file is cut into units at each symbol's start line (moved up over the comments and
+        /// attributes above it); consecutive units are merged while they fit within
+        /// <paramref name="chunkLines"/> and <paramref name="maxChars"/>, and a unit too large
+        /// for one chunk is split into overlapping line windows. A file with no symbols is
+        /// chunked into plain line windows.
+        /// </summary>
+        private static IEnumerable<ChunkInfo> Chunk(
+            string content, List<SymbolEntry> symbols, int chunkLines, int overlap, int maxChars)
         {
             if (string.IsNullOrEmpty(content))
                 yield break;
@@ -477,12 +486,122 @@ namespace NyoCoder
             string[] lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             if (chunkLines < 1) chunkLines = 60;
 
-            int start = 0;
-            while (start < lines.Length)
+            List<int> cuts = FindCutPoints(lines, symbols);
+            int unit = 0;
+            while (unit < cuts.Count - 1)
+            {
+                int start = cuts[unit];
+                int end = cuts[unit + 1];
+                unit++;
+
+                if (!FitsInChunk(lines, start, end, chunkLines, maxChars))
+                {
+                    foreach (ChunkInfo window in WindowChunks(lines, start, end, chunkLines, overlap, maxChars))
+                        yield return window;
+                    continue;
+                }
+
+                // Absorb following units while the merged span still fits.
+                while (unit < cuts.Count - 1 && FitsInChunk(lines, start, cuts[unit + 1], chunkLines, maxChars))
+                {
+                    end = cuts[unit + 1];
+                    unit++;
+                }
+
+                ChunkInfo chunk;
+                if (TryMakeChunk(lines, start, end, out chunk))
+                    yield return chunk;
+            }
+        }
+
+        /// <summary>
+        /// Ascending 0-based line indices where units begin, starting with 0 and ending with
+        /// lines.Length. Each symbol contributes its start line, moved up over directly
+        /// preceding comment / attribute / decorator lines so they stay with the definition.
+        /// </summary>
+        private static List<int> FindCutPoints(string[] lines, List<SymbolEntry> symbols)
+        {
+            List<int> starts = new List<int>();
+            if (symbols != null)
+            {
+                foreach (SymbolEntry symbol in symbols)
+                {
+                    if (symbol != null && symbol.Line >= 1 && symbol.Line <= lines.Length)
+                        starts.Add(symbol.Line - 1);
+                }
+            }
+            starts.Sort();
+
+            List<int> cuts = new List<int>();
+            cuts.Add(0);
+            int previousSymbol = -1;
+            foreach (int line in starts)
+            {
+                if (line == previousSymbol)
+                    continue;
+
+                int cut = line;
+                while (cut - 1 > previousSymbol && IsLeadingDecoration(lines[cut - 1]))
+                    cut--;
+
+                if (cut > cuts[cuts.Count - 1])
+                    cuts.Add(cut);
+                previousSymbol = line;
+            }
+            cuts.Add(lines.Length);
+            return cuts;
+        }
+
+        /// <summary>A comment, attribute or decorator line that belongs to the definition below it.</summary>
+        private static bool IsLeadingDecoration(string line)
+        {
+            string trimmed = line.TrimStart();
+            if (trimmed.Length == 0)
+                return false;
+            return SymbolExtractor.IsCommentLine(trimmed)
+                || trimmed.StartsWith("[")
+                || trimmed.StartsWith("@");
+        }
+
+        /// <summary>Whether lines [start, end) fit in one chunk (same character accounting as the windows).</summary>
+        private static bool FitsInChunk(string[] lines, int start, int end, int chunkLines, int maxChars)
+        {
+            if (end - start > chunkLines)
+                return false;
+            if (maxChars <= 0)
+                return true;
+
+            int chars = 0;
+            for (int i = start; i < end; i++)
+            {
+                chars += lines[i].Length + Environment.NewLine.Length;
+                if (chars > maxChars)
+                    return false;
+            }
+            return true;
+        }
+
+        private static bool TryMakeChunk(string[] lines, int start, int end, out ChunkInfo chunk)
+        {
+            StringBuilder sb = new StringBuilder();
+            for (int i = start; i < end; i++)
+                sb.AppendLine(lines[i]);
+
+            string text = sb.ToString();
+            chunk = new ChunkInfo { Start = start + 1, End = end, Text = text };
+            return !TextNormalization.IsNullOrWhiteSpace(text);
+        }
+
+        /// <summary>Overlapping fixed-size line windows over lines [from, to).</summary>
+        private static IEnumerable<ChunkInfo> WindowChunks(
+            string[] lines, int from, int to, int chunkLines, int overlap, int maxChars)
+        {
+            int start = from;
+            while (start < to)
             {
                 // Close the chunk at chunkLines or at maxChars, whichever comes first, so the
                 // embedding character limit never cuts off lines that the next chunk does not cover.
-                int limit = Math.Min(start + chunkLines, lines.Length);
+                int limit = Math.Min(start + chunkLines, to);
                 int end = start;
                 StringBuilder sb = new StringBuilder();
                 while (end < limit)
@@ -505,7 +624,7 @@ namespace NyoCoder
                     };
                 }
 
-                if (end >= lines.Length)
+                if (end >= to)
                     break;
 
                 // Step back by the overlap, unless the chunk was too short to allow it.

@@ -163,7 +163,7 @@ public partial class LLMClient
             // Check context usage before every LLM call — not just after tool batches.
             // This covers text-only turns, the first call of a turn, and subagent
             // step conversations whose prompts may already exceed the threshold.
-            TrySummarizeConversation(outputCallback, onSummarized, startBlock);
+            TrySummarizeConversation(outputCallback, onSummarized, startBlock, modeId);
 
             // Stream tool calls with explicit open/close markers for the chat UI.
             // Hidden: announce name only (no argument body); Expander starts expanded in ChatTurn.
@@ -362,7 +362,7 @@ public partial class LLMClient
                 }
 
                 // Check if we need to summarize before the next LLM call
-                TrySummarizeConversation(outputCallback, onSummarized, startBlock);
+                TrySummarizeConversation(outputCallback, onSummarized, startBlock, modeId);
 
                 // Check if a plan was just created — break so the caller can orchestrate step execution
                 if (StepPlanner.Instance != null && StepPlanner.Instance.PlanRequiresExecution)
@@ -438,14 +438,24 @@ public partial class LLMClient
     }
 
     /// <summary>
-    /// Checks context usage and, if over the threshold, summarizes the conversation
-    /// in place and notifies the UI via <paramref name="onSummarized"/>.
+    /// Checks context usage and, if over the threshold, first clears old tool output
+    /// (see ClearOldToolOutputs); if that is not enough, summarizes the conversation
+    /// in place. Either way the UI is notified via <paramref name="onSummarized"/>.
     /// Safe to call before every LLM request.
     /// </summary>
-    private void TrySummarizeConversation(Action<string> outputCallback, Action<int> onSummarized, Action startBlock)
+    private void TrySummarizeConversation(Action<string> outputCallback, Action<int> onSummarized, Action startBlock, string modeId)
     {
-        if (!ShouldSummarize(GetConversationCharacterCount(this.Conversation)))
+        int startChars = GetConversationCharacterCount(this.Conversation);
+        if (!ShouldSummarize(startChars, modeId))
             return;
+
+        // Clearing alone is silent: the token counter shows it.
+        if (ClearOldToolOutputs(this.Conversation, modeId))
+        {
+            if (onSummarized != null)
+                onSummarized(GetConversationCharacterCount(this.Conversation));
+            return;
+        }
 
         if (outputCallback != null)
         {
@@ -456,7 +466,12 @@ public partial class LLMClient
         string summary = SummarizeConversation(this.Conversation);
         if (string.IsNullOrEmpty(summary))
         {
-            int dropped = DropOldestMessagesUntilFit(this.Conversation);
+            int dropped = DropOldestMessagesUntilFit(this.Conversation, modeId);
+
+            // Last resort: this turn's own tool output, all but the newest result.
+            if (ShouldSummarize(GetConversationCharacterCount(this.Conversation), modeId))
+                ClearCurrentTurnToolOutputs(this.Conversation);
+
             if (outputCallback != null)
             {
                 if (dropped > 0)
@@ -464,14 +479,15 @@ public partial class LLMClient
                     if (startBlock != null) startBlock();
                     outputCallback("[Summarization failed - dropped older messages]\n");
                 }
-                if (ShouldSummarize(GetConversationCharacterCount(this.Conversation)))
+                if (ShouldSummarize(GetConversationCharacterCount(this.Conversation), modeId))
                 {
                     if (startBlock != null) startBlock();
                     outputCallback("[Summarization failed - current turn still exceeds the context window]\n");
                 }
             }
-            if (dropped > 0 && onSummarized != null)
-                onSummarized(GetConversationCharacterCount(this.Conversation));
+            int endChars = GetConversationCharacterCount(this.Conversation);
+            if (endChars != startChars && onSummarized != null)
+                onSummarized(endChars);
             return;
         }
 
@@ -493,26 +509,121 @@ public partial class LLMClient
     }
 
     /// <summary>
+    /// Clearing old tool output is enough to skip summarizing once usage is at or
+    /// under this share of the context window.
+    /// </summary>
+    private const double ClearToolOutputTarget = 0.60;
+
+    private const string ToolOutputHeaderEnd = "\nOutput:\n";
+    private const string ClearedToolOutput = "[Output cleared to save context]";
+
+    /// <summary>
+    /// Clears tool results before the latest user message, oldest first, until usage
+    /// is at or under ClearToolOutputTarget. The tool calls stay, so the model still
+    /// sees what it ran; results already cleared are skipped. Returns true when usage
+    /// ended under the target.
+    /// </summary>
+    private bool ClearOldToolOutputs(List<ChatMessage> conversation, string modeId)
+    {
+        int end = LatestUserIndex(conversation);
+        int chars = GetConversationCharacterCount(conversation);
+
+        for (int i = 0; i < end && !IsUnderClearTarget(chars, modeId); i++)
+        {
+            int saved;
+            if (TryClearToolOutput(conversation, i, out saved))
+                chars -= saved;
+        }
+        return IsUnderClearTarget(chars, modeId);
+    }
+
+    /// <summary>
+    /// Clears this turn's tool results (after the latest user message), all but the
+    /// newest, which the model is acting on.
+    /// </summary>
+    private static void ClearCurrentTurnToolOutputs(List<ChatMessage> conversation)
+    {
+        int newest = -1;
+        for (int i = conversation.Count - 1; i >= 0 && newest < 0; i--)
+        {
+            if (IsRole(conversation[i], "tool"))
+                newest = i;
+        }
+
+        int saved;
+        for (int i = LatestUserIndex(conversation) + 1; i < newest; i++)
+            TryClearToolOutput(conversation, i, out saved);
+    }
+
+    /// <summary>
+    /// Replaces a tool result's output (and any image) with a short note, keeping the
+    /// "Exit Code:" header. False when it is not a tool result or would not get
+    /// smaller. ChatMessage is a struct, so the change is stored back.
+    /// </summary>
+    private static bool TryClearToolOutput(List<ChatMessage> conversation, int index, out int savedChars)
+    {
+        savedChars = 0;
+        ChatMessage message = conversation[index];
+        if (!IsRole(message, "tool"))
+            return false;
+
+        string content = message.Content ?? string.Empty;
+        int header = content.IndexOf(ToolOutputHeaderEnd, StringComparison.Ordinal);
+        string replacement = header >= 0
+            ? content.Substring(0, header + ToolOutputHeaderEnd.Length) + ClearedToolOutput
+            : ClearedToolOutput;
+
+        int before = GetMessageCharacterCount(message);
+        if (replacement.Length >= before)
+            return false;
+
+        message.Content = replacement;
+        message.Image = null;
+        message.ImageMime = null;
+        conversation[index] = message;
+        savedChars = before - GetMessageCharacterCount(message);
+        return true;
+    }
+
+    /// <summary>True when usage is at or under the tool-clearing target (false with no window size).</summary>
+    private static bool IsUnderClearTarget(int characterCount, string modeId)
+    {
+        int? contextWindowSize = ConfigHandler.ContextWindowSize;
+        if (!contextWindowSize.HasValue || contextWindowSize.Value <= 0)
+            return false;
+
+        return ContextEngine.ApproximateTokens(characterCount, modeId) <= contextWindowSize.Value * ClearToolOutputTarget;
+    }
+
+    private static bool IsRole(ChatMessage message, string role)
+    {
+        return string.Equals(message.Role, role, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Index of the latest user message, or 0 when there is none.</summary>
+    private static int LatestUserIndex(List<ChatMessage> conversation)
+    {
+        for (int i = conversation.Count - 1; i >= 0; i--)
+        {
+            if (IsRole(conversation[i], "user"))
+                return i;
+        }
+        return 0;
+    }
+
+    /// <summary>
     /// Drops messages older than the latest user turn until usage is under the
     /// summarize threshold. The latest user message and everything after it stay.
     /// </summary>
-    private int DropOldestMessagesUntilFit(List<ChatMessage> conversation)
+    private int DropOldestMessagesUntilFit(List<ChatMessage> conversation, string modeId)
     {
-        int keepFrom = 0;
-        for (int i = conversation.Count - 1; i >= 0; i--)
-        {
-            if (string.Equals(conversation[i].Role, "user", StringComparison.OrdinalIgnoreCase))
-            {
-                keepFrom = i;
-                break;
-            }
-        }
+        int keepFrom = LatestUserIndex(conversation);
 
         // Keep dropping past any tool results at the front: a tool result whose
         // assistant tool call was dropped is rejected by strict servers.
         int dropped = 0;
         while (keepFrom > 0
-            && (ShouldSummarize(GetConversationCharacterCount(conversation))
+            && (ShouldSummarize(GetConversationCharacterCount(conversation), modeId)
                 || string.Equals(conversation[0].Role, "tool", StringComparison.OrdinalIgnoreCase)))
         {
             conversation.RemoveAt(0);
@@ -526,15 +637,16 @@ public partial class LLMClient
     /// Checks if summarization is needed based on total character count and context window size.
     /// Returns true if usage exceeds 90% and context window is configured.
     /// </summary>
-    /// <param name="characterCount">Total character count (excluding base overhead).</param>
+    /// <param name="characterCount">Conversation character count; the mode's system prompt and tools are added.</param>
+    /// <param name="modeId">The chat mode whose system prompt and tools are sent with the request.</param>
     /// <returns>True if summarization is needed, false otherwise.</returns>
-    private static bool ShouldSummarize(int characterCount)
+    private static bool ShouldSummarize(int characterCount, string modeId)
     {
         int? contextWindowSize = ConfigHandler.ContextWindowSize;
         if (!contextWindowSize.HasValue || contextWindowSize.Value <= 0)
             return false;
 
-        int approximateTokens = ContextEngine.ApproximateTokens(characterCount);
+        int approximateTokens = ContextEngine.ApproximateTokens(characterCount, modeId);
         double usage = (double)approximateTokens / contextWindowSize.Value;
         
         return usage >= 0.90; // 90% threshold
@@ -547,23 +659,28 @@ public partial class LLMClient
     {
         int count = 0;
         foreach (var msg in conversation)
+            count += GetMessageCharacterCount(msg);
+        return count;
+    }
+
+    private static int GetMessageCharacterCount(ChatMessage msg)
+    {
+        int count = 0;
+        string content = SentContent(msg);
+        if (!string.IsNullOrEmpty(content))
+            count += content.Length;
+
+        if (!string.IsNullOrEmpty(msg.Image))
+            count += ContextEngine.ImageCharEstimate;
+
+        if (msg.ToolCalls != null)
         {
-            string content = SentContent(msg);
-            if (!string.IsNullOrEmpty(content))
-                count += content.Length;
-
-            if (!string.IsNullOrEmpty(msg.Image))
-                count += ContextEngine.ImageCharEstimate;
-
-            if (msg.ToolCalls != null)
+            foreach (var toolCall in msg.ToolCalls)
             {
-                foreach (var toolCall in msg.ToolCalls)
-                {
-                    if (!string.IsNullOrEmpty(toolCall.Name))
-                        count += toolCall.Name.Length;
-                    if (!string.IsNullOrEmpty(toolCall.Arguments))
-                        count += toolCall.Arguments.Length;
-                }
+                if (!string.IsNullOrEmpty(toolCall.Name))
+                    count += toolCall.Name.Length;
+                if (!string.IsNullOrEmpty(toolCall.Arguments))
+                    count += toolCall.Arguments.Length;
             }
         }
         return count;

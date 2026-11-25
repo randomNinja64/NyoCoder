@@ -540,7 +540,8 @@ public partial class LLMClient
         // and the prompt goes back on top with the summary as its hidden context.
         int promptIndex = LatestPromptIndex(this.Conversation);
         int keepFrom = RecentKeepStart(this.Conversation, KeepRecentChars());
-        bool keepPrompt = promptIndex >= 0 && keepFrom > promptIndex;
+        // Only with work after the prompt to summarize; a new prompt alone stays as it is.
+        bool keepPrompt = promptIndex >= 0 && keepFrom > promptIndex + 1;
         if (promptIndex >= 0 && !keepPrompt)
             keepFrom = Math.Min(keepFrom, promptIndex);
         string summary = keepFrom > 0

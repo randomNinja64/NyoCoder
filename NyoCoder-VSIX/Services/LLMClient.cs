@@ -139,6 +139,12 @@ public partial class LLMClient
         int maxConsecutiveFailedToolCalls = ConfigHandler.GetMaxConsecutiveFailedToolCalls();
         int consecutiveFailedToolCalls = 0;
 
+        // A summary left as the last message (a stopped turn's prompt was dropped with
+        // the summary it carried) rides on this prompt, so two user messages never follow.
+        string summary = TakeTrailingSummary(this.Conversation);
+        if (summary != null)
+            context = string.IsNullOrEmpty(context) ? summary : summary + "\n\n" + context;
+
         // Add user message
         ChatMessage userMsg = new ChatMessage
         {
@@ -403,6 +409,8 @@ public partial class LLMClient
     /// so far is kept as the reply. With no text, a trailing user message (this turn's
     /// prompt or a steer) is dropped, since a following prompt would make two user
     /// messages in a row. A summary message is kept: it holds the earlier conversation.
+    /// So is a summary riding on the dropped prompt's hidden context: it goes back as a
+    /// summary message, which the next prompt takes (TakeTrailingSummary).
     /// </summary>
     private void EndStoppedTurn(string partialReply, Action<string> outputCallback, Action startBlock)
     {
@@ -453,7 +461,15 @@ public partial class LLMClient
         int last = conversation.Count - 1;
         if (last >= 0 && IsRole(conversation[last], "user")
             && !(conversation[last].Content ?? string.Empty).StartsWith(SummaryHeader, StringComparison.Ordinal))
+        {
+            string context = conversation[last].Context ?? string.Empty;
             conversation.RemoveAt(last);
+
+            int end = context.StartsWith(SummaryHeader, StringComparison.Ordinal)
+                ? context.IndexOf(SummaryEnd, StringComparison.Ordinal) : -1;
+            if (end > 0)
+                conversation.Add(new ChatMessage("user", context.Substring(0, end) + NextMessageHint));
+        }
     }
 
     /// <summary>
@@ -519,8 +535,13 @@ public partial class LLMClient
             outputCallback("[Context usage high - compacting conversation...]\n");
         }
 
-        int keepFrom = RecentKeepStart(this.Conversation, KeepRecentChars());
-        string summary = SummarizeConversation(this.Conversation.GetRange(0, keepFrom), stopRequested);
+        // The latest user message is never summarized: the model gets what was typed.
+        int keepFrom = Math.Min(
+            RecentKeepStart(this.Conversation, KeepRecentChars()),
+            LatestUserIndex(this.Conversation));
+        string summary = keepFrom > 0
+            ? SummarizeConversation(this.Conversation.GetRange(0, keepFrom), stopRequested)
+            : null;
 
         // Stopped mid-summary: leave the conversation as it was; the turn ends next.
         if (stopRequested != null && stopRequested())
@@ -561,6 +582,18 @@ public partial class LLMClient
             outputCallback("[Conversation compacted - continuing...]\n");
         }
 
+        // The summary covers only what came before the latest user message, so a
+        // long turn can still be over: clear its tool output too, all but the newest.
+        if (ShouldSummarize(GetConversationCharacterCount(this.Conversation), modeId))
+        {
+            ClearCurrentTurnToolOutputs(this.Conversation);
+            if (outputCallback != null && ShouldSummarize(GetConversationCharacterCount(this.Conversation), modeId))
+            {
+                if (startBlock != null) startBlock();
+                outputCallback("[Compaction failed - current turn still exceeds the context window]\n");
+            }
+        }
+
         // Notify UI to reset character count
         if (onSummarized != null)
             onSummarized(GetConversationCharacterCount(this.Conversation));
@@ -588,6 +621,35 @@ public partial class LLMClient
     }
 
     private const string SummaryHeader = "[Previous conversation summary]\n";
+    private const string SummaryEnd = "\n\n[End of summary. The conversation continues from here.]";
+    private const string RecentFollowHint = "\n\n[Continue from this context. The most recent messages follow.]";
+    private const string NextMessageHint = "\n\n[Continue from this context. The user's next message follows.]";
+
+    /// <summary>
+    /// When a stopped turn's prompt was dropped with the summary it carried
+    /// (EndStoppedTurn), the conversation ends with the summary as its own user
+    /// message. That message is removed and
+    /// returned as hidden context for the new prompt, since some chat templates reject
+    /// two user messages in a row. It stays in the conversation until then, so a chat
+    /// saved in between keeps it. Null when the conversation does not end with a summary.
+    /// </summary>
+    private static string TakeTrailingSummary(List<ChatMessage> conversation)
+    {
+        if (conversation == null || conversation.Count == 0)
+            return null;
+
+        ChatMessage last = conversation[conversation.Count - 1];
+        string content = last.Content ?? string.Empty;
+        if (!IsRole(last, "user") || !content.StartsWith(SummaryHeader, StringComparison.Ordinal))
+            return null;
+
+        if (content.EndsWith(NextMessageHint, StringComparison.Ordinal))
+            content = content.Substring(0, content.Length - NextMessageHint.Length);
+        conversation.RemoveAt(conversation.Count - 1);
+
+        string block = content + SummaryEnd;
+        return string.IsNullOrEmpty(last.Context) ? block : block + "\n\n" + last.Context;
+    }
 
     /// <summary>
     /// Where the messages kept verbatim after summarizing start: the earliest index
@@ -630,16 +692,14 @@ public partial class LLMClient
         if (recent.Count > 0 && IsRole(recent[0], "user"))
         {
             ChatMessage first = recent[0];
-            string block = SummaryHeader + summary + "\n\n[End of summary. The conversation continues from here.]";
+            string block = SummaryHeader + summary + SummaryEnd;
             first.Context = string.IsNullOrEmpty(first.Context) ? block : block + "\n\n" + first.Context;
             recent[0] = first;
         }
         else
         {
             conversation.Add(new ChatMessage("user",
-                SummaryHeader + summary + (recent.Count > 0
-                    ? "\n\n[Continue from this context. The most recent messages follow.]"
-                    : "\n\n[Continue from this context. The user's original request is being processed.]")));
+                SummaryHeader + summary + RecentFollowHint));
         }
         conversation.AddRange(recent);
     }

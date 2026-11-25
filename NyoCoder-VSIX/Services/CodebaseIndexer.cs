@@ -263,17 +263,23 @@ namespace NyoCoder
             string embedError = null;
             EmbeddingsClient embeddings = TryCreateEmbeddings(ref semantic, ref embedError, warnOnMissing: false);
 
+            // The index was embedded with another model (or none): embedding this one file and
+            // recording the new model would hide the change from the next sweep, leaving vectors
+            // from two models side by side. Rebuild everything with the new model instead.
+            string currentModel = ConfigHandler.GetEmbeddingsModel();
+            if (semantic && index.HasIndex &&
+                !string.Equals(index.Manifest.EmbeddingsModel, currentModel, StringComparison.Ordinal))
+            {
+                RunIndex(forceRebuild: true);
+                return;
+            }
+
             string content = TryReadText(path);
             if (content == null)
                 return;
 
-            // Taken before the file's data is removed: unchanged chunks keep their vectors,
-            // unless they came from a different embeddings model.
-            string currentModel = ConfigHandler.GetEmbeddingsModel();
-            Dictionary<string, float[]> previous =
-                string.Equals(index.Manifest.EmbeddingsModel, currentModel, StringComparison.Ordinal)
-                    ? index.GetFileEmbeddingsByHash(path)
-                    : null;
+            // Taken before the file's data is removed: unchanged chunks keep their vectors.
+            Dictionary<string, float[]> previous = index.GetFileEmbeddingsByHash(path);
             List<SymbolEntry> symbols = AddFileSymbols(index, path, content, removeExisting: true);
 
             int chunkCount = 0;

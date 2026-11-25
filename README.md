@@ -1,5 +1,15 @@
 # NyoCoder
 
+<div align="center">
+<table>
+  <tr>
+    <td align="center"><img src="screenshots/vs2005.png" alt="NyoCoder running in Visual Studio 2005"><br><sub>NyoCoder running in Visual Studio 2005</sub></td>
+    <td align="center"><img src="screenshots/vs2010.png" alt="NyoCoder running in Visual Studio 2010"><br><sub>NyoCoder running in Visual Studio 2010</sub></td>
+    <td align="center"><img src="screenshots/vs2022.png" alt="NyoCoder running in Visual Studio 2022"><br><sub>NyoCoder running in Visual Studio 2022</sub></td>
+  </tr>
+</table>
+</div>
+
 ## Description 
 
 An extension targeting Visual Studio 2010-2015 that enables AI-assisted coding with OpenAI-compatible endpoints (llama.cpp, LM Studio, etc.)

@@ -130,24 +130,42 @@ namespace NyoCoder
 
             int chunkLines = ConfigHandler.GetIndexChunkLines();
             int overlap = ConfigHandler.GetIndexChunkOverlap();
+            int embedMaxChars = ConfigHandler.GetEmbeddingsMaxChars();
+            int maxChunks = ConfigHandler.GetIndexMaxChunksTotal();
 
-            List<string> files = new List<string>(FileScanFilter.EnumerateFiles(workspaceRoot));
+            // Chunk settings changed since the vectors were built: re-chunk every file. The
+            // vectors are kept, so chunks whose text is unchanged reuse them; only the rest
+            // are embedded.
+            bool rechunkAll = semantic && !rebuildAll
+                && (index.Manifest.IndexChunkLines != chunkLines
+                    || index.Manifest.IndexChunkOverlap != overlap
+                    || index.Manifest.EmbeddingsMaxChars != embedMaxChars);
+
+            List<string> files = new List<string>();
+            foreach (string rawFile in FileScanFilter.EnumerateFiles(workspaceRoot))
+                files.Add(FileScanFilter.NormalizePath(rawFile));
+            HashSet<string> currentSet = new HashSet<string>(files, StringComparer.OrdinalIgnoreCase);
             int total = files.Count;
             int done = 0;
             IndexingStatusReporter.ReportProgress(0, total, "Scanning");
 
+            // Prune files that no longer exist on disk first, so their chunks don't count
+            // against the chunk limit.
+            List<string> toRemove = new List<string>();
+            foreach (string key in index.Manifest.Files.Keys)
+                if (!currentSet.Contains(key))
+                    toRemove.Add(key);
+            foreach (string key in toRemove)
+                index.RemoveFileData(key);
+
             List<string> embedTexts = new List<string>();
             List<ChunkVector> embedChunks = new List<ChunkVector>();
-            HashSet<string> currentSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             // Content of files re-indexed this run — reused for the reference pass (no second disk read).
             Dictionary<string, string> changedContents =
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            int chunkBudget = ConfigHandler.GetIndexMaxChunksTotal();
 
-            foreach (string rawFile in files)
+            foreach (string file in files)
             {
-                string file = FileScanFilter.NormalizePath(rawFile);
-                currentSet.Add(file);
                 done++;
                 if (done % ProgressInterval == 0)
                     IndexingStatusReporter.ReportProgress(done, total, "Indexing");
@@ -157,6 +175,7 @@ namespace NyoCoder
                 // Skip unchanged files without reading: mtime match is sufficient to avoid I/O.
                 // Hash is still the content fingerprint once we do read (mtime can lie).
                 if (!rebuildAll
+                    && !rechunkAll
                     && mtime != 0
                     && index.Manifest.Files.TryGetValue(file, out existing)
                     && existing != null
@@ -171,6 +190,7 @@ namespace NyoCoder
 
                 string hash = CodebaseIndex.HashMd5Hex(content, lowercase: false);
                 bool changed = rebuildAll
+                    || rechunkAll
                     || !index.Manifest.Files.TryGetValue(file, out existing)
                     || existing == null
                     || !string.Equals(existing.Hash, hash, StringComparison.Ordinal);
@@ -188,21 +208,18 @@ namespace NyoCoder
                 List<SymbolEntry> symbols = AddFileSymbols(index, file, content, removeExisting: !rebuildAll);
 
                 int chunkCount = 0;
+                bool truncated = false;
                 if (semantic)
+                {
+                    // The limit covers the whole index: what is stored plus what this pass queued.
+                    int chunkBudget = maxChunks - index.Vectors.Count - embedChunks.Count;
                     chunkCount = CollectChunks(index, file, content, symbols, previous, workspaceRoot,
-                        chunkLines, overlap, ref chunkBudget, embedChunks, embedTexts);
+                        chunkLines, overlap, ref chunkBudget, embedChunks, embedTexts, out truncated);
+                }
 
-                index.Manifest.Files[file] = BuildManifestEntry(hash, mtime, symbols.Count, chunkCount);
+                index.Manifest.Files[file] = BuildManifestEntry(truncated, hash, mtime, symbols.Count, chunkCount);
                 changedContents[file] = content;
             }
-
-            // Prune files that no longer exist on disk.
-            List<string> toRemove = new List<string>();
-            foreach (string key in index.Manifest.Files.Keys)
-                if (!currentSet.Contains(key))
-                    toRemove.Add(key);
-            foreach (string key in toRemove)
-                index.RemoveFileData(key);
 
             // Reference pass: only rescans files that were re-indexed (same model as RunIndexFile).
             // Full rebuild still scans every indexed file, but uses preloaded content — no second read.
@@ -238,7 +255,12 @@ namespace NyoCoder
                         return;
                     }
                 }
+                // Recorded only here, after a whole sweep: a single-file update stamping them
+                // would hide a change from the next sweep.
                 index.Manifest.EmbeddingsModel = currentModel;
+                index.Manifest.IndexChunkLines = chunkLines;
+                index.Manifest.IndexChunkOverlap = overlap;
+                index.Manifest.EmbeddingsMaxChars = embedMaxChars;
             }
             FinalizeIndex(index, embedError);
         }
@@ -283,15 +305,17 @@ namespace NyoCoder
             List<SymbolEntry> symbols = AddFileSymbols(index, path, content, removeExisting: true);
 
             int chunkCount = 0;
+            bool truncated = false;
             if (semantic)
             {
                 int chunkLines = ConfigHandler.GetIndexChunkLines();
                 int overlap = ConfigHandler.GetIndexChunkOverlap();
                 List<string> texts = new List<string>();
                 List<ChunkVector> chunks = new List<ChunkVector>();
-                int chunkBudget = int.MaxValue;
+                // The limit covers the whole index (this file's old chunks are already removed).
+                int chunkBudget = ConfigHandler.GetIndexMaxChunksTotal() - index.Vectors.Count;
                 chunkCount = CollectChunks(index, path, content, symbols, previous, index.WorkspaceRoot,
-                    chunkLines, overlap, ref chunkBudget, chunks, texts);
+                    chunkLines, overlap, ref chunkBudget, chunks, texts, out truncated);
 
                 int added;
                 string embedFailure = ApplyEmbeddings(embeddings, chunks, texts, index, out added);
@@ -303,7 +327,7 @@ namespace NyoCoder
                 index.Manifest.EmbeddingsModel = currentModel;
             }
 
-            index.Manifest.Files[path] = BuildManifestEntry(
+            index.Manifest.Files[path] = BuildManifestEntry(truncated,
                 CodebaseIndex.HashMd5Hex(content, lowercase: false), SafeMtime(path), symbols.Count, chunkCount);
             RebuildReferencesForFile(index, path, content);
             FinalizeIndex(index, embedError);
@@ -412,17 +436,17 @@ namespace NyoCoder
         /// <summary>
         /// Chunks a file. A chunk whose text hash is in <paramref name="previous"/> (the file's
         /// embeddings before this pass) keeps that vector and goes straight into the index; the
-        /// rest are queued for embedding. Returns the file's chunk count.
+        /// rest are queued for embedding. Returns the file's chunk count; <paramref name="truncated"/>
+        /// is set when the chunk limit stopped it before the file's last chunk.
         /// </summary>
         private static int CollectChunks(
             CodebaseIndex index, string file, string content, List<SymbolEntry> symbols,
             Dictionary<string, float[]> previous, string workspaceRoot,
             int chunkLines, int overlap, ref int chunkBudget,
-            List<ChunkVector> embedChunks, List<string> embedTexts)
+            List<ChunkVector> embedChunks, List<string> embedTexts, out bool truncated)
         {
             int chunkCount = 0;
-            if (chunkBudget == 0)
-                return 0;
+            truncated = false;
 
             // What is left of the embedding character limit after the "File: ..." prefix. A prefix
             // as long as the limit leaves no room (not "no limit"): the file then has no chunks.
@@ -432,7 +456,10 @@ namespace NyoCoder
             foreach (ChunkInfo ci in Chunk(content, symbols, chunkLines, overlap, maxChars))
             {
                 if (chunkBudget <= 0)
+                {
+                    truncated = true;
                     break;
+                }
                 string text = BuildEmbedText(workspaceRoot, file, ci.Text);
                 ChunkVector vector = new ChunkVector
                 {
@@ -486,13 +513,17 @@ namespace NyoCoder
             }
         }
 
+        /// <summary>
+        /// A file the chunk limit cut short is stored without hash or time, so the next run
+        /// re-reads it (its kept chunks are reused) instead of skipping it as up to date.
+        /// </summary>
         private static IndexFileEntry BuildManifestEntry(
-            string hash, long mtime, int symbolCount, int chunkCount)
+            bool truncated, string hash, long mtime, int symbolCount, int chunkCount)
         {
             return new IndexFileEntry
             {
-                Hash = hash,
-                Mtime = mtime,
+                Hash = truncated ? null : hash,
+                Mtime = truncated ? 0 : mtime,
                 SymbolCount = symbolCount,
                 ChunkCount = chunkCount
             };

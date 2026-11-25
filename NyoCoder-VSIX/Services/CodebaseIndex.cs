@@ -23,6 +23,10 @@ namespace NyoCoder
     {
         public string SolutionKey;
         public string EmbeddingsModel;
+        /// <summary>Chunk settings the vectors were built with; a sweep re-chunks every file when they change.</summary>
+        public int IndexChunkLines;
+        public int IndexChunkOverlap;
+        public int EmbeddingsMaxChars;
         public int Dimension;
         public bool SemanticPresent;
         public DateTime LastIndexedUtc;

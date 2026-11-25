@@ -245,7 +245,6 @@ namespace NyoCoder
             {
                 if (embedChunks.Count > 0)
                 {
-                    IndexingStatusReporter.ReportProgress(total, total, "Embedding");
                     int added;
                     string embedFailure = ApplyEmbeddings(embeddings, embedChunks, embedTexts, index, out added);
                     if (embedFailure != null)
@@ -498,7 +497,10 @@ namespace NyoCoder
 
             try
             {
-                List<float[]> vectors = embeddings.EmbedBatch(texts);
+                // Progress in chunks, not files: embedding is usually the slowest phase.
+                IndexingStatusReporter.ReportProgress(0, chunks.Count, "Embedding");
+                List<float[]> vectors = embeddings.EmbedBatch(texts,
+                    (done, total) => IndexingStatusReporter.ReportProgress(done, total, "Embedding"));
                 for (int i = 0; i < chunks.Count && i < vectors.Count; i++)
                 {
                     chunks[i].Embedding = vectors[i];
